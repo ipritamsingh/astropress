@@ -1,0 +1,31 @@
+{
+  "siteName": "AstroPress",
+  "tagline": "The Modern Astro + Sveltia Headless CMS",
+  "logoUrl": "",
+  "faviconUrl": "",
+  "primaryColor": "#2563eb",
+  "accentColor": "#f59e0b",
+  "backgroundColor": "#f8fafc",
+  "textColor": "#0f172a",
+  "headingFont": "Plus Jakarta Sans",
+  "bodyFont": "Plus Jakarta Sans",
+  "borderRadius": "md",
+  "containerWidth": "normal",
+  "darkMode": false,
+  "header": {
+    "layout": "standard",
+    "sticky": true,
+    "showSearch": true,
+    "showCta": true,
+    "ctaText": "Visit Admin",
+    "ctaUrl": "/admin"
+  },
+  "footer": {
+    "columns": 4,
+    "copyright": "© 2026 AstroPress. Powered by Astro & Sveltia CMS on Cloudflare Pages.",
+    "showNewsletter": true,
+    "newsletterTitle": "The Headless Dispatch",
+    "newsletterSubtitle": "Weekly updates on Astro, Gutenberg blocks, and edge hosting.",
+    "showSocialLinks": true
+  }
+}
