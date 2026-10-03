@@ -4,6 +4,7 @@ description: "Step-by-step blueprint for configuring GitHub OAuth with Sveltia C
 pubDate: 2026-09-25T09:00:00Z
 author: "Amit Singh"
 category: "Cloudflare Edge"
+template: "standard"
 ---
 
 Step-by-step blueprint for configuring GitHub OAuth with Sveltia CMS Authenticator.
