@@ -1,0 +1,81 @@
+{
+  "categories": [
+    {
+      "id": "cat-1",
+      "name": "Technology",
+      "slug": "technology",
+      "description": "Modern web architectures, static site generation, and serverless infrastructure.",
+      "color": "#2563eb"
+    },
+    {
+      "id": "cat-2",
+      "name": "Astro & Islands",
+      "slug": "astro-islands",
+      "description": "Zero-JS by default, islands architecture, and optimal Core Web Vitals.",
+      "color": "#7c3aed"
+    },
+    {
+      "id": "cat-3",
+      "name": "Headless CMS",
+      "slug": "headless-cms",
+      "description": "Decoupled editorial workflows, Sveltia CMS, and Git-backed content repos.",
+      "color": "#059669"
+    },
+    {
+      "id": "cat-4",
+      "name": "Cloudflare Edge",
+      "slug": "cloudflare-edge",
+      "description": "Cloudflare Pages, Workers authenticator, caching, and global edge CDN.",
+      "color": "#ea580c"
+    },
+    {
+      "id": "cat-5",
+      "name": "Design Systems",
+      "slug": "design-systems",
+      "description": "WordPress Gutenberg inspiration, fluid typography, and clean editorial layouts.",
+      "color": "#db2777"
+    }
+  ],
+  "tags": [
+    {
+      "id": "tag-1",
+      "name": "Astro",
+      "slug": "astro"
+    },
+    {
+      "id": "tag-2",
+      "name": "Sveltia CMS",
+      "slug": "sveltia-cms"
+    },
+    {
+      "id": "tag-3",
+      "name": "WordPress",
+      "slug": "wordpress"
+    },
+    {
+      "id": "tag-4",
+      "name": "Cloudflare Pages",
+      "slug": "cloudflare-pages"
+    },
+    {
+      "id": "tag-5",
+      "name": "GitHub OAuth",
+      "slug": "github-oauth"
+    },
+    {
+      "id": "tag-6",
+      "name": "Gutenberg",
+      "slug": "gutenberg"
+    },
+    {
+      "id": "tag-7",
+      "name": "Performance",
+      "slug": "performance"
+    },
+    {
+      "id": "tag-8",
+      "name": "TypeScript",
+      "slug": "typescript"
+    }
+  ]
+}
