@@ -4,6 +4,7 @@ description: "How dynamic theme customizers allow marketing and editorial teams 
 pubDate: 2026-09-20T11:45:00Z
 author: "Sarah Lin"
 category: "Design Systems"
+template: "minimal-editorial"
 ---
 
 A theme customizer gives administrators visual control over global styles.
