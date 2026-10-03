@@ -1,0 +1,68 @@
+[
+  {
+    "id": "med-1",
+    "name": "astro-architecture-diagram.jpg",
+    "url": "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=80",
+    "type": "image",
+    "size": "342 KB",
+    "dimensions": "1920x1080",
+    "uploadDate": "2026-09-28",
+    "altText": "Modern code and software engineering workspace",
+    "caption": "The Astro Islands architecture decouples static HTML from dynamic client widgets."
+  },
+  {
+    "id": "med-2",
+    "name": "sveltia-cms-dashboard.jpg",
+    "url": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80",
+    "type": "image",
+    "size": "410 KB",
+    "dimensions": "1600x900",
+    "uploadDate": "2026-09-29",
+    "altText": "Content management analytics and editorial workflow",
+    "caption": "Sveltia CMS provides an ultra-lightweight client-side Git interface."
+  },
+  {
+    "id": "med-3",
+    "name": "cloudflare-edge-network.jpg",
+    "url": "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=1200&q=80",
+    "type": "image",
+    "size": "280 KB",
+    "dimensions": "1920x1080",
+    "uploadDate": "2026-09-30",
+    "altText": "Global telecommunication and edge routing servers",
+    "caption": "Cloudflare Pages serves pre-rendered HTML across 300+ edge locations worldwide."
+  },
+  {
+    "id": "med-4",
+    "name": "gutenberg-block-editor.jpg",
+    "url": "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=1200&q=80",
+    "type": "image",
+    "size": "390 KB",
+    "dimensions": "1800x1200",
+    "uploadDate": "2026-10-01",
+    "altText": "Clean modern web interface with typographic precision",
+    "caption": "WordPress Gutenberg-inspired visual block editor controls."
+  },
+  {
+    "id": "med-5",
+    "name": "editorial-magazine-spread.jpg",
+    "url": "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=1200&q=80",
+    "type": "image",
+    "size": "512 KB",
+    "dimensions": "2000x1333",
+    "uploadDate": "2026-10-01",
+    "altText": "Minimalist desk with coffee, journal and laptop",
+    "caption": "Editorial content crafted with high readability and typographic contrast."
+  },
+  {
+    "id": "med-6",
+    "name": "developer-workflow-terminal.jpg",
+    "url": "https://images.unsplash.com/photo-1618401471353-b98aedd04e11?auto=format&fit=crop&w=1200&q=80",
+    "type": "image",
+    "size": "315 KB",
+    "dimensions": "1600x1067",
+    "uploadDate": "2026-10-01",
+    "altText": "Git commits and CI/CD workflow in terminal",
+    "caption": "GitHub acts as the single source of truth for both content and codebase."
+  }
+]
