@@ -1,0 +1,76 @@
+[
+  {
+    "id": "menu-main",
+    "name": "Primary Header Navigation",
+    "location": "header",
+    "items": [
+      {
+        "id": "m-1",
+        "label": "Home",
+        "url": "/"
+      },
+      {
+        "id": "m-2",
+        "label": "Articles",
+        "url": "/posts"
+      },
+      {
+        "id": "m-3",
+        "label": "Technology",
+        "url": "/category/technology"
+      },
+      {
+        "id": "m-4",
+        "label": "Astro & Islands",
+        "url": "/category/astro-islands"
+      },
+      {
+        "id": "m-5",
+        "label": "About",
+        "url": "/about"
+      },
+      {
+        "id": "m-6",
+        "label": "Contact",
+        "url": "/contact"
+      }
+    ]
+  },
+  {
+    "id": "menu-footer",
+    "name": "Footer Navigation",
+    "location": "footer",
+    "items": [
+      {
+        "id": "fm-1",
+        "label": "Home",
+        "url": "/"
+      },
+      {
+        "id": "fm-2",
+        "label": "All Articles",
+        "url": "/posts"
+      },
+      {
+        "id": "fm-3",
+        "label": "About AstroPress",
+        "url": "/about"
+      },
+      {
+        "id": "fm-4",
+        "label": "Privacy Policy",
+        "url": "/privacy-policy"
+      },
+      {
+        "id": "fm-5",
+        "label": "Contact Team",
+        "url": "/contact"
+      },
+      {
+        "id": "fm-6",
+        "label": "Admin Dashboard",
+        "url": "/admin"
+      }
+    ]
+  }
+]
