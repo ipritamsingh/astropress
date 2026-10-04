@@ -792,9 +792,9 @@ export const initialDeploymentSettings: DeploymentSettings = {
   githubBranch: 'main',
   githubToken: '',
   cloudflareWorkerUrl: '',
-  cloudflarePagesProject: 'astropress-ejr',
-  productionUrl: 'https://4c8996b1.astropress-ejr.pages.dev',
-  autoDeployOnPublish: true,
+  cloudflarePagesProject: '',
+  productionUrl: '',
+  autoDeployOnPublish: false,
 };
 
 export const initialTemplates: TemplateConfig[] = [
@@ -924,7 +924,7 @@ export const initialSiteSettings: SiteSettings = {
   siteTagline: 'WordPress Editorial Ergonomics with Astro Performance',
   siteDescription:
     'Production-ready headless CMS builder combining Sveltia CMS, Astro frontend architecture, Gutenberg-style block editor, theme customizer, GitHub backend, and Cloudflare Pages deployment.',
-  siteUrl: 'https://astropress.pages.dev',
+  siteUrl: '',
   logoUrl: '',
   faviconUrl: '',
   defaultOgImage:

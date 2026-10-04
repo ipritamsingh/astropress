@@ -8,7 +8,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://astropress.pages.dev',
   output: 'static',
   redirects: {
     '/admin': '/admin/index.html',

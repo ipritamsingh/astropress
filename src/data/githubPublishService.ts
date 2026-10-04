@@ -276,7 +276,7 @@ export async function executeRealGitHubPublish(
   const repoString = deploymentSettings.githubRepo || 'ipritamsingh/astropress';
   const [owner, repoName] = repoString.split('/');
   const token = sessionToken || deploymentSettings.githubToken;
-  const siteUrl = deploymentSettings.productionUrl || 'https://astropress.pages.dev';
+  const siteUrl = deploymentSettings.productionUrl || '';
 
   if (!item.title || !item.title.trim()) {
     return {
@@ -447,7 +447,7 @@ export async function executePublishContent(payload: PublishContentPayload): Pro
 
   if (type === 'hero' && heroConfig) {
     const branch = settings.githubBranch || 'main';
-    const repoString = settings.githubRepo || 'amitsingh/astropress-cms';
+    const repoString = settings.githubRepo || 'ipritamsingh/astropress';
     const [owner, repoName] = repoString.split('/');
     const token = sessionToken || settings.githubToken;
     const filePath = 'src/data/heroConfig.json';
@@ -508,7 +508,7 @@ export async function executePublishContent(payload: PublishContentPayload): Pro
             commit: commitRecord,
             commitSha: realSha,
             commitUrl: putData.commit?.html_url,
-            publishedUrl: settings.productionUrl || 'https://astropress.pages.dev',
+            publishedUrl: settings.productionUrl || undefined,
             buildTriggered: settings.autoDeployOnPublish !== false,
             status: 'published',
             message: `Hero Section published to GitHub! Commit ${shortSha} created on branch "${branch}".`,
@@ -539,7 +539,7 @@ export async function executePublishContent(payload: PublishContentPayload): Pro
       success: true,
       commit: commitRecord,
       commitSha: commitId,
-      publishedUrl: settings.productionUrl || 'https://astropress.pages.dev',
+      publishedUrl: settings.productionUrl || undefined,
       buildTriggered: false,
       status: 'local_saved',
       message: 'Hero Section settings saved locally in Astro configuration.',

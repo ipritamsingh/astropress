@@ -82,12 +82,12 @@ export const GutenbergEditor: React.FC<Props> = ({
   mediaLibrary,
   existingSlugs = [],
   deploymentSettings = {
-    githubRepo: 'amitsingh/astropress-cms',
+    githubRepo: 'ipritamsingh/astropress',
     githubBranch: 'main',
-    productionUrl: 'https://astropress.pages.dev',
-    cloudflarePagesProject: 'astropress',
+    productionUrl: '',
+    cloudflarePagesProject: '',
     cloudflareWorkerUrl: '',
-    autoDeployOnPublish: true,
+    autoDeployOnPublish: false,
   },
   sessionToken = '',
   onAddMedia,
@@ -1578,10 +1578,10 @@ ${compileBlocksToMarkdown()}`;
       {/* 2. MAIN WORKSPACE (Independent Scroll Canvas + Desktop Sidebar)             */}
       {/* ========================================================================= */}
       <div className="flex-1 flex flex-row overflow-hidden min-h-0 relative h-full w-full">
-        {/* EDITING / PREVIEW CANVAS — Smooth Independent Scrolling Across Desktop, Tablet & Mobile */}
-        <main className="flex-1 flex-grow overflow-y-auto overflow-x-hidden min-h-0 h-full p-3 sm:p-6 md:p-8 flex justify-center bg-slate-100/70 pb-36 lg:pb-16 scroll-smooth overscroll-y-contain">
+        {/* EDITING / PREVIEW CANVAS — Single Continuous Canvas that Naturally Expands */}
+        <main className="flex-1 min-h-0 h-full w-full overflow-y-auto overflow-x-hidden p-3 sm:p-6 md:p-8 flex flex-col items-center bg-slate-100/70 pb-36 lg:pb-16 scroll-smooth overscroll-y-contain">
           <div
-            className={`transition-all duration-200 bg-white rounded-2xl shadow-sm border border-slate-200 min-h-full p-4 sm:p-8 md:p-12 box-border ${
+            className={`transition-all duration-200 bg-white rounded-2xl shadow-sm border border-slate-200 min-h-full h-auto flex flex-col p-4 sm:p-8 md:p-12 box-border shrink-0 ${
               previewDevice === 'mobile'
                 ? 'w-full max-w-[390px]'
                 : previewDevice === 'tablet'
@@ -1637,11 +1637,11 @@ ${compileBlocksToMarkdown()}`;
 
             {/* LIVE PREVIEW MODE OR EDIT BLOCKS CANVAS */}
             {isLivePreview ? (
-              <div className="py-2">
+              <div className="py-2 flex-1">
                 <GutenbergBlockRenderer blocks={blocks} previewMode={true} />
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="w-full flex-1 flex flex-col space-y-4 min-h-0">
                 {blocks.map((block, index) => {
                   const isSelected = selectedBlockId === block.id;
 
@@ -2259,6 +2259,18 @@ ${compileBlocksToMarkdown()}`;
                     </div>
                   );
                 })}
+
+                {/* In-Canvas Quick Add Block Trigger inside the Continuous Canvas */}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowInserter(true)}
+                    className="w-full py-3.5 px-4 border-2 border-dashed border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 rounded-2xl flex items-center justify-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600 transition-all group"
+                  >
+                    <Plus className="h-4 w-4 text-slate-400 group-hover:text-blue-600 group-hover:scale-110 transition-transform" />
+                    <span>Add Block to Canvas</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -2375,7 +2387,7 @@ ${compileBlocksToMarkdown()}`;
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">Target GitHub Repo:</span>
                 <span className="font-mono font-bold text-slate-900">
-                  {deploymentSettings.githubRepo || 'amitsingh/astropress-cms'}
+                  {deploymentSettings.githubRepo || 'ipritamsingh/astropress'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
