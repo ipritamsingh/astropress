@@ -4,9 +4,10 @@ import { Users, Shield, Plus, GitBranch, Key, CheckCircle, ExternalLink } from '
 
 interface Props {
   authors: Author[];
+  onNavigateToSecurity?: () => void;
 }
 
-export const UsersManager: React.FC<Props> = ({ authors }) => {
+export const UsersManager: React.FC<Props> = ({ authors, onNavigateToSecurity }) => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto font-sans text-xs">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -15,9 +16,18 @@ export const UsersManager: React.FC<Props> = ({ authors }) => {
             <span>Users & Access Control</span>
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Manage authors, editors, and GitHub repository collaborator permissions
+            Manage authors, editors, administrator credentials, and emergency recovery keys
           </p>
         </div>
+        {onNavigateToSecurity && (
+          <button
+            onClick={onNavigateToSecurity}
+            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center gap-2 shadow-xs transition-colors"
+          >
+            <Shield className="h-4 w-4" />
+            <span>Manage Administrator Account & Security</span>
+          </button>
+        )}
       </div>
 
       {/* GitHub Git-Backed Permission Architecture Box */}

@@ -63,6 +63,12 @@ import { ToolsExporter } from './components/admin/ToolsExporter';
 import { SveltiaNativeFrame } from './components/admin/SveltiaNativeFrame';
 import { GitHubDeploymentView } from './components/admin/GitHubDeploymentView';
 import { HeroSectionManager } from './components/admin/HeroSectionManager';
+import { AccountSecurityManager } from './components/auth/AccountSecurityManager';
+import { InitialAdminSetupView } from './components/auth/InitialAdminSetupView';
+import { AdminLoginView } from './components/auth/AdminLoginView';
+import { ForgotPasswordView } from './components/auth/ForgotPasswordView';
+import { ResetPasswordView } from './components/auth/ResetPasswordView';
+import { AuthPublicState, getAuthPublicState, logout } from './data/authService';
 
 // Icons for WordPress Floating Toolbar
 import {
@@ -85,6 +91,11 @@ type FrontendRoute =
 export default function App() {
   const cms = useCMS();
 
+  // Authentication & Security State
+  const [authState, setAuthState] = useState<AuthPublicState | null>(null);
+  const [authAction, setAuthAction] = useState<'login' | 'forgot' | 'reset'>('login');
+  const [resetToken, setResetToken] = useState<string>('');
+
   // Mode: 'frontend' website or 'admin' WordPress panel (accessible via /dashboard, /admin, #admin, ?admin=true)
   const [mode, setMode] = useState<'frontend' | 'admin'>(() => {
     if (typeof window !== 'undefined') {
@@ -95,6 +106,7 @@ export default function App() {
         path.startsWith('/dashboard') ||
         path.startsWith('/admin') ||
         search.includes('admin=true') ||
+        search.includes('token=') ||
         hash === '#admin'
       ) {
         return 'admin';
@@ -104,11 +116,42 @@ export default function App() {
   });
   const [adminView, setAdminView] = useState<AdminView>('dashboard');
 
+  const refreshAuth = async () => {
+    try {
+      const state = await getAuthPublicState();
+      setAuthState(state);
+      return state;
+    } catch {
+      return null;
+    }
+  };
+
   React.useEffect(() => {
+    refreshAuth();
+
     const handleUrlCheck = () => {
       const path = window.location.pathname;
       const search = window.location.search;
       const hash = window.location.hash;
+
+      // Check for password reset token in URL parameters
+      const urlParams = new URLSearchParams(search);
+      const token = urlParams.get('token');
+      const action = urlParams.get('action');
+
+      if (token) {
+        setResetToken(token);
+        setAuthAction('reset');
+        setMode('admin');
+        return;
+      }
+
+      if (action === 'forgot-password') {
+        setAuthAction('forgot');
+        setMode('admin');
+        return;
+      }
+
       if (
         path.startsWith('/dashboard') ||
         path.startsWith('/admin') ||
@@ -118,6 +161,8 @@ export default function App() {
         setMode('admin');
       }
     };
+
+    handleUrlCheck();
     window.addEventListener('popstate', handleUrlCheck);
     window.addEventListener('hashchange', handleUrlCheck);
     return () => {
@@ -400,9 +445,78 @@ export default function App() {
       )}
 
       {/* ========================================================================= */}
-      {/* 3. WORDPRESS ADMIN PANEL                                                  */}
+      {/* 2. ADMIN AUTHENTICATION & SECURITY GATES                                  */}
       {/* ========================================================================= */}
-      {mode === 'admin' && (
+      {mode === 'admin' && !authState && (
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center font-sans">
+          <div className="flex flex-col items-center gap-3">
+            <div className="animate-spin h-8 w-8 border-3 border-blue-500 border-t-transparent rounded-full" />
+            <span className="text-xs text-slate-400 font-medium">Verifying Administrator Session...</span>
+          </div>
+        </div>
+      )}
+
+      {/* One-time Initial Setup (shown only when uninitialized) */}
+      {mode === 'admin' && authState && !authState.isInitialized && (
+        <InitialAdminSetupView
+          onSetupComplete={async () => {
+            await refreshAuth();
+            setAuthAction('login');
+          }}
+        />
+      )}
+
+      {/* Password Reset with Token */}
+      {mode === 'admin' && authState && authState.isInitialized && authAction === 'reset' && (
+        <ResetPasswordView
+          token={resetToken}
+          onResetSuccess={async () => {
+            await refreshAuth();
+            setAuthAction('login');
+            if (typeof window !== 'undefined') {
+              window.history.replaceState({}, '', '/dashboard');
+            }
+          }}
+          onBackToLogin={() => {
+            setAuthAction('login');
+            if (typeof window !== 'undefined') {
+              window.history.replaceState({}, '', '/dashboard');
+            }
+          }}
+        />
+      )}
+
+      {/* Forgot Password Request */}
+      {mode === 'admin' && authState && authState.isInitialized && authAction === 'forgot' && (
+        <ForgotPasswordView
+          onBackToLogin={() => setAuthAction('login')}
+        />
+      )}
+
+      {/* Dedicated Admin Login Screen */}
+      {mode === 'admin' &&
+        authState &&
+        authState.isInitialized &&
+        !authState.isAuthenticated &&
+        authAction === 'login' && (
+          <AdminLoginView
+            onLoginSuccess={async () => {
+              await refreshAuth();
+            }}
+            onForgotPassword={() => setAuthAction('forgot')}
+            onBackToHome={() => {
+              setMode('frontend');
+              if (typeof window !== 'undefined') {
+                window.history.pushState({}, '', '/');
+              }
+            }}
+          />
+        )}
+
+      {/* ========================================================================= */}
+      {/* 3. WORDPRESS ADMIN PANEL (PROTECTED FOR AUTHENTICATED ADMINISTRATORS)      */}
+      {/* ========================================================================= */}
+      {mode === 'admin' && authState && authState.isInitialized && authState.isAuthenticated && (
         <AdminLayout
           currentView={adminView}
           onSelectView={(view) => {
@@ -416,7 +530,16 @@ export default function App() {
           themeSettings={cms.themeSettings}
           deploymentSettings={cms.deploymentSettings}
           githubSyncStatus={githubSyncStatus}
+          currentUsername={authState.currentUser?.username}
           onViewLiveSite={() => setMode('frontend')}
+          onLogout={async () => {
+            await logout();
+            await refreshAuth();
+            setMode('frontend');
+            if (typeof window !== 'undefined') {
+              window.history.pushState({}, '', '/');
+            }
+          }}
           onNewPost={handleCreateNewPost}
           onNewPage={handleCreateNewPage}
         >
@@ -651,7 +774,16 @@ export default function App() {
             />
           )}
 
-          {adminView === 'users' && <UsersManager authors={cms.authors} />}
+          {adminView === 'account-security' && (
+            <AccountSecurityManager onAuthStateChange={refreshAuth} />
+          )}
+
+          {adminView === 'users' && (
+            <UsersManager
+              authors={cms.authors}
+              onNavigateToSecurity={() => setAdminView('account-security')}
+            />
+          )}
 
           {adminView === 'tools' && (
             <ToolsExporter

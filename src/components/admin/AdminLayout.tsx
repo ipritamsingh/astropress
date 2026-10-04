@@ -33,6 +33,7 @@ import {
   RefreshCw,
   Cloud,
   AlertCircle,
+  Shield,
 } from 'lucide-react';
 import { ThemeSettings, DeploymentSettings } from '../../types/cms';
 
@@ -54,7 +55,8 @@ export type AdminView =
   | 'settings'
   | 'github-deployment'
   | 'tools'
-  | 'sveltia-native';
+  | 'sveltia-native'
+  | 'account-security';
 
 interface Props {
   currentView: AdminView;
@@ -64,6 +66,8 @@ interface Props {
   deploymentSettings?: DeploymentSettings;
   githubSyncStatus?: 'Connected' | 'Syncing' | 'Error' | 'Disconnected';
   onViewLiveSite: () => void;
+  onLogout?: () => void;
+  currentUsername?: string;
   onNewPost: () => void;
   onNewPage: () => void;
   children: React.ReactNode;
@@ -77,6 +81,8 @@ export const AdminLayout: React.FC<Props> = ({
   deploymentSettings,
   githubSyncStatus = 'Connected',
   onViewLiveSite,
+  onLogout,
+  currentUsername = 'Administrator',
   onNewPost,
   onNewPage,
   children,
@@ -106,6 +112,7 @@ export const AdminLayout: React.FC<Props> = ({
     { id: 'block-editor', label: 'Gutenberg Blocks', icon: <Box className="h-4 w-4" /> },
     { id: 'customizer', label: 'Theme Customizer', icon: <Palette className="h-4 w-4" /> },
     { id: 'seo', label: 'SEO Management', icon: <Search className="h-4 w-4" /> },
+    { id: 'account-security', label: 'Account Security', icon: <Shield className="h-4 w-4 text-emerald-400" /> },
     { id: 'users', label: 'Users & Access', icon: <Users className="h-4 w-4" /> },
     { id: 'settings', label: 'Settings', icon: <Settings className="h-4 w-4" /> },
     { id: 'github-deployment', label: 'GitHub & Deployment', icon: <GitBranch className="h-4 w-4" /> },
@@ -345,28 +352,27 @@ export const AdminLayout: React.FC<Props> = ({
               onClick={() => setShowUserDropdown(!showUserDropdown)}
               className="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-800 text-slate-200"
             >
-              <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80"
-                alt="Admin Avatar"
-                className="h-6 w-6 rounded-full object-cover ring-1 ring-blue-500"
-              />
-              <span className="hidden sm:inline font-semibold">Howdy, Amit</span>
+              <div className="h-6 w-6 rounded-full bg-blue-600 flex items-center justify-center text-white text-[11px] font-bold ring-1 ring-blue-400">
+                {currentUsername.charAt(0).toUpperCase()}
+              </div>
+              <span className="hidden sm:inline font-semibold">Howdy, {currentUsername}</span>
             </button>
 
             {showUserDropdown && (
-              <div className="absolute top-9 right-0 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-xl py-2 z-50 text-xs">
+              <div className="absolute top-9 right-0 w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-xl py-2 z-50 text-xs">
                 <div className="px-3 py-1.5 border-b border-slate-800">
-                  <span className="block font-bold text-white">Amit Singh</span>
-                  <span className="text-[10px] text-slate-400">Administrator</span>
+                  <span className="block font-bold text-white truncate">@{currentUsername}</span>
+                  <span className="text-[10px] text-slate-400">Authenticated Administrator</span>
                 </div>
                 <button
                   onClick={() => {
-                    onSelectView('users');
+                    onSelectView('account-security');
                     setShowUserDropdown(false);
                   }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-slate-300"
+                  className="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-slate-300 flex items-center gap-2"
                 >
-                  Edit Profile
+                  <Shield className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Account & Security</span>
                 </button>
                 <button
                   onClick={() => {
@@ -375,17 +381,19 @@ export const AdminLayout: React.FC<Props> = ({
                   }}
                   className="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-slate-300"
                 >
-                  Settings
+                  Theme Settings
                 </button>
                 <div className="border-t border-slate-800 my-1" />
                 <button
                   onClick={() => {
-                    onViewLiveSite();
                     setShowUserDropdown(false);
+                    if (onLogout) onLogout();
+                    else onViewLiveSite();
                   }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-rose-400"
+                  className="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-rose-400 font-semibold flex items-center gap-1.5"
                 >
-                  Log Out
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>Log Out</span>
                 </button>
               </div>
             )}

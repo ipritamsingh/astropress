@@ -1,6 +1,6 @@
 ---
 title: "Privacy Policy"
-pubDate: 2026-10-04T11:42:16.669Z
+pubDate: 2026-10-04T12:13:22.295Z
 ---
 
 Privacy Policy details for AstroPress.
