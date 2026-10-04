@@ -1,6 +1,6 @@
 ---
 title: "About AstroPress"
-pubDate: 2026-10-04T15:44:14.555Z
+pubDate: 2026-10-04T16:00:51.397Z
 ---
 
 AstroPress was created to solve a universal dilemma in modern web development.

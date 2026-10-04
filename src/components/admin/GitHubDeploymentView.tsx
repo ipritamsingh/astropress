@@ -233,6 +233,7 @@ export const GitHubDeploymentView: React.FC<Props> = ({
     onUpdateDeploymentSettings({
       githubRepo: fullRepo,
       githubBranch: branch.trim() || 'main',
+      githubToken: token.trim(),
       productionUrl: productionUrl.trim(),
       cloudflarePagesProject: cloudflarePagesProject.trim(),
       cloudflareWorkerUrl: workerUrl.trim(),

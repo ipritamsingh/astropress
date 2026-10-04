@@ -16,6 +16,7 @@ const posts = defineCollection({
     readingTime: z.number().default(5),
     template: z.enum(['standard', 'cover-hero', 'minimal-editorial', 'sidebar-right']).default('standard'),
     draft: z.boolean().default(false),
+    status: z.string().optional(),
     blocks: z.array(z.any()).optional(),
     seo: z.object({
       metaTitle: z.string().optional(),

@@ -54,6 +54,7 @@ import {
   GitCommit,
   CheckCircle2,
   Zap,
+  Key,
 } from 'lucide-react';
 
 interface Props {
@@ -162,6 +163,7 @@ export const GutenbergEditor: React.FC<Props> = ({
   const [publishError, setPublishError] = useState<string | null>(null);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [customCommitMsg, setCustomCommitMsg] = useState('');
+  const [modalGithubToken, setModalGithubToken] = useState<string>(sessionToken || deploymentSettings.githubToken || '');
   const [realCommitUrl, setRealCommitUrl] = useState<string | null>(null);
   const [mediaPickerTarget, setMediaPickerTarget] = useState<{
     type: 'block' | 'featured';
@@ -516,6 +518,7 @@ title: "${title.replace(/"/g, '\\"')}"
 slug: "${cleanSlug}"
 pubDate: ${cleanDate}
 status: "${status}"
+draft: ${status === 'draft'}
 author: "${author}"
 category: "${category}"
 tags: [${selectedTags.map((t) => `"${t}"`).join(', ')}]
@@ -613,7 +616,7 @@ ${compileBlocksToMarkdown()}`;
 
     const itemToPublish: any = isPage
       ? {
-          id: initialItem.id || 'page-' + Date.now(),
+          id: itemId,
           title: title.trim(),
           slug: finalSlug,
           status: 'published',
@@ -624,7 +627,7 @@ ${compileBlocksToMarkdown()}`;
           seo,
         }
       : {
-          id: initialItem.id || 'post-' + Date.now(),
+          id: itemId,
           title: title.trim(),
           slug: finalSlug,
           pubDate: (initialItem as Post).pubDate || new Date().toISOString(),
@@ -643,13 +646,14 @@ ${compileBlocksToMarkdown()}`;
         };
 
     try {
+      const activeToken = modalGithubToken.trim() || sessionToken || deploymentSettings.githubToken;
       // Execute Real GitHub publish using user token or worker proxy
       const result = await executeRealGitHubPublish(
         itemToPublish,
         isPage,
         fullYamlMarkdown,
         deploymentSettings,
-        sessionToken
+        activeToken
       );
 
       if (!result.success) {
@@ -2473,14 +2477,34 @@ ${compileBlocksToMarkdown()}`;
               />
             </div>
 
+            {/* GitHub Token Input */}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Key className="h-3.5 w-3.5 text-blue-600" />
+                  <span>GitHub Personal Access Token (PAT)</span>
+                </span>
+                <span className="text-[10px] text-slate-400 font-normal">
+                  {modalGithubToken ? 'Token configured' : 'Optional for live GitHub sync'}
+                </span>
+              </label>
+              <input
+                type="password"
+                value={modalGithubToken}
+                onChange={(e) => setModalGithubToken(e.target.value)}
+                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx or github_pat_xxxx"
+                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-mono outline-none focus:border-blue-500"
+              />
+            </div>
+
             {/* Token Notice */}
-            {!sessionToken && !deploymentSettings.githubToken && (
+            {!modalGithubToken && !sessionToken && !deploymentSettings.githubToken && (
               <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                 <div className="space-y-0.5">
-                  <span className="font-bold block">No GitHub Token In Session</span>
+                  <span className="font-bold block">No GitHub Token Entered</span>
                   <p className="text-[11px] leading-relaxed">
-                    Changes will be saved to your local Astro collections. To push directly to your live GitHub repository and trigger Cloudflare Pages, configure your PAT in <strong>Admin &gt; GitHub &amp; Deployment</strong>.
+                    Changes will be saved to your local Astro collections. To push directly to your live GitHub repository and trigger Cloudflare Pages deployment, enter your PAT above or configure it in <strong>Admin &gt; GitHub &amp; Deployment</strong>.
                   </p>
                 </div>
               </div>
