@@ -1,0 +1,18 @@
+name = "astropress"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "dist"
+
+# ============================================================================
+# Cloudflare D1 Database Binding for AstroPress Authentication & CMS
+# ============================================================================
+# To link your existing Cloudflare D1 database:
+# 1. Run: npx wrangler d1 info astropress-db
+# 2. Paste your database_id below, or bind "DB" in Cloudflare Pages Dashboard:
+#    Settings -> Functions -> D1 Database Bindings -> Variable name: DB -> Database: astropress-db
+# ============================================================================
+
+[[d1_databases]]
+binding = "DB"
+database_name = "astropress-db"
+database_id = "astropress-db"

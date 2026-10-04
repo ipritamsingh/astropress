@@ -1,72 +1,107 @@
-# AstroPress Cloudflare D1 Authentication & Security Guide
+# Cloudflare D1 Authentication & Persistence Guide for AstroPress
 
-This document explains the production security architecture and setup steps for Cloudflare Pages, Cloudflare D1 database bindings, email provider integration, and emergency recovery procedures.
-
----
-
-## 1. Authentication Architecture
-
-- **Password Hashing**: PBKDF2 with SHA-256 (100,000 iterations) and cryptographically secure random 16-byte salt per user.
-- **Session Tokens**: 32-byte cryptographically secure random hex tokens hashed with SHA-256 before storage.
-- **Session Expiry**: 2-hour idle timeout and 24-hour absolute timeout (30 days with Remember Me).
-- **Rate Limiting & Lockout**: 5 failed password attempts trigger a 15-minute temporary lockout.
-- **Account Recovery**:
-  - Single-use 15-minute password reset links.
-  - 8 single-use emergency recovery codes stored as SHA-256 hashes.
-- **Backup Administrator**:
-  - Disabled by default for single-user personal simplicity.
-  - Can be enabled with restricted scope by Primary Administrator.
+This document provides exact instructions to link your existing Cloudflare D1 database (`astropress-db`) with your AstroPress Cloudflare Pages deployment.
 
 ---
 
-## 2. Cloudflare D1 Database Provisioning
+## 1. Cloudflare D1 Configuration
 
-To bind a Cloudflare D1 database to your AstroPress Cloudflare Pages project:
-
-1. **Create D1 Database**:
-   ```bash
-   npx wrangler d1 create astropress-auth
-   ```
-2. **Apply Migration**:
-   ```bash
-   npx wrangler d1 execute astropress-auth --file=./migrations/0001_auth_schema.sql
-   ```
-3. **Bind in `wrangler.toml` (or Cloudflare Dashboard &rarr; Pages &rarr; Settings &rarr; Functions &rarr; D1 Database Bindings)**:
-   ```toml
-   [[d1_databases]]
-   binding = "DB"
-   database_name = "astropress-auth"
-   database_id = "<YOUR_D1_DATABASE_ID>"
-   ```
+- **Database Name**: `astropress-db`
+- **Pages D1 Binding Name**: `DB`
+- **GitHub Repository**: `https://github.com/ipritamsingh/astropress`
+- **Branch**: `main`
 
 ---
 
-## 3. Email Provider Configuration (Resend)
+## 2. Execute SQL Migrations on Cloudflare D1
 
-For automated password-reset emails:
+Run the safe, versioned schema migration from your local terminal with Wrangler:
 
-1. Sign up for a free tier account at [resend.com](https://resend.com).
-2. Generate an API Key with sending permissions.
-3. In Cloudflare Pages Dashboard &rarr; **Settings** &rarr; **Environment Variables**:
-   - `RESEND_API_KEY`: `re_xxxxxxxxx`
-   - `SENDER_EMAIL`: `security@yourdomain.com`
+```bash
+# Execute migration against your remote Cloudflare D1 database (astropress-db)
+npx wrangler d1 execute astropress-db --remote --file=./migrations/0001_auth_schema.sql
+```
+
+> **Safety Guarantee**: The migration in `migrations/0001_auth_schema.sql` uses `CREATE TABLE IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS`. It never deletes, drops, resets, or overwrites existing tables or data.
 
 ---
 
-## 4. Emergency Lockout Recovery Procedure
+## 3. Configure Cloudflare Pages D1 Binding
 
-If the Primary Administrator loses access to both their password and registered recovery email:
+You can bind the database through the **Cloudflare Dashboard** or `wrangler.toml`:
 
-1. **Option A: Use an Emergency Recovery Code**:
-   - On the Admin Login page, click **"Use emergency recovery code"**.
-   - Enter your username and one of your 8 saved one-time codes (`XXXX-XXXX-XXXX`).
+### Option A: Cloudflare Dashboard (Recommended for Pages)
+1. Go to **Cloudflare Dashboard** &rarr; **Workers & Pages**.
+2. Select your AstroPress Pages project (`astropress`).
+3. Click **Settings** &rarr; **Functions**.
+4. Scroll down to **D1 Database Bindings** and click **Add binding**.
+5. Set:
+   - **Variable name**: `DB`
+   - **D1 Database**: `astropress-db`
+6. Click **Save**.
 
-2. **Option B: Cloudflare D1 Direct Reset**:
-   - Access your Cloudflare Dashboard &rarr; **Workers & Pages** &rarr; **D1** &rarr; `astropress-auth` &rarr; **Console**.
-   - To authorize a fresh initial setup run:
+### Option B: Via `wrangler.toml`
+The repository includes `wrangler.toml` configured with:
+```toml
+name = "astropress"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "astropress-db"
+database_id = "<YOUR_D1_DATABASE_ID>"
+```
+To find your `<YOUR_D1_DATABASE_ID>`, run:
+```bash
+npx wrangler d1 info astropress-db
+```
+
+---
+
+## 4. How the Persistent D1 Architecture Works
+
+1. **Initial Admin Setup Gate**:
+   - The server function (`functions/api/auth/[[route]].ts`) executes:
      ```sql
-     DELETE FROM admin_sessions;
-     DELETE FROM admin_users;
-     DELETE FROM recovery_codes;
+     SELECT id, username, email FROM admin_users WHERE role = 'primary_admin' AND is_active = 1 LIMIT 1
      ```
-   - Refresh the `/admin` URL to initialize a new Primary Administrator.
+   - If no row exists in D1, the client displays **Initial Admin Setup**.
+   - As soon as the primary admin account is created, the credentials and recovery code hashes are committed to Cloudflare D1.
+
+2. **Permanent Setup Lock**:
+   - After initial setup, future queries to `/api/auth/status` return `isInitialized: true`.
+   - Any further attempt to POST to `/api/auth/setup` is rejected with HTTP 400.
+   - All subsequent visitors and future builds will always be presented with the **Admin Login** screen.
+
+3. **Server-Side Security**:
+   - Passwords are encrypted with PBKDF2-SHA256 (100,000 iterations) with a unique 16-byte random cryptographic salt. Plaintext passwords are never stored.
+   - Sessions are managed server-side via `admin_sessions` in D1 with idle (2 hr) and absolute (24 hr) timeouts.
+   - Single-use recovery codes are stored solely as SHA-256 hashes in `recovery_codes` in D1 and invalidated immediately upon first use.
+   - Direct navigation to `/admin` or `/dashboard` cannot bypass server-side validation.
+
+---
+
+## 5. How to Test That the Admin Account Persists After Redeployment
+
+Follow these steps to verify persistent storage:
+
+1. **Perform Initial Setup**:
+   - Click **"Launch Admin Studio"** on your deployed site.
+   - Complete the one-time Initial Admin Setup form (Username, Email, Password).
+   - Save your 8 emergency recovery codes.
+2. **Verify Database Records**:
+   - In Cloudflare Dashboard &rarr; **Workers & Pages** &rarr; **D1** &rarr; `astropress-db` &rarr; **Console**, run:
+     ```sql
+     SELECT id, username, email, role, created_at FROM admin_users;
+     ```
+   - Confirm that your administrator account appears in the output.
+3. **Trigger a New Build & Deployment**:
+   - Push a commit to `main` on `https://github.com/ipritamsingh/astropress`.
+   - Wait for Cloudflare Pages to finish building and deploying.
+4. **Test After Redeployment**:
+   - Open a clean browser window / incognito tab and navigate to `https://<YOUR-PAGES-DOMAIN>/dashboard`.
+   - Confirm that the **Admin Login** page appears (NOT the Initial Setup page).
+   - Log in with your Primary Admin username and password.
+   - Confirm that authentication succeeds and opens your Admin Dashboard.

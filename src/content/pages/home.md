@@ -1,6 +1,6 @@
 ---
 title: "Home"
-pubDate: 2026-10-04T12:20:54.612Z
+pubDate: 2026-10-04T13:07:51.036Z
 ---
 
 Welcome to AstroPress CMS.

@@ -74,7 +74,8 @@ export const AccountSecurityManager: React.FC<Props> = ({ onAuthStateChange }) =
       setEditUsername(s.currentUser.username);
       setEditEmail(s.currentUser.email);
     }
-    setAuditLogs(getRecentAuditLogs());
+    const logs = await getRecentAuditLogs();
+    setAuditLogs(logs);
   };
 
   useEffect(() => {
