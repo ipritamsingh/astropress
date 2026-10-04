@@ -32,14 +32,6 @@ export const SinglePageView: React.FC<Props> = ({ page, onBack, onEditPage }) =>
           <ArrowLeft className="h-4 w-4" />
           <span>Back to Home</span>
         </button>
-
-        <button
-          onClick={() => onEditPage(page)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors"
-        >
-          <Edit3 className="h-3.5 w-3.5 text-blue-400" />
-          <span>Edit Page in Admin</span>
-        </button>
       </div>
 
       <header className="mb-8 space-y-3">

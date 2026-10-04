@@ -166,15 +166,6 @@ export const SinglePostView: React.FC<Props> = ({
           <span className="text-xs font-extrabold uppercase tracking-wider bg-blue-50 text-blue-700 px-3 py-1 rounded-full border border-blue-200/60">
             {post.category}
           </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onEditPost(post)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-colors"
-            >
-              <Edit3 className="h-3.5 w-3.5 text-blue-400" />
-              <span>Edit in Admin</span>
-            </button>
-          </div>
         </div>
 
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight font-serif-custom">

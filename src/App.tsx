@@ -85,9 +85,46 @@ type FrontendRoute =
 export default function App() {
   const cms = useCMS();
 
-  // Mode: 'frontend' website or 'admin' WordPress panel
-  const [mode, setMode] = useState<'frontend' | 'admin'>('frontend');
+  // Mode: 'frontend' website or 'admin' WordPress panel (accessible via /dashboard, /admin, #admin, ?admin=true)
+  const [mode, setMode] = useState<'frontend' | 'admin'>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      const search = window.location.search;
+      const hash = window.location.hash;
+      if (
+        path.startsWith('/dashboard') ||
+        path.startsWith('/admin') ||
+        search.includes('admin=true') ||
+        hash === '#admin'
+      ) {
+        return 'admin';
+      }
+    }
+    return 'frontend';
+  });
   const [adminView, setAdminView] = useState<AdminView>('dashboard');
+
+  React.useEffect(() => {
+    const handleUrlCheck = () => {
+      const path = window.location.pathname;
+      const search = window.location.search;
+      const hash = window.location.hash;
+      if (
+        path.startsWith('/dashboard') ||
+        path.startsWith('/admin') ||
+        search.includes('admin=true') ||
+        hash === '#admin'
+      ) {
+        setMode('admin');
+      }
+    };
+    window.addEventListener('popstate', handleUrlCheck);
+    window.addEventListener('hashchange', handleUrlCheck);
+    return () => {
+      window.removeEventListener('popstate', handleUrlCheck);
+      window.removeEventListener('hashchange', handleUrlCheck);
+    };
+  }, []);
 
   // Currently editing post or page in the Gutenberg Block Editor
   const [editingPost, setEditingPost] = useState<Post | null>(null);
@@ -111,6 +148,16 @@ export default function App() {
 
   // Handle Frontend Navigation paths
   const handleNavigate = (path: string) => {
+    // Admin route navigation
+    if (path === '/admin' || path === '/dashboard' || path.startsWith('/admin') || path.startsWith('/dashboard')) {
+      setMode('admin');
+      setAdminView('dashboard');
+      if (typeof window !== 'undefined') {
+        window.history.pushState({}, '', '/dashboard');
+      }
+      return;
+    }
+
     if (path === '/' || path === '') {
       setCurrentRoute({ type: 'home' });
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -245,104 +292,7 @@ export default function App() {
       className="min-h-screen flex flex-col font-sans"
     >
       {/* ========================================================================= */}
-      {/* 1. WORDPRESS FLOATING ADMIN BAR (Appears on Frontend)                    */}
-      {/* ========================================================================= */}
-      {mode === 'frontend' && (
-        <div className="bg-slate-900 text-slate-300 text-xs px-3 sm:px-4 py-1.5 flex items-center justify-between border-b border-slate-800 z-50 select-none shadow-xs">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                setMode('admin');
-                setAdminView('dashboard');
-              }}
-              className="flex items-center gap-1.5 font-bold text-white hover:text-blue-400 transition-colors"
-            >
-              <div className="h-5 w-5 rounded bg-blue-600 flex items-center justify-center text-[10px] font-black text-white">
-                W
-              </div>
-              <span className="hidden sm:inline">AstroPress Dashboard</span>
-            </button>
-
-            <span className="text-slate-600 hidden sm:inline">|</span>
-
-            {/* If currently viewing a post or page, allow instant 1-click edit */}
-            {currentRoute.type === 'post' && (
-              <button
-                onClick={() => {
-                  setEditingPost(currentRoute.post);
-                  setMode('admin');
-                }}
-                className="flex items-center gap-1 text-slate-300 hover:text-white transition-colors"
-              >
-                <Edit3 className="h-3.5 w-3.5 text-blue-400" />
-                <span>Edit Post</span>
-              </button>
-            )}
-
-            {currentRoute.type === 'page' && (
-              <button
-                onClick={() => {
-                  setEditingPage(currentRoute.page);
-                  setMode('admin');
-                }}
-                className="flex items-center gap-1 text-slate-300 hover:text-white transition-colors"
-              >
-                <Edit3 className="h-3.5 w-3.5 text-blue-400" />
-                <span>Edit Page</span>
-              </button>
-            )}
-
-            <button
-              onClick={() => setShowCustomizer(true)}
-              className="flex items-center gap-1 text-slate-300 hover:text-white transition-colors"
-            >
-              <Palette className="h-3.5 w-3.5 text-amber-400" />
-              <span>Customize</span>
-            </button>
-
-            <button
-              onClick={() => {
-                handleCreateNewPost();
-                setMode('admin');
-              }}
-              className="hidden sm:flex items-center gap-1 text-slate-300 hover:text-white transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5 text-emerald-400" />
-              <span>New Post</span>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                setMode('admin');
-                setAdminView('sveltia-native');
-              }}
-              className="hidden md:flex items-center gap-1 text-[11px] text-blue-300 hover:text-white bg-blue-950/80 px-2 py-0.5 rounded border border-blue-800"
-            >
-              <Code2 className="h-3 w-3" />
-              <span>Sveltia CMS</span>
-            </button>
-
-            <span className="text-slate-400 text-[11px] hidden sm:inline">
-              Howdy, <b className="text-white">Amit</b>
-            </span>
-
-            <button
-              onClick={() => {
-                setMode('admin');
-                setAdminView('dashboard');
-              }}
-              className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px] transition-colors"
-            >
-              Admin Panel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 2. LIVE FRONTEND WEBSITE                                                  */}
+      {/* 1. LIVE FRONTEND WEBSITE                                                  */}
       {/* ========================================================================= */}
       {mode === 'frontend' && (
         <div className="flex-1 flex flex-col">
@@ -351,10 +301,6 @@ export default function App() {
             menus={cms.menus}
             onOpenSearch={() => setIsSearchOpen(true)}
             onNavigate={handleNavigate}
-            onOpenAdmin={() => {
-              setMode('admin');
-              setAdminView('dashboard');
-            }}
           />
 
           <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">

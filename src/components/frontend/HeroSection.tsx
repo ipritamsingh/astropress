@@ -317,6 +317,7 @@ export const HeroSection: React.FC<Props> = ({
                   </button>
                 )}
 
+                {/* Modular Admin Launch Button (Can be removed or toggled via config.showSecondaryButton) */}
                 {config.showSecondaryButton && config.secondaryButtonText && (
                   <button
                     onClick={() => handleButtonClick(config.secondaryButtonUrl || '/admin')}

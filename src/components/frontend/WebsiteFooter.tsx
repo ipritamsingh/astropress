@@ -1,13 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ThemeSettings, Menu, Category } from '../../types/cms';
-import { Github, Twitter, Globe, ArrowUp, Send, Heart } from 'lucide-react';
+import { Github, Twitter, Globe, ArrowUp, Send, Heart, Check } from 'lucide-react';
 
 interface Props {
   themeSettings: ThemeSettings;
   menus: Menu[];
   categories: Category[];
   onNavigate: (path: string) => void;
-  onOpenAdmin: () => void;
+  onOpenAdmin?: () => void;
 }
 
 export const WebsiteFooter: React.FC<Props> = ({
@@ -15,13 +15,23 @@ export const WebsiteFooter: React.FC<Props> = ({
   menus,
   categories,
   onNavigate,
-  onOpenAdmin,
 }) => {
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [isSubscribed, setIsSubscribed] = useState(false);
+
   const footerMenu = menus.find((m) => m.location === 'footer') || menus[0];
   const { footer } = themeSettings;
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleNewsletterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newsletterEmail.trim()) {
+      setIsSubscribed(true);
+      setNewsletterEmail('');
+    }
   };
 
   return (
@@ -80,19 +90,18 @@ export const WebsiteFooter: React.FC<Props> = ({
           <div className="space-y-3">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-100">Quick Links</h4>
             <ul className="space-y-2 text-xs">
-              {footerMenu?.items?.map((item) => (
-                <li key={item.id}>
-                  <button
-                    onClick={() => {
-                      if (item.url === '/admin') onOpenAdmin();
-                      else onNavigate(item.url);
-                    }}
-                    className="hover:text-white transition-colors hover:translate-x-0.5 transform inline-block"
-                  >
-                    {item.label}
-                  </button>
-                </li>
-              ))}
+              {footerMenu?.items
+                ?.filter((item) => item.url !== '/admin')
+                ?.map((item) => (
+                  <li key={item.id}>
+                    <button
+                      onClick={() => onNavigate(item.url)}
+                      className="hover:text-white transition-colors hover:translate-x-0.5 transform inline-block"
+                    >
+                      {item.label}
+                    </button>
+                  </li>
+                ))}
             </ul>
           </div>
 
@@ -118,7 +127,7 @@ export const WebsiteFooter: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Column 4: Newsletter or Admin Quick Jump */}
+          {/* Column 4: Newsletter Subscription */}
           <div className="space-y-3">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-100">
               {footer.newsletterTitle || 'The Headless Dispatch'}
@@ -128,12 +137,31 @@ export const WebsiteFooter: React.FC<Props> = ({
                 'Subscribe to get notified whenever new architectural tutorials or theme updates drop.'}
             </p>
             <div className="pt-2">
-              <button
-                onClick={onOpenAdmin}
-                className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-bold text-slate-200 transition-colors flex items-center justify-center gap-2"
-              >
-                <span>Access WordPress Admin</span>
-              </button>
+              {isSubscribed ? (
+                <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-800/80 text-emerald-300 text-xs font-medium">
+                  <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <span>Thank you for subscribing!</span>
+                </div>
+              ) : (
+                <form onSubmit={handleNewsletterSubmit} className="flex gap-2">
+                  <input
+                    type="email"
+                    required
+                    placeholder="Enter your email..."
+                    value={newsletterEmail}
+                    onChange={(e) => setNewsletterEmail(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-blue-500 transition-colors"
+                  />
+                  <button
+                    type="submit"
+                    style={{ backgroundColor: themeSettings.primaryColor }}
+                    className="px-3.5 py-2 rounded-xl text-white text-xs font-bold shadow-xs hover:opacity-95 transition-opacity flex items-center justify-center shrink-0"
+                    title="Subscribe to Dispatch"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                  </button>
+                </form>
+              )}
             </div>
           </div>
         </div>

@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { ThemeSettings, Menu } from '../../types/cms';
-import { Search, Menu as MenuIcon, X, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
+import { Search, Menu as MenuIcon, X } from 'lucide-react';
 
 interface Props {
   themeSettings: ThemeSettings;
   menus: Menu[];
   onOpenSearch: () => void;
   onNavigate: (path: string) => void;
-  onOpenAdmin: () => void;
+  onOpenAdmin?: () => void;
 }
 
 export const WebsiteHeader: React.FC<Props> = ({
@@ -15,12 +15,11 @@ export const WebsiteHeader: React.FC<Props> = ({
   menus,
   onOpenSearch,
   onNavigate,
-  onOpenAdmin,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const headerMenu = menus.find((m) => m.location === 'header') || menus[0];
 
-  const { layout = 'standard', sticky = true, showSearch = true, showCta = true, ctaText = 'Admin Dashboard' } =
+  const { sticky = true, showSearch = true } =
     themeSettings.header || {};
 
   return (
@@ -81,17 +80,6 @@ export const WebsiteHeader: React.FC<Props> = ({
               </button>
             )}
 
-            {showCta && (
-              <button
-                onClick={onOpenAdmin}
-                style={{ backgroundColor: themeSettings.primaryColor }}
-                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-xs hover:opacity-95 transition-opacity"
-              >
-                <ShieldCheck className="h-4 w-4" />
-                <span>{ctaText || 'Admin Dashboard'}</span>
-              </button>
-            )}
-
             {/* Mobile Burger Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -119,18 +107,6 @@ export const WebsiteHeader: React.FC<Props> = ({
               {item.label}
             </button>
           ))}
-          <div className="pt-3 border-t border-slate-100">
-            <button
-              onClick={() => {
-                onOpenAdmin();
-                setMobileMenuOpen(false);
-              }}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-900 text-white font-bold text-sm"
-            >
-              <ShieldCheck className="h-4 w-4 text-blue-400" />
-              <span>Open WordPress Admin</span>
-            </button>
-          </div>
         </div>
       )}
     </header>
