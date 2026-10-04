@@ -15,4 +15,4 @@ pages_build_output_dir = "dist"
 [[d1_databases]]
 binding = "DB"
 database_name = "astropress-db"
-database_id = "astropress-db"
+database_id = "b5cd3acd-95fb-4bfe-b993-5f193a59976a"
