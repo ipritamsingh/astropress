@@ -11,15 +11,20 @@ function d1AuthPlugin() {
     name: 'd1-auth-local-dev',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        if (req.url && (req.url.startsWith('/api/auth') || req.url === '/api/auth')) {
+        if (
+          req.url &&
+          (req.url.startsWith('/api/auth') ||
+            req.url.startsWith('/api/media') ||
+            req.url.startsWith('/api/content'))
+        ) {
           try {
-            const { handleLocalAuthRequest } = await import('./src/server/localD1Server.ts');
-            await handleLocalAuthRequest(req, res);
+            const { handleLocalApiRequest } = await import('./src/server/localD1Server.ts');
+            await handleLocalApiRequest(req, res);
             return;
           } catch (err) {
-            console.error('[D1 Local Auth Plugin Error]', err);
+            console.error('[Local API Plugin Error]', err);
             res.statusCode = 500;
-            res.end(JSON.stringify({ error: err.message || 'Internal D1 Server Error' }));
+            res.end(JSON.stringify({ error: err.message || 'Internal Server Error' }));
             return;
           }
         }

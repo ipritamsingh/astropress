@@ -159,6 +159,17 @@ export default function App() {
         hash === '#admin'
       ) {
         setMode('admin');
+        return;
+      }
+
+      if (path.startsWith('/posts/')) {
+        const postSlug = path.replace('/posts/', '').replace(/\/$/, '');
+        const foundPost = cms.posts.find((p) => p.slug === postSlug);
+        if (foundPost) {
+          setCurrentRoute({ type: 'post', post: foundPost });
+          setMode('frontend');
+          return;
+        }
       }
     };
 
@@ -214,6 +225,19 @@ export default function App() {
         setCurrentRoute({ type: 'archive', archiveType: 'category', item: techCat });
       }
       return;
+    }
+    if (path.startsWith('/posts/')) {
+      const postSlug = path.replace('/posts/', '').replace(/\/$/, '');
+      const foundPost = cms.posts.find((p) => p.slug === postSlug);
+      if (foundPost) {
+        setCurrentRoute({ type: 'post', post: foundPost });
+        setMode('frontend');
+        if (typeof window !== 'undefined') {
+          window.history.pushState({}, '', path);
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
     }
     if (path.startsWith('/category/')) {
       const slug = path.replace('/category/', '');
@@ -312,6 +336,7 @@ export default function App() {
 
   const handleSavePost = (savedPost: Post, isPublishAction = false) => {
     cms.savePost(savedPost, isPublishAction);
+    setEditingPost(savedPost);
     if (isPublishAction) {
       setEditingPost(null);
     }
@@ -319,6 +344,7 @@ export default function App() {
 
   const handleSavePage = (savedPage: Page, isPublishAction = false) => {
     cms.savePage(savedPage, isPublishAction);
+    setEditingPage(savedPage);
     if (isPublishAction) {
       setEditingPage(null);
     }

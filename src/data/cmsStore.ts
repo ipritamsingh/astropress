@@ -139,13 +139,55 @@ function loadStoredData(): CMSDataState {
   }
 }
 
+function sanitizeDataForLocalStorage(data: CMSDataState): CMSDataState {
+  // Deep clone to avoid mutating live in-memory state
+  const cleanData: CMSDataState = JSON.parse(JSON.stringify(data));
+
+  // Sanitize media items with huge dataUrls if present
+  cleanData.media = cleanData.media.map((m) => {
+    if (m.url && m.url.startsWith('data:') && m.url.length > 50000) {
+      return { ...m, url: m.originalUrl || `/uploads/${m.name}` };
+    }
+    return m;
+  });
+
+  // Sanitize posts with huge dataUrls in blocks or featuredImage
+  cleanData.posts = cleanData.posts.map((p) => {
+    let cleanFeatured = p.featuredImage;
+    if (cleanFeatured && cleanFeatured.startsWith('data:') && cleanFeatured.length > 50000) {
+      cleanFeatured = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=80';
+    }
+    const cleanBlocks = (p.blocks || []).map((b) => {
+      let cleanContent = b.content;
+      if (cleanContent && cleanContent.startsWith('data:') && cleanContent.length > 50000) {
+        cleanContent = b.settings?.imageUrl || '/uploads/image.webp';
+      }
+      const cleanSettings = { ...b.settings };
+      if (cleanSettings.imageUrl && cleanSettings.imageUrl.startsWith('data:') && cleanSettings.imageUrl.length > 50000) {
+        cleanSettings.imageUrl = '/uploads/image.webp';
+      }
+      return { ...b, content: cleanContent, settings: cleanSettings };
+    });
+    return { ...p, featuredImage: cleanFeatured, blocks: cleanBlocks };
+  });
+
+  return cleanData;
+}
+
 export function saveStoredData(data: CMSDataState) {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    window.dispatchEvent(new CustomEvent(UPDATE_EVENT, { detail: data }));
+    const clean = sanitizeDataForLocalStorage(data);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
   } catch (err) {
-    console.error('Failed to save CMS state to localStorage', err);
+    console.warn('Failed to save full CMS state to localStorage, retrying with fallback', err);
+    try {
+      // Emergency fallback if storage is heavily constrained
+      const minimalData = { ...data, media: data.media.slice(0, 10) };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeDataForLocalStorage(minimalData)));
+    } catch {}
+  } finally {
+    window.dispatchEvent(new CustomEvent(UPDATE_EVENT, { detail: data }));
   }
 }
 

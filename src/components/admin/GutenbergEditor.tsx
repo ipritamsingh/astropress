@@ -96,6 +96,9 @@ export const GutenbergEditor: React.FC<Props> = ({
   onSave,
   onClose,
 }) => {
+  const [itemId, setItemId] = useState<string>(
+    initialItem.id || (isPage ? 'page-' : 'post-') + Date.now()
+  );
   const [title, setTitle] = useState(initialItem.title || '');
   const [slug, setSlug] = useState(initialItem.slug || '');
   const [status, setStatus] = useState<Post['status']>(initialItem.status || 'draft');
@@ -479,6 +482,16 @@ export const GutenbergEditor: React.FC<Props> = ({
         if (b.type === 'quote') return `> ${b.content}\n>\n> — ${b.settings?.imageCaption || 'Notable Author'}`;
         if (b.type === 'code') return `\`\`\`${b.settings?.codeLanguage || 'typescript'}\n${b.content}\n\`\`\``;
         if (b.type === 'image') return `![${b.settings?.imageAlt || ''}](${b.settings?.imageUrl || b.content})`;
+        if (b.type === 'gallery') return b.content || '![Gallery Image](' + (b.settings?.imageUrl || '') + ')';
+        if (b.type === 'list') {
+          return (b.content || '')
+            .split('\n')
+            .map((line) => (line.trim().startsWith('-') ? line : `- ${line}`))
+            .join('\n');
+        }
+        if (b.type === 'columns') {
+          return (b.settings?.columns || []).map((col) => col.content).join('\n\n');
+        }
         if (b.type === 'button') return `[${b.content}](${b.settings?.buttonUrl || '#'})`;
         if (b.type === 'alert') return `> **Notice**: ${b.content}`;
         if (b.type === 'divider') return `---`;
@@ -487,8 +500,11 @@ export const GutenbergEditor: React.FC<Props> = ({
             .map((item) => `### ${item.title}\n${item.content}`)
             .join('\n\n');
         }
-        return b.content;
+        if (b.type === 'author-box') return `**Author:** ${b.content}`;
+        if (b.type === 'embed') return `[Embedded Resource](${b.content})`;
+        return b.content || '';
       })
+      .filter(Boolean)
       .join('\n\n');
   };
 
@@ -526,10 +542,10 @@ ${compileBlocksToMarkdown()}`;
 
     if (isPage) {
       const pageToSave: Page = {
-        id: initialItem.id || 'page-' + Date.now(),
+        id: itemId,
         title: title || 'Untitled Page',
         slug: finalSlug,
-        status: 'draft',
+        status: status || 'draft',
         template: (initialItem as Page).template || 'default',
         featuredImage,
         blocks,
@@ -539,12 +555,12 @@ ${compileBlocksToMarkdown()}`;
       onSave(pageToSave, false);
     } else {
       const postToSave: Post = {
-        id: initialItem.id || 'post-' + Date.now(),
+        id: itemId,
         title: title || 'Untitled Post',
         slug: finalSlug,
         pubDate: (initialItem as Post).pubDate || new Date().toISOString(),
         updatedDate: new Date().toISOString(),
-        status: 'draft',
+        status: status || 'draft',
         author,
         category,
         tags: selectedTags,
@@ -559,7 +575,6 @@ ${compileBlocksToMarkdown()}`;
       onSave(postToSave, false);
     }
 
-    setStatus('draft');
     setLastDraftSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     setIsSavingDraft(false);
     setSaveSuccess(true);
@@ -574,7 +589,8 @@ ${compileBlocksToMarkdown()}`;
     }
 
     const finalSlug = slug || generateSlug(title);
-    const slugValidation = validateSlug(finalSlug, existingSlugs);
+    const otherSlugs = existingSlugs.filter((s) => s !== initialItem.slug);
+    const slugValidation = validateSlug(finalSlug, otherSlugs);
     if (!slugValidation.valid) {
       setPublishError(slugValidation.error || 'Invalid URL slug.');
       return;
@@ -704,6 +720,26 @@ ${compileBlocksToMarkdown()}`;
                   <option value="published">Published</option>
                   <option value="scheduled">Scheduled</option>
                 </select>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDraft}
+                  disabled={isSavingDraft || isPublishing}
+                  className="flex-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  {isSavingDraft ? 'Saving...' : 'Save Draft'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleInitiatePublish}
+                  disabled={isPublishing}
+                  className="flex-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors flex items-center justify-center gap-1"
+                >
+                  <GitBranch className="h-3.5 w-3.5" />
+                  <span>{status === 'published' ? 'Update & Deploy' : 'Publish'}</span>
+                </button>
               </div>
 
               {!isPage && (
@@ -1494,7 +1530,7 @@ ${compileBlocksToMarkdown()}`;
             type="button"
             onClick={handleSaveDraft}
             disabled={isSavingDraft || isPublishing}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
             title="Save draft locally without triggering production Git commits"
           >
             {isSavingDraft ? (

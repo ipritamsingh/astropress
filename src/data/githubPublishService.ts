@@ -401,6 +401,21 @@ export async function executeRealGitHubPublish(
     }
   }
 
+  // Always attempt local markdown collection file write if server is running
+  try {
+    await fetch('/api/content/publish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        slug: item.slug,
+        isPage,
+        content: markdownWithFrontmatter,
+      }),
+    });
+  } catch (e) {
+    // Non-blocking in production static builds
+  }
+
   // Fallback: If no PAT configured, record in local Git audit log with notification to configure token
   const commitId = 'c-' + Math.random().toString(36).substring(2, 9);
   const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';

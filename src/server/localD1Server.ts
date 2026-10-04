@@ -134,3 +134,119 @@ export async function handleLocalAuthRequest(req: any, res: any) {
     res.end(JSON.stringify({ error: err.message || 'Local D1 Server Error' }));
   }
 }
+
+export async function handleLocalApiRequest(req: any, res: any) {
+  const url = req.url || '';
+
+  // Auth requests
+  if (url.startsWith('/api/auth') || url === '/api/auth') {
+    return handleLocalAuthRequest(req, res);
+  }
+
+  // Media upload endpoint
+  if (url.startsWith('/api/media/upload') && req.method === 'POST') {
+    try {
+      const chunks: Buffer[] = [];
+      for await (const chunk of req) {
+        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+      }
+      const rawBody = Buffer.concat(chunks).toString('utf8');
+      const body = JSON.parse(rawBody);
+
+      const filename = body.filename || `upload-${Date.now()}.webp`;
+      const dataUrl = body.dataUrl || '';
+
+      if (!dataUrl) {
+        res.statusCode = 400;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'Missing image dataUrl' }));
+        return;
+      }
+
+      // Extract base64 part
+      const matches = dataUrl.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
+      const base64Data = matches ? matches[2] : dataUrl;
+      const fileBuffer = Buffer.from(base64Data, 'base64');
+
+      const uploadsDir = path.join(rootDir, 'public', 'uploads');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      const filePath = path.join(uploadsDir, filename);
+      fs.writeFileSync(filePath, fileBuffer);
+
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          success: true,
+          url: `/uploads/${filename}`,
+          name: filename,
+        })
+      );
+      return;
+    } catch (err: any) {
+      console.error('[Media Upload Error]', err);
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: err.message || 'Failed to save media asset' }));
+      return;
+    }
+  }
+
+  // Content publish endpoint
+  if (url.startsWith('/api/content/publish') && req.method === 'POST') {
+    try {
+      const chunks: Buffer[] = [];
+      for await (const chunk of req) {
+        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+      }
+      const rawBody = Buffer.concat(chunks).toString('utf8');
+      const body = JSON.parse(rawBody);
+
+      const slug = body.slug;
+      const isPage = Boolean(body.isPage);
+      const content = body.content || '';
+
+      if (!slug || !content) {
+        res.statusCode = 400;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'Missing slug or content' }));
+        return;
+      }
+
+      const targetDir = isPage
+        ? path.join(rootDir, 'src', 'content', 'pages')
+        : path.join(rootDir, 'src', 'content', 'posts');
+
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
+
+      const filePath = path.join(targetDir, `${slug}.md`);
+      fs.writeFileSync(filePath, content, 'utf8');
+
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          success: true,
+          filePath: isPage ? `src/content/pages/${slug}.md` : `src/content/posts/${slug}.md`,
+        })
+      );
+      return;
+    } catch (err: any) {
+      console.error('[Content Publish Error]', err);
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: err.message || 'Failed to write content file' }));
+      return;
+    }
+  }
+
+  res.statusCode = 404;
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify({ error: 'Not found' }));
+}
+

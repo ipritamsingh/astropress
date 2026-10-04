@@ -166,13 +166,34 @@ export async function processUploadedFile(
 
   const safeName = sanitizeFilename(optimization.filename, existingNames);
 
-  // Persist optimized dataUrl to IndexedDB
+  // Persist optimized dataUrl to IndexedDB for offline/instant access
   await persistMediaBlob(id, optimization.dataUrl);
+
+  // Upload asset to server /public/uploads directory
+  let finalUrl = optimization.dataUrl;
+  try {
+    const uploadRes = await fetch('/api/media/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename: safeName,
+        dataUrl: optimization.dataUrl,
+      }),
+    });
+    if (uploadRes.ok) {
+      const data = await uploadRes.json();
+      if (data.url) {
+        finalUrl = data.url;
+      }
+    }
+  } catch (err) {
+    console.warn('Server media upload unavailable, using blob storage', err);
+  }
 
   const mediaItem: MediaItem = {
     id,
     name: safeName,
-    url: optimization.dataUrl,
+    url: finalUrl,
     type: 'image',
     format: optimization.format,
     size: optimization.optimizedSizeFormatted,
