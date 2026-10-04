@@ -7,4 +7,8 @@ coverage/
 .env*
 !.env.example
 .astro/
+bun.lock
+bun.lockb
+pnpm-lock.yaml
+yarn.lock
 

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "prebuild": "node scripts/generate-manifest.cjs",
+    "build": "node scripts/generate-manifest.cjs && astro build",
     "preview": "astro preview",
     "check": "astro check",
     "clean": "rm -rf dist",
