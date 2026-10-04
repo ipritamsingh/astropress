@@ -12,6 +12,10 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },
+  "engines": {
+    "node": "22.19.0 || >=22.0.0",
+    "npm": ">=10.0.0"
+  },
   "dependencies": {
     "@astrojs/cloudflare": "^14.3.3",
     "@astrojs/react": "^7.0.0",
