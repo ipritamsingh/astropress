@@ -3,7 +3,7 @@ const path = require('path');
 
 const rootDir = path.resolve(__dirname, '..');
 
-const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', '.astro', 'build', 'coverage', '.cache']);
+const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', '.astro', 'build', 'coverage', '.cache', '.d1', '.wrangler']);
 const IGNORED_FILES = new Set([
   'src/data/projectFilesManifest.ts',
   '.DS_Store',

@@ -162,6 +162,77 @@ function clearSessionCookie(): string {
   return 'astropress_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
 }
 
+const D1_AUTH_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS admin_users (
+  id TEXT PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  email TEXT NOT NULL,
+  role TEXT NOT NULL CHECK(role IN ('primary_admin', 'backup_admin')),
+  password_hash TEXT NOT NULL,
+  password_salt TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+  lockout_until TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  last_login_at TEXT
+);
+CREATE TABLE IF NOT EXISTS admin_sessions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  token_hash TEXT UNIQUE NOT NULL,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  last_active_at TEXT NOT NULL,
+  ip_address TEXT,
+  user_agent TEXT,
+  FOREIGN KEY(user_id) REFERENCES admin_users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  token_hash TEXT UNIQUE NOT NULL,
+  expires_at TEXT NOT NULL,
+  used_at TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(user_id) REFERENCES admin_users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS recovery_codes (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  code_hash TEXT NOT NULL,
+  used_at TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(user_id) REFERENCES admin_users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS auth_audit_logs (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  action TEXT NOT NULL,
+  ip_address TEXT,
+  success INTEGER NOT NULL,
+  details TEXT,
+  timestamp TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON admin_sessions(token_hash);
+CREATE INDEX IF NOT EXISTS idx_tokens_hash ON password_reset_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_recovery_codes_user ON recovery_codes(user_id, code_hash);
+`;
+
+let isSchemaEnsured = false;
+
+async function ensureD1Schema(db: D1Database): Promise<void> {
+  if (isSchemaEnsured) return;
+  try {
+    if (typeof db.exec === 'function') {
+      await db.exec(D1_AUTH_SCHEMA_SQL);
+      isSchemaEnsured = true;
+    }
+  } catch (err: any) {
+    console.warn('[D1 Auth Engine] Automatic schema ensure note:', err?.message || err);
+  }
+}
+
 export const onRequest: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
@@ -192,6 +263,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   }
 
   try {
+    await ensureD1Schema(env.DB);
+
     // ------------------------------------------------------------------------
     // Route: GET /api/auth/status
     // ------------------------------------------------------------------------
@@ -951,6 +1024,20 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
     return jsonResponse({ error: 'Endpoint not found.' }, 404);
   } catch (err: any) {
+    if (err?.message && String(err.message).toLowerCase().includes('no such table')) {
+      try {
+        await ensureD1Schema(env.DB);
+        if (action === 'status' || action === '') {
+          return jsonResponse({
+            isInitialized: false,
+            isAuthenticated: false,
+            currentUser: null,
+            hasBackupAdmin: false,
+            remainingRecoveryCodesCount: 0,
+          });
+        }
+      } catch {}
+    }
     return jsonResponse({ error: err.message || 'Internal Server Error' }, 500);
   }
 };

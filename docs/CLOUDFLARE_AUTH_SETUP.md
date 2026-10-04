@@ -8,6 +8,7 @@ This document provides exact instructions to link your existing Cloudflare D1 da
 
 - **Database Name**: `astropress-db`
 - **Pages D1 Binding Name**: `DB`
+- **D1 Database ID**: `b5cd3acd-95fb-4bfe-b993-5f193a59976a`
 - **GitHub Repository**: `https://github.com/ipritamsingh/astropress`
 - **Branch**: `main`
 
@@ -37,11 +38,11 @@ You can bind the database through the **Cloudflare Dashboard** or `wrangler.toml
 4. Scroll down to **D1 Database Bindings** and click **Add binding**.
 5. Set:
    - **Variable name**: `DB`
-   - **D1 Database**: `astropress-db`
+   - **D1 Database**: `astropress-db` (ID: `b5cd3acd-95fb-4bfe-b993-5f193a59976a`)
 6. Click **Save**.
 
-### Option B: Via `wrangler.toml`
-The repository includes `wrangler.toml` configured with:
+### Option B: Via `wrangler.toml` (Already configured in repository)
+The repository includes `wrangler.toml` pre-configured with:
 ```toml
 name = "astropress"
 compatibility_date = "2026-10-01"
@@ -51,11 +52,7 @@ pages_build_output_dir = "dist"
 [[d1_databases]]
 binding = "DB"
 database_name = "astropress-db"
-database_id = "<YOUR_D1_DATABASE_ID>"
-```
-To find your `<YOUR_D1_DATABASE_ID>`, run:
-```bash
-npx wrangler d1 info astropress-db
+database_id = "b5cd3acd-95fb-4bfe-b993-5f193a59976a"
 ```
 
 ---
