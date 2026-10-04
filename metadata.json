@@ -1,0 +1,6 @@
+{
+  "name": "AstroPress — WordPress-Style Sveltia CMS Builder",
+  "description": "Production-ready WordPress-inspired headless CMS builder combining Sveltia CMS, Astro frontend architecture, Gutenberg-style block editor, theme customizer, GitHub backend, and Cloudflare Pages deployment.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

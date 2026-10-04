@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AstroPress — WordPress-Style Sveltia CMS Builder</title>
+    <meta name="description" content="Production-ready WordPress-inspired headless CMS builder combining Sveltia CMS, Astro frontend architecture, Gutenberg-style block editor, theme customizer, GitHub backend, and Cloudflare Pages deployment." />
+    <meta property="og:title" content="AstroPress — WordPress-Style Sveltia CMS Builder" />
+    <meta property="og:description" content="Production-ready WordPress-inspired headless CMS builder combining Sveltia CMS, Astro frontend architecture, Gutenberg-style block editor, theme customizer, GitHub backend, and Cloudflare Pages deployment." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+      (function() {
+        try {
+          // Fix for "Cannot set property fetch of #<Window> which has only a getter"
+          var nativeFetch = window.fetch;
+          var activeFetch = nativeFetch ? nativeFetch.bind(window) : undefined;
+
+          // Patch on Window.prototype if accessor has no setter
+          if (typeof Window !== 'undefined' && Window.prototype) {
+            var protoDesc = Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
+            if (protoDesc && !protoDesc.set && protoDesc.configurable) {
+              Object.defineProperty(Window.prototype, 'fetch', {
+                get: function() {
+                  return activeFetch;
+                },
+                set: function(fn) {
+                  activeFetch = typeof fn === 'function' ? fn : nativeFetch;
+                },
+                configurable: true,
+                enumerable: true
+              });
+            }
+          }
+
+          // Define own property on window with both getter and setter
+          Object.defineProperty(window, 'fetch', {
+            get: function() {
+              return activeFetch;
+            },
+            set: function(fn) {
+              activeFetch = typeof fn === 'function' ? fn : nativeFetch;
+            },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (e) {
+          // ignore
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

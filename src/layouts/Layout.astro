@@ -1,0 +1,84 @@
+---
+import '../index.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+}
+
+const {
+  title = "AstroPress — WordPress-Style Sveltia CMS Platform",
+  description = "Production-ready WordPress-inspired headless CMS builder combining Sveltia CMS, Astro frontend architecture, Gutenberg-style block editor, theme customizer, GitHub backend, and Cloudflare Pages deployment.",
+  ogImage = "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=80",
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    
+    <!-- Fetch & Sandbox compatibility guard -->
+    <script is:inline>
+      (function() {
+        try {
+          // Suppress Vite HMR / WebSocket send before connect warnings in sandboxed iframes
+          var origError = console.error;
+          console.error = function() {
+            var msg = arguments[0];
+            if (typeof msg === 'string' && (msg.includes('send was called before connect') || msg.includes('WebSocket') || msg.includes('vite:ws'))) {
+              return;
+            }
+            origError.apply(console, arguments);
+          };
+          var origWarn = console.warn;
+          console.warn = function() {
+            var msg = arguments[0];
+            if (typeof msg === 'string' && (msg.includes('send was called before connect') || msg.includes('WebSocket') || msg.includes('vite:ws'))) {
+              return;
+            }
+            origWarn.apply(console, arguments);
+          };
+
+          var nativeFetch = window.fetch;
+          var activeFetch = nativeFetch ? nativeFetch.bind(window) : undefined;
+          if (typeof Window !== 'undefined' && Window.prototype) {
+            var protoDesc = Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
+            if (protoDesc && !protoDesc.set && protoDesc.configurable) {
+              Object.defineProperty(Window.prototype, 'fetch', {
+                get: function() { return activeFetch; },
+                set: function(fn) { activeFetch = typeof fn === 'function' ? fn : nativeFetch; },
+                configurable: true,
+                enumerable: true
+              });
+            }
+          }
+          Object.defineProperty(window, 'fetch', {
+            get: function() { return activeFetch; },
+            set: function(fn) { activeFetch = typeof fn === 'function' ? fn : nativeFetch; },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body class="min-h-screen bg-slate-50 text-slate-800 antialiased font-sans">
+    <slot />
+  </body>
+</html>

@@ -1,0 +1,19 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import App from '../../App';
+import { getCollection } from 'astro:content';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('posts');
+  return posts.map((post) => ({
+    params: { slug: post.data.slug || post.id.replace(/\.md$/, '') },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+---
+
+<Layout title={`${post.data.title} — AstroPress`} description={post.data.excerpt}>
+  <App client:only="react" />
+</Layout>

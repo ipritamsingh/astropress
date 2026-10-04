@@ -1,0 +1,504 @@
+import { useState, useEffect } from 'react';
+import {
+  Post,
+  Page,
+  Category,
+  Tag,
+  Author,
+  MediaItem,
+  Comment,
+  Menu,
+  HomepageSection,
+  ThemeSettings,
+  DeploymentSettings,
+  GitCommitRecord,
+  TemplateConfig,
+  SiteSettings,
+  HeroSectionConfig,
+} from '../types/cms';
+import {
+  initialPosts,
+  initialPages,
+  initialCategories,
+  initialTags,
+  initialAuthors,
+  initialMedia,
+  initialComments,
+  initialMenus,
+  initialHomepageSections,
+  initialThemeSettings,
+  initialDeploymentSettings,
+  initialCommitHistory,
+  initialTemplates,
+  initialSiteSettings,
+  initialHeroConfig,
+} from './initialData';
+
+export interface CMSDataState {
+  posts: Post[];
+  pages: Page[];
+  categories: Category[];
+  tags: Tag[];
+  authors: Author[];
+  media: MediaItem[];
+  comments: Comment[];
+  menus: Menu[];
+  homepageSections: HomepageSection[];
+  heroConfig: HeroSectionConfig;
+  themeSettings: ThemeSettings;
+  templates: TemplateConfig[];
+  siteSettings: SiteSettings;
+  deploymentSettings: DeploymentSettings;
+  commitHistory: GitCommitRecord[];
+}
+
+const STORAGE_KEY = 'astropress_cms_state_v3';
+const UPDATE_EVENT = 'astropress_state_updated';
+
+function loadStoredData(): CMSDataState {
+  if (typeof window === 'undefined') {
+    return {
+      posts: initialPosts,
+      pages: initialPages,
+      categories: initialCategories,
+      tags: initialTags,
+      authors: initialAuthors,
+      media: initialMedia,
+      comments: initialComments,
+      menus: initialMenus,
+      homepageSections: initialHomepageSections,
+      heroConfig: initialHeroConfig,
+      themeSettings: initialThemeSettings,
+      templates: initialTemplates,
+      siteSettings: initialSiteSettings,
+      deploymentSettings: initialDeploymentSettings,
+      commitHistory: initialCommitHistory,
+    };
+  }
+
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      const initial: CMSDataState = {
+        posts: initialPosts,
+        pages: initialPages,
+        categories: initialCategories,
+        tags: initialTags,
+        authors: initialAuthors,
+        media: initialMedia,
+        comments: initialComments,
+        menus: initialMenus,
+        homepageSections: initialHomepageSections,
+        heroConfig: initialHeroConfig,
+        themeSettings: initialThemeSettings,
+        templates: initialTemplates,
+        siteSettings: initialSiteSettings,
+        deploymentSettings: initialDeploymentSettings,
+        commitHistory: initialCommitHistory,
+      };
+      saveStoredData(initial);
+      return initial;
+    }
+    const parsed = JSON.parse(raw);
+    return {
+      posts: parsed.posts || initialPosts,
+      pages: parsed.pages || initialPages,
+      categories: parsed.categories || initialCategories,
+      tags: parsed.tags || initialTags,
+      authors: parsed.authors || initialAuthors,
+      media: parsed.media || initialMedia,
+      comments: parsed.comments || initialComments,
+      menus: parsed.menus || initialMenus,
+      homepageSections: parsed.homepageSections || initialHomepageSections,
+      heroConfig: parsed.heroConfig || initialHeroConfig,
+      themeSettings: parsed.themeSettings || initialThemeSettings,
+      templates: parsed.templates || initialTemplates,
+      siteSettings: parsed.siteSettings || initialSiteSettings,
+      deploymentSettings: parsed.deploymentSettings || initialDeploymentSettings,
+      commitHistory: parsed.commitHistory || initialCommitHistory,
+    };
+  } catch (err) {
+    console.error('Failed to parse CMS storage', err);
+    return {
+      posts: initialPosts,
+      pages: initialPages,
+      categories: initialCategories,
+      tags: initialTags,
+      authors: initialAuthors,
+      media: initialMedia,
+      comments: initialComments,
+      menus: initialMenus,
+      homepageSections: initialHomepageSections,
+      heroConfig: initialHeroConfig,
+      themeSettings: initialThemeSettings,
+      templates: initialTemplates,
+      siteSettings: initialSiteSettings,
+      deploymentSettings: initialDeploymentSettings,
+      commitHistory: initialCommitHistory,
+    };
+  }
+}
+
+export function saveStoredData(data: CMSDataState) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    window.dispatchEvent(new CustomEvent(UPDATE_EVENT, { detail: data }));
+  } catch (err) {
+    console.error('Failed to save CMS state to localStorage', err);
+  }
+}
+
+export function useCMS() {
+  const [data, setData] = useState<CMSDataState>(loadStoredData);
+
+  useEffect(() => {
+    const handleUpdate = (e: any) => {
+      if (e.detail) {
+        setData(e.detail);
+      }
+    };
+    window.addEventListener(UPDATE_EVENT, handleUpdate);
+    return () => window.removeEventListener(UPDATE_EVENT, handleUpdate);
+  }, []);
+
+  const recordCommit = (message: string) => {
+    const newRecord: GitCommitRecord = {
+      id: 'c-' + Date.now().toString(36),
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
+      message,
+      author: 'Amit Singh <amitsinghpritam@gmail.com>',
+      branch: 'main',
+      status: 'synced',
+    };
+    const updated = {
+      ...data,
+      commitHistory: [newRecord, ...data.commitHistory.slice(0, 19)],
+    };
+    saveStoredData(updated);
+    setData(updated);
+  };
+
+  // POSTS
+  const savePost = (post: Post, isPublishAction = false) => {
+    const exists = data.posts.some((p) => p.id === post.id);
+    let newPosts: Post[];
+    if (exists) {
+      newPosts = data.posts.map((p) => (p.id === post.id ? post : p));
+    } else {
+      newPosts = [post, ...data.posts];
+    }
+    const updated = { ...data, posts: newPosts };
+    saveStoredData(updated);
+    setData(updated);
+
+    // Only generate a production Git commit and Cloudflare deployment trigger when explicitly publishing
+    if (isPublishAction || post.status === 'published') {
+      recordCommit(`feat(post): publish article "${post.title}" [/posts/${post.slug}]`);
+    }
+  };
+
+  const deletePost = (id: string) => {
+    const target = data.posts.find((p) => p.id === id);
+    const updated = {
+      ...data,
+      posts: data.posts.filter((p) => p.id !== id),
+    };
+    saveStoredData(updated);
+    setData(updated);
+    if (target && target.status === 'published') {
+      recordCommit(`chore(post): remove article "${target.title}"`);
+    }
+  };
+
+  const duplicatePost = (id: string) => {
+    const target = data.posts.find((p) => p.id === id);
+    if (!target) return;
+    const duplicated: Post = {
+      ...target,
+      id: 'post-' + Date.now(),
+      title: `${target.title} (Draft Copy)`,
+      slug: `${target.slug}-copy-${Math.floor(Math.random() * 1000)}`,
+      status: 'draft',
+      pubDate: new Date().toISOString(),
+      views: 0,
+    };
+    const updated = { ...data, posts: [duplicated, ...data.posts] };
+    saveStoredData(updated);
+    setData(updated);
+  };
+
+  // PAGES
+  const savePage = (page: Page, isPublishAction = false) => {
+    const exists = data.pages.some((p) => p.id === page.id);
+    let newPages: Page[];
+    if (exists) {
+      newPages = data.pages.map((p) => (p.id === page.id ? page : p));
+    } else {
+      newPages = [...data.pages, page];
+    }
+    const updated = { ...data, pages: newPages };
+    saveStoredData(updated);
+    setData(updated);
+
+    if (isPublishAction || page.status === 'published') {
+      recordCommit(`feat(page): publish static page "${page.title}" [/${page.slug}]`);
+    }
+  };
+
+  const deletePage = (id: string) => {
+    const target = data.pages.find((p) => p.id === id);
+    const updated = {
+      ...data,
+      pages: data.pages.filter((p) => p.id !== id),
+    };
+    saveStoredData(updated);
+    setData(updated);
+    if (target && target.status === 'published') {
+      recordCommit(`chore(page): remove static page "${target.title}"`);
+    }
+  };
+
+  // CATEGORIES
+  const saveCategory = (category: Category) => {
+    const exists = data.categories.some((c) => c.id === category.id);
+    let newCats: Category[];
+    if (exists) {
+      newCats = data.categories.map((c) => (c.id === category.id ? category : c));
+    } else {
+      newCats = [...data.categories, category];
+    }
+    const updated = { ...data, categories: newCats };
+    saveStoredData(updated);
+    setData(updated);
+    recordCommit(`feat(category): ${exists ? 'update' : 'add'} taxonomy "${category.name}"`);
+  };
+
+  const deleteCategory = (id: string) => {
+    const target = data.categories.find((c) => c.id === id);
+    const updated = {
+      ...data,
+      categories: data.categories.filter((c) => c.id !== id),
+    };
+    saveStoredData(updated);
+    setData(updated);
+    if (target) {
+      recordCommit(`chore(category): remove taxonomy "${target.name}"`);
+    }
+  };
+
+  // TAGS
+  const saveTag = (tag: Tag) => {
+    const exists = data.tags.some((t) => t.id === tag.id);
+    let newTags: Tag[];
+    if (exists) {
+      newTags = data.tags.map((t) => (t.id === tag.id ? tag : t));
+    } else {
+      newTags = [...data.tags, tag];
+    }
+    const updated = { ...data, tags: newTags };
+    saveStoredData(updated);
+    setData(updated);
+    recordCommit(`feat(tag): ${exists ? 'update' : 'add'} tag "${tag.name}"`);
+  };
+
+  const deleteTag = (id: string) => {
+    const target = data.tags.find((t) => t.id === id);
+    const updated = {
+      ...data,
+      tags: data.tags.filter((t) => t.id !== id),
+    };
+    saveStoredData(updated);
+    setData(updated);
+    if (target) {
+      recordCommit(`chore(tag): remove tag "${target.name}"`);
+    }
+  };
+
+  // MEDIA
+  const addMediaItem = (item: MediaItem) => {
+    const updated = { ...data, media: [item, ...data.media] };
+    saveStoredData(updated);
+    setData(updated);
+    recordCommit(`feat(media): upload media asset "${item.name}"`);
+  };
+
+  const updateMediaItem = (id: string, updates: Partial<MediaItem>) => {
+    const updated = {
+      ...data,
+      media: data.media.map((m) => (m.id === id ? { ...m, ...updates } : m)),
+    };
+    saveStoredData(updated);
+    setData(updated);
+  };
+
+  const deleteMediaItem = (id: string) => {
+    const item = data.media.find((m) => m.id === id);
+    const updated = { ...data, media: data.media.filter((m) => m.id !== id) };
+    saveStoredData(updated);
+    setData(updated);
+    if (item) {
+      recordCommit(`chore(media): remove asset "${item.name}"`);
+    }
+  };
+
+  // COMMENTS
+  const updateCommentStatus = (id: string, status: Comment['status']) => {
+    const updated = {
+      ...data,
+      comments: data.comments.map((c) => (c.id === id ? { ...c, status } : c)),
+    };
+    saveStoredData(updated);
+    setData(updated);
+  };
+
+  const addComment = (comment: Comment) => {
+    const updated = { ...data, comments: [comment, ...data.comments] };
+    saveStoredData(updated);
+    setData(updated);
+  };
+
+  const addCommentReply = (commentId: string, replyText: string, authorName = 'Amit Singh (Admin)') => {
+    const updated = {
+      ...data,
+      comments: data.comments.map((c) => {
+        if (c.id === commentId) {
+          const newReplies = [
+            ...(c.replies || []),
+            {
+              id: 'rep-' + Date.now(),
+              authorName,
+              content: replyText,
+              date: new Date().toISOString(),
+            },
+          ];
+          return { ...c, replies: newReplies };
+        }
+        return c;
+      }),
+    };
+    saveStoredData(updated);
+    setData(updated);
+  };
+
+  // THEME SETTINGS
+  const updateThemeSettings = (newSettings: Partial<ThemeSettings>) => {
+    const updatedSettings = { ...data.themeSettings, ...newSettings };
+    const updated = { ...data, themeSettings: updatedSettings };
+    saveStoredData(updated);
+    setData(updated);
+    recordCommit('style: update website theme and customizer preferences');
+  };
+
+  // SITE SETTINGS
+  const updateSiteSettings = (newSettings: Partial<SiteSettings>) => {
+    const updatedSiteSettings = { ...data.siteSettings, ...newSettings };
+    const updated = { ...data, siteSettings: updatedSiteSettings };
+    saveStoredData(updated);
+    setData(updated);
+    recordCommit('config(site): update global site metadata and permalink structure');
+  };
+
+  // TEMPLATES
+  const updateTemplate = (id: string, updates: Partial<TemplateConfig>) => {
+    const updatedTemplates = data.templates.map((t) => (t.id === id ? { ...t, ...updates } : t));
+    const updated = { ...data, templates: updatedTemplates };
+    saveStoredData(updated);
+    setData(updated);
+    recordCommit(`style(template): update template layout config for "${id}"`);
+  };
+
+  const updateTemplates = (templates: TemplateConfig[]) => {
+    const updated = { ...data, templates };
+    saveStoredData(updated);
+    setData(updated);
+    recordCommit('style(template): update site-wide template layouts');
+  };
+
+  // HOMEPAGE SECTIONS
+  const updateHomepageSections = (sections: HomepageSection[]) => {
+    const updated = { ...data, homepageSections: sections };
+    saveStoredData(updated);
+    setData(updated);
+    recordCommit('feat(homepage): reorder and configure homepage builder sections');
+  };
+
+  // MENUS
+  const updateMenus = (menus: Menu[]) => {
+    const updated = { ...data, menus };
+    saveStoredData(updated);
+    setData(updated);
+    recordCommit('feat(navigation): update navigation menu hierarchy');
+  };
+
+  // DEPLOYMENT SETTINGS
+  const updateDeploymentSettings = (settings: Partial<DeploymentSettings>) => {
+    const updatedSettings = { ...data.deploymentSettings, ...settings };
+    const updated = { ...data, deploymentSettings: updatedSettings };
+    saveStoredData(updated);
+    setData(updated);
+    recordCommit('ci(cloudflare): update GitHub and Cloudflare deployment parameters');
+  };
+
+  // HERO SECTION CONFIG
+  const updateHeroConfig = (config: Partial<HeroSectionConfig>, isPublishAction = false) => {
+    const updatedHero = { ...data.heroConfig, ...config };
+    const updated = { ...data, heroConfig: updatedHero };
+    saveStoredData(updated);
+    setData(updated);
+    if (isPublishAction) {
+      recordCommit('feat(hero): customize homepage hero visual layout and content');
+    }
+  };
+
+  const resetToFactoryDefaults = () => {
+    const clean: CMSDataState = {
+      posts: initialPosts,
+      pages: initialPages,
+      categories: initialCategories,
+      tags: initialTags,
+      authors: initialAuthors,
+      media: initialMedia,
+      comments: initialComments,
+      menus: initialMenus,
+      homepageSections: initialHomepageSections,
+      heroConfig: initialHeroConfig,
+      themeSettings: initialThemeSettings,
+      templates: initialTemplates,
+      siteSettings: initialSiteSettings,
+      deploymentSettings: initialDeploymentSettings,
+      commitHistory: initialCommitHistory,
+    };
+    saveStoredData(clean);
+    setData(clean);
+  };
+
+  return {
+    ...data,
+    savePost,
+    deletePost,
+    duplicatePost,
+    savePage,
+    deletePage,
+    saveCategory,
+    deleteCategory,
+    saveTag,
+    deleteTag,
+    addMediaItem,
+    updateMediaItem,
+    deleteMediaItem,
+    updateCommentStatus,
+    addComment,
+    addCommentReply,
+    updateHeroConfig,
+    updateThemeSettings,
+    updateSiteSettings,
+    updateTemplate,
+    updateTemplates,
+    updateHomepageSections,
+    updateMenus,
+    updateDeploymentSettings,
+    recordCommit,
+    resetToFactoryDefaults,
+  };
+}

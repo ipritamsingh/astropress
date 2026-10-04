@@ -1,0 +1,218 @@
+# Sveltia CMS Configuration for AstroPress
+# Compatible with Sveltia CMS, Decap CMS, GitHub Backend & Cloudflare Pages
+
+backend:
+  name: github
+  repo: your-username/astropress-cms # Configurable in Admin Tools
+  branch: main
+  auth_endpoint: https://sveltia-authenticator.your-subdomain.workers.dev/auth
+  # Enable local backend proxy for offline / testing development
+  local_backend: true
+
+# Media storage configuration
+media_folder: "public/uploads"
+public_folder: "/uploads"
+
+# Display site URL in CMS
+site_url: "https://your-astropress-site.pages.dev"
+display_url: "https://your-astropress-site.pages.dev"
+logo_url: "/favicon.svg"
+
+# Editorial workflow (drafts, review, ready for publish)
+publish_mode: editorial_workflow
+
+collections:
+  # ==========================================
+  # BLOG POSTS COLLECTION (WordPress Posts)
+  # ==========================================
+  - name: "posts"
+    label: "Posts"
+    label_singular: "Post"
+    description: "Create and manage articles, blog posts, and news stories"
+    folder: "src/content/posts"
+    create: true
+    slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
+    format: "frontmatter"
+    extension: "md"
+    summary: "{{title}} ({{pubDate | date('YYYY-MM-DD')}}) - [{{status}}]"
+    sortable_fields: ["pubDate", "title", "updatedDate"]
+    view_filters:
+      - label: "Drafts"
+        field: "draft"
+        pattern: true
+      - label: "Published"
+        field: "draft"
+        pattern: false
+    view_groups:
+      - label: "Category"
+        field: "category"
+    fields:
+      - { label: "Title", name: "title", widget: "string", required: true }
+      - { label: "Slug", name: "slug", widget: "string", required: true, hint: "URL-friendly post identifier" }
+      - { label: "Publication Date", name: "pubDate", widget: "datetime", format: "YYYY-MM-DDTHH:mm:ssZ", date_format: "YYYY-MM-DD", time_format: "HH:mm" }
+      - { label: "Updated Date", name: "updatedDate", widget: "datetime", required: false }
+      - { label: "Draft Status", name: "draft", widget: "boolean", default: false, hint: "Check to keep as draft without public indexing" }
+      - { label: "Author", name: "author", widget: "relation", collection: "authors", search_fields: ["name"], value_field: "name", display_fields: ["name"], default: "Amit Singh" }
+      - { label: "Category", name: "category", widget: "relation", collection: "categories", search_fields: ["name"], value_field: "name", display_fields: ["name"], default: "Technology" }
+      - { label: "Tags", name: "tags", widget: "list", default: ["Astro", "CMS", "Web Development"] }
+      - { label: "Featured Image", name: "featuredImage", widget: "image", required: false, hint: "Primary hero image for cards and social previews" }
+      - { label: "Excerpt / Summary", name: "excerpt", widget: "text", required: true, hint: "Short summary used in search and archive previews" }
+      - { label: "Reading Time (Minutes)", name: "readingTime", widget: "number", value_type: "int", default: 5 }
+      - { label: "Post Template", name: "template", widget: "select", options: ["standard", "cover-hero", "minimal-editorial", "sidebar-right"], default: "standard" }
+      - { label: "Body Content (Markdown / HTML)", name: "body", widget: "markdown" }
+      
+      # Gutenberg Block Data (Structured JSON Representation)
+      - label: "Gutenberg Blocks"
+        name: "blocks"
+        widget: "list"
+        required: false
+        fields:
+          - { label: "Block ID", name: "id", widget: "string" }
+          - { label: "Block Type", name: "type", widget: "select", options: ["heading", "paragraph", "quote", "code", "image", "gallery", "columns", "button", "accordion", "author-box", "alert", "divider"] }
+          - { label: "Content", name: "content", widget: "text" }
+          - { label: "Settings JSON", name: "settings", widget: "text", required: false }
+
+      # SEO & Social Graph Settings
+      - label: "SEO & Social Sharing"
+        name: "seo"
+        widget: "object"
+        collapsed: true
+        fields:
+          - { label: "Meta Title", name: "metaTitle", widget: "string", required: false }
+          - { label: "Meta Description", name: "metaDescription", widget: "text", required: false }
+          - { label: "Focus Keyword", name: "focusKeyword", widget: "string", required: false }
+          - { label: "Canonical URL", name: "canonicalUrl", widget: "string", required: false }
+          - { label: "Robots Index", name: "robotsIndex", widget: "boolean", default: true }
+          - { label: "Robots Follow", name: "robotsFollow", widget: "boolean", default: true }
+          - { label: "OG Share Image", name: "ogImage", widget: "image", required: false }
+
+  # ==========================================
+  # PAGES COLLECTION (WordPress Pages)
+  # ==========================================
+  - name: "pages"
+    label: "Pages"
+    label_singular: "Page"
+    description: "Manage standalone pages (About, Contact, Privacy Policy, Terms, Custom Landing Pages)"
+    folder: "src/content/pages"
+    create: true
+    slug: "{{slug}}"
+    format: "frontmatter"
+    extension: "md"
+    fields:
+      - { label: "Page Title", name: "title", widget: "string", required: true }
+      - { label: "Slug", name: "slug", widget: "string", required: true }
+      - { label: "Draft Status", name: "draft", widget: "boolean", default: false }
+      - { label: "Page Template", name: "template", widget: "select", options: ["default", "full-width", "contact", "about", "landing"], default: "default" }
+      - { label: "Parent Page", name: "parent", widget: "string", required: false }
+      - { label: "Featured Image", name: "featuredImage", widget: "image", required: false }
+      - { label: "Page Content", name: "body", widget: "markdown" }
+      - label: "SEO"
+        name: "seo"
+        widget: "object"
+        collapsed: true
+        fields:
+          - { label: "Meta Title", name: "metaTitle", widget: "string", required: false }
+          - { label: "Meta Description", name: "metaDescription", widget: "text", required: false }
+          - { label: "Canonical URL", name: "canonicalUrl", widget: "string", required: false }
+
+  # ==========================================
+  # CATEGORIES COLLECTION
+  # ==========================================
+  - name: "categories"
+    label: "Categories"
+    label_singular: "Category"
+    folder: "src/content/categories"
+    create: true
+    slug: "{{slug}}"
+    format: "json"
+    extension: "json"
+    fields:
+      - { label: "Category Name", name: "name", widget: "string", required: true }
+      - { label: "Slug", name: "slug", widget: "string", required: true }
+      - { label: "Description", name: "description", widget: "text", required: false }
+      - { label: "Color Badge", name: "color", widget: "string", default: "#3b82f6" }
+
+  # ==========================================
+  # TAGS COLLECTION
+  # ==========================================
+  - name: "tags"
+    label: "Tags"
+    label_singular: "Tag"
+    folder: "src/content/tags"
+    create: true
+    slug: "{{slug}}"
+    format: "json"
+    extension: "json"
+    fields:
+      - { label: "Tag Name", name: "name", widget: "string", required: true }
+      - { label: "Slug", name: "slug", widget: "string", required: true }
+
+  # ==========================================
+  # AUTHORS COLLECTION
+  # ==========================================
+  - name: "authors"
+    label: "Authors"
+    label_singular: "Author"
+    folder: "src/content/authors"
+    create: true
+    slug: "{{slug}}"
+    format: "json"
+    extension: "json"
+    fields:
+      - { label: "Name", name: "name", widget: "string", required: true }
+      - { label: "Slug", name: "slug", widget: "string", required: true }
+      - { label: "Email", name: "email", widget: "string", required: false }
+      - { label: "Role / Title", name: "role", widget: "string", default: "Editor-in-Chief" }
+      - { label: "Avatar Image", name: "avatar", widget: "image", required: false }
+      - { label: "Bio", name: "bio", widget: "text" }
+      - { label: "Twitter / X Handle", name: "twitter", widget: "string", required: false }
+      - { label: "GitHub Profile", name: "github", widget: "string", required: false }
+
+  # ==========================================
+  # GLOBAL SETTINGS (Theme, Header, Footer, SEO, Menus)
+  # ==========================================
+  - name: "settings"
+    label: "Website Settings & Customizer"
+    delete: false
+    files:
+      - name: "theme"
+        label: "Theme & Styling"
+        file: "src/content/settings/theme.json"
+        fields:
+          - { label: "Site Name", name: "siteName", widget: "string", default: "AstroPress" }
+          - { label: "Tagline", name: "tagline", widget: "string", default: "The Modern Astro + Sveltia Headless CMS" }
+          - { label: "Primary Brand Color", name: "primaryColor", widget: "color", default: "#2563eb" }
+          - { label: "Accent Color", name: "accentColor", widget: "color", default: "#f59e0b" }
+          - { label: "Border Radius Style", name: "borderRadius", widget: "select", options: ["none", "sm", "md", "lg", "full"], default: "md" }
+          - { label: "Typography Heading Font", name: "headingFont", widget: "select", options: ["Plus Jakarta Sans", "Source Serif 4", "System UI", "JetBrains Mono"], default: "Plus Jakarta Sans" }
+          - { label: "Body Font", name: "bodyFont", widget: "select", options: ["Plus Jakarta Sans", "Source Serif 4", "System UI"], default: "Plus Jakarta Sans" }
+          - { label: "Dark Mode Default", name: "darkMode", widget: "boolean", default: false }
+
+      - name: "header"
+        label: "Header Builder"
+        file: "src/content/settings/header.json"
+        fields:
+          - { label: "Header Layout", name: "layout", widget: "select", options: ["standard", "centered", "split"], default: "standard" }
+          - { label: "Sticky Navigation", name: "sticky", widget: "boolean", default: true }
+          - { label: "Show Search Icon", name: "showSearch", widget: "boolean", default: true }
+          - { label: "Show CTA Button", name: "showCta", widget: "boolean", default: true }
+          - { label: "CTA Button Text", name: "ctaText", widget: "string", default: "Get Started" }
+          - { label: "CTA Button URL", name: "ctaUrl", widget: "string", default: "/contact" }
+
+      - name: "footer"
+        label: "Footer Builder"
+        file: "src/content/settings/footer.json"
+        fields:
+          - { label: "Footer Columns", name: "columns", widget: "number", value_type: "int", min: 1, max: 4, default: 4 }
+          - { label: "Copyright Text", name: "copyright", widget: "string", default: "© 2026 AstroPress CMS. Built with Astro, Sveltia CMS & Cloudflare." }
+          - { label: "Show Newsletter", name: "showNewsletter", widget: "boolean", default: true }
+          - { label: "Newsletter Heading", name: "newsletterTitle", widget: "string", default: "Subscribe to our Weekly Dispatch" }
+
+      - name: "seo_defaults"
+        label: "Global SEO Defaults"
+        file: "src/content/settings/seo.json"
+        fields:
+          - { label: "Default Meta Title", name: "defaultTitle", widget: "string", default: "AstroPress — Modern CMS for Astro" }
+          - { label: "Default Description", name: "defaultDescription", widget: "text", default: "High performance headless publishing platform powered by Astro and Sveltia CMS." }
+          - { label: "Twitter Username", name: "twitterHandle", widget: "string", default: "@astropress" }
+          - { label: "Default OG Image", name: "defaultOgImage", widget: "image" }
