@@ -55,8 +55,9 @@ const {
             origWarn.apply(console, arguments);
           };
 
+          // Guard against "Cannot set property fetch of #<Window> which has only a getter"
           var nativeFetch = window.fetch;
-          var activeFetch = nativeFetch ? nativeFetch.bind(window) : undefined;
+          var activeFetch = nativeFetch ? function() { return nativeFetch.apply(window, arguments); } : undefined;
           if (typeof Window !== 'undefined' && Window.prototype) {
             var protoDesc = Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
             if (protoDesc && !protoDesc.set && protoDesc.configurable) {
