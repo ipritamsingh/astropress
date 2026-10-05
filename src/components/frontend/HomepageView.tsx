@@ -164,7 +164,10 @@ export const HomepageView: React.FC<Props> = ({
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                   {categories.map((cat) => {
-                    const count = publishedPosts.filter((p) => p.category === cat.name).length;
+                    const count = publishedPosts.filter((p) => {
+                      const pCat = (p.category || '').trim().toLowerCase();
+                      return pCat === (cat.name || '').trim().toLowerCase() || pCat === (cat.slug || '').trim().toLowerCase() || pCat === cat.id;
+                    }).length;
                     return (
                       <div
                         key={cat.id}

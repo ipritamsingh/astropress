@@ -45,6 +45,25 @@ export async function persistMediaBlob(id: string, blobOrDataUrl: Blob | string)
 }
 
 /**
+ * Retrieve all persisted media items from IndexedDB
+ */
+export async function getAllPersistedMediaBlobs(): Promise<Array<{ id: string; data: Blob | string }>> {
+  try {
+    const db = await openDatabase();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn('Could not retrieve all from IndexedDB:', err);
+    return [];
+  }
+}
+
+/**
  * Retrieve binary Blob or Data URL from IndexedDB
  */
 export async function getPersistedMediaBlob(id: string): Promise<Blob | string | null> {

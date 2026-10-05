@@ -143,10 +143,19 @@ function sanitizeDataForLocalStorage(data: CMSDataState): CMSDataState {
   // Deep clone to avoid mutating live in-memory state
   const cleanData: CMSDataState = JSON.parse(JSON.stringify(data));
 
+  // Build a lookup map of media item URLs/names
+  const mediaByUrl = new Map<string, string>();
+  cleanData.media.forEach((m) => {
+    if (m.name) {
+      if (m.url) mediaByUrl.set(m.url, `/uploads/${m.name}`);
+      if (m.originalUrl) mediaByUrl.set(m.originalUrl, `/uploads/${m.name}`);
+    }
+  });
+
   // Sanitize media items with huge dataUrls if present
   cleanData.media = cleanData.media.map((m) => {
     if (m.url && m.url.startsWith('data:') && m.url.length > 50000) {
-      return { ...m, url: m.originalUrl || `/uploads/${m.name}` };
+      return { ...m, url: `/uploads/${m.name}` };
     }
     return m;
   });
@@ -155,16 +164,33 @@ function sanitizeDataForLocalStorage(data: CMSDataState): CMSDataState {
   cleanData.posts = cleanData.posts.map((p) => {
     let cleanFeatured = p.featuredImage;
     if (cleanFeatured && cleanFeatured.startsWith('data:') && cleanFeatured.length > 50000) {
-      cleanFeatured = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=80';
+      const foundUrl = mediaByUrl.get(cleanFeatured);
+      if (foundUrl) {
+        cleanFeatured = foundUrl;
+      } else {
+        cleanFeatured = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=80';
+      }
     }
     const cleanBlocks = (p.blocks || []).map((b) => {
       let cleanContent = b.content;
-      if (cleanContent && cleanContent.startsWith('data:') && cleanContent.length > 50000) {
-        cleanContent = b.settings?.imageUrl || '/uploads/image.webp';
-      }
       const cleanSettings = { ...b.settings };
+
+      if (cleanContent && cleanContent.startsWith('data:') && cleanContent.length > 50000) {
+        const foundUrl = mediaByUrl.get(cleanContent);
+        if (foundUrl) {
+          cleanContent = foundUrl;
+        } else if (cleanSettings.imageUrl && !cleanSettings.imageUrl.startsWith('data:')) {
+          cleanContent = cleanSettings.imageUrl;
+        }
+      }
+
       if (cleanSettings.imageUrl && cleanSettings.imageUrl.startsWith('data:') && cleanSettings.imageUrl.length > 50000) {
-        cleanSettings.imageUrl = '/uploads/image.webp';
+        const foundUrl = mediaByUrl.get(cleanSettings.imageUrl);
+        if (foundUrl) {
+          cleanSettings.imageUrl = foundUrl;
+        } else if (cleanContent && !cleanContent.startsWith('data:')) {
+          cleanSettings.imageUrl = cleanContent;
+        }
       }
       return { ...b, content: cleanContent, settings: cleanSettings };
     });

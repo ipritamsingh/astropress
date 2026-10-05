@@ -11,6 +11,7 @@ import {
   Menu,
 } from '../types/cms';
 import { projectFilesManifest } from './projectFilesManifest';
+import { getAllPersistedMediaBlobs } from './mediaStorage';
 
 export interface PublishResult {
   success: boolean;
@@ -395,6 +396,13 @@ export async function executeRealGitHubPublish(
         // Non-blocking
       }
 
+      // Sync referenced images to public/uploads/ in repo and locally
+      try {
+        await syncReferencedImageAssets(item, markdownWithFrontmatter, cleanToken, owner, repoName, branch, deploymentSettings);
+      } catch (e) {
+        console.warn('Asset sync warning:', e);
+      }
+
       return {
         success: true,
         commit: newRecord,
@@ -429,6 +437,13 @@ export async function executeRealGitHubPublish(
     });
   } catch (e) {
     // Non-blocking in production static builds
+  }
+
+  // Sync referenced image assets locally and to repo
+  try {
+    await syncReferencedImageAssets(item, markdownWithFrontmatter, token, owner, repoName, branch, deploymentSettings);
+  } catch (e) {
+    console.warn('Fallback asset sync warning:', e);
   }
 
   // Fallback: If no PAT configured, record in local Git audit log with notification to configure token
@@ -960,4 +975,142 @@ ${page.body || ''}`;
       ? `Successfully synchronized all ${totalPushed} project files to GitHub!`
       : `Pushed ${totalPushed}/${allFilePaths.length} files. ${failedFiles.length} file(s) failed.`,
   };
+}
+
+/**
+ * Helper to upload image assets referenced in a post to GitHub and local public/uploads directory
+ */
+export async function syncReferencedImageAssets(
+  item: any,
+  markdownText: string,
+  token?: string,
+  owner?: string,
+  repoName?: string,
+  branch: string = 'main',
+  deploymentSettings?: DeploymentSettings
+): Promise<void> {
+  const referencedUrls = new Set<string>();
+
+  // Extract from item featuredImage and blocks
+  if (item.featuredImage) referencedUrls.add(item.featuredImage);
+  if (Array.isArray(item.blocks)) {
+    item.blocks.forEach((b: any) => {
+      if (b.content && typeof b.content === 'string') {
+        const matches = b.content.match(/\/(uploads\/[^\s"')]+)/g);
+        if (matches) matches.forEach((m: string) => referencedUrls.add(m));
+        if (b.content.startsWith('/uploads/') || b.content.startsWith('data:')) referencedUrls.add(b.content);
+      }
+      if (b.settings?.imageUrl) {
+        referencedUrls.add(b.settings.imageUrl);
+      }
+    });
+  }
+
+  // Extract /uploads/... paths from markdown text
+  const mdMatches = markdownText.match(/\/uploads\/[A-Za-z0-9_.-]+/g);
+  if (mdMatches) {
+    mdMatches.forEach((m) => referencedUrls.add(m));
+  }
+
+  // Get persisted media blobs from IndexedDB
+  const storedBlobs = await getAllPersistedMediaBlobs().catch(() => []);
+
+  for (const rawUrl of Array.from(referencedUrls)) {
+    if (!rawUrl || rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) continue;
+
+    let filename = '';
+    if (rawUrl.startsWith('/uploads/') || rawUrl.startsWith('uploads/')) {
+      filename = rawUrl.replace(/^\/?uploads\//, '');
+    }
+
+    if (!filename) continue;
+
+    // Find binary dataUrl for this image asset
+    let dataUrl = '';
+    const foundStored = storedBlobs.find(
+      (b) => b.id.includes(filename) || (typeof b.data === 'string' && b.data.includes(filename))
+    );
+    if (foundStored && typeof foundStored.data === 'string') {
+      dataUrl = foundStored.data;
+    }
+
+    // Try fetching from local /uploads/{filename} if not in IndexedDB
+    if (!dataUrl) {
+      try {
+        const res = await fetch(`/uploads/${filename}`);
+        if (res.ok) {
+          const blob = await res.blob();
+          dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+        }
+      } catch (e) {}
+    }
+
+    if (!dataUrl) continue;
+
+    // 1. Always attempt local upload to public/uploads/
+    try {
+      await fetch('/api/media/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename, dataUrl }),
+      });
+    } catch (e) {}
+
+    // 2. If GitHub token is provided, commit image file to public/uploads/{filename} in GitHub repo
+    if (token && token.trim() && owner && repoName) {
+      try {
+        const cleanToken = token.trim();
+        const assetPath = `public/uploads/${filename}`;
+        const useProxy =
+          deploymentSettings?.cloudflareWorkerUrl?.trim() &&
+          !isAuthenticatorWorkerUrl(deploymentSettings.cloudflareWorkerUrl);
+
+        const apiUrl = useProxy
+          ? `${deploymentSettings!.cloudflareWorkerUrl!.trim()}/repos/${owner}/${repoName}/contents/${assetPath}`
+          : `https://api.github.com/repos/${owner}/${repoName}/contents/${assetPath}`;
+
+        // Check if image file already exists on GitHub
+        let existingSha: string | undefined = undefined;
+        try {
+          const checkRes = await fetch(`${apiUrl}?ref=${branch}`, {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${cleanToken}`,
+              Accept: 'application/vnd.github.v3+json',
+            },
+          });
+          if (checkRes.status === 200) {
+            const json = await checkRes.json();
+            existingSha = json.sha;
+          }
+        } catch (e) {}
+
+        const base64Content = dataUrl.replace(/^data:image\/[a-zA-Z+]+;base64,/, '').trim();
+        if (base64Content) {
+          const putBody: any = {
+            message: `chore(media): upload public asset public/uploads/${filename}`,
+            content: base64Content,
+            branch,
+          };
+          if (existingSha) putBody.sha = existingSha;
+
+          await fetch(apiUrl, {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${cleanToken}`,
+              Accept: 'application/vnd.github.v3+json',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(putBody),
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to publish asset to GitHub:', filename, err);
+      }
+    }
+  }
 }
