@@ -306,7 +306,13 @@ export interface SiteSettings {
   logoUrl?: string;
   faviconUrl?: string;
   defaultOgImage?: string;
-  permalinkStructure: '/%postname%/' | '/%category%/%postname%/' | '/%year%/%month%/%postname%/';
+  permalinkStructure:
+    | '/%postname%/'
+    | '/posts/%postname%/'
+    | '/%year%/%month%/%day%/%postname%/'
+    | '/%year%/%month%/%postname%/'
+    | '/archives/%post_id%/'
+    | string;
   postsPerPage: number;
   commentsAutoApprove: boolean;
   customHeadCode?: string;

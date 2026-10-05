@@ -200,22 +200,56 @@ export default function App() {
         }
       }
 
-      // Direct post slug check (e.g. /demo-check)
-      const foundPost = cms.posts.find(
-        (p) => p.slug.replace(/^\//, '') === cleanPath || p.slug === cleanPath
-      );
-      if (foundPost && foundPost.status === 'published') {
-        setCurrentRoute({ type: 'post', post: foundPost });
-        setMode('frontend');
-        return;
+      // Check day/month/year permalink: e.g. /2026/09/30/my-post/
+      const dayNameMatch = path.match(/^\/\d{4}\/\d{2}\/\d{2}\/([^/]+)\/?$/);
+      if (dayNameMatch) {
+        const postSlug = dayNameMatch[1];
+        const foundPost = cms.posts.find(
+          (p) => p.slug.replace(/^\//, '') === postSlug || p.slug === postSlug
+        );
+        if (foundPost && foundPost.status === 'published') {
+          setCurrentRoute({ type: 'post', post: foundPost });
+          setMode('frontend');
+          return;
+        }
       }
 
-      // Page check (e.g. /about)
+      // Check numeric archives permalink: e.g. /archives/post-1/
+      const archiveIdMatch = path.match(/^\/archives\/([^/]+)\/?$/);
+      if (archiveIdMatch) {
+        const postIdOrSlug = archiveIdMatch[1];
+        const foundPost = cms.posts.find(
+          (p) => p.id === postIdOrSlug || p.slug.replace(/^\//, '') === postIdOrSlug
+        );
+        if (foundPost && foundPost.status === 'published') {
+          setCurrentRoute({ type: 'post', post: foundPost });
+          setMode('frontend');
+          return;
+        }
+      }
+
+      // Static Page check (e.g. /about, /contact)
       const foundPage = cms.pages.find(
         (p) => p.slug.replace(/^\//, '') === cleanPath || p.slug === cleanPath
       );
       if (foundPage) {
         setCurrentRoute({ type: 'page', page: foundPage });
+        setMode('frontend');
+        return;
+      }
+
+      // Direct post slug check for Root-level permalink structure (e.g. /demo-check or /demo-check/)
+      let foundPost = cms.posts.find(
+        (p) => p.slug.replace(/^\//, '') === cleanPath || p.slug === cleanPath
+      );
+      if (!foundPost && typeof window !== 'undefined' && (window as any).__ASTROPRESS_INITIAL_POST__) {
+        const serverP = (window as any).__ASTROPRESS_INITIAL_POST__;
+        if (serverP.slug === cleanPath || serverP.slug?.replace(/^\//, '') === cleanPath) {
+          foundPost = serverP;
+        }
+      }
+      if (foundPost && foundPost.status === 'published') {
+        setCurrentRoute({ type: 'post', post: foundPost });
         setMode('frontend');
         return;
       }
@@ -260,7 +294,23 @@ export default function App() {
     setCurrentRoute({ type: 'post', post });
     setMode('frontend');
     if (typeof window !== 'undefined') {
-      window.history.pushState({}, '', `/${cleanSlug}`);
+      const permalinkStruct = cms.siteSettings?.permalinkStructure || '/%postname%/';
+      let targetUrl = `/${cleanSlug}/`;
+      if (permalinkStruct === '/posts/%postname%/') {
+        targetUrl = `/posts/${cleanSlug}/`;
+      } else if (permalinkStruct === '/%year%/%month%/%day%/%postname%/') {
+        const d = new Date(post.pubDate || Date.now());
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        targetUrl = `/${year}/${month}/${day}/${cleanSlug}/`;
+      } else if (permalinkStruct === '/archives/%post_id%/') {
+        targetUrl = `/archives/${post.id}/`;
+      } else {
+        // Root-level: /%postname%/
+        targetUrl = `/${cleanSlug}/`;
+      }
+      window.history.pushState({}, '', targetUrl);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -871,7 +921,9 @@ export default function App() {
           {adminView === 'settings' && (
             <SettingsManager
               themeSettings={cms.themeSettings}
+              siteSettings={cms.siteSettings}
               onUpdateSettings={(s) => cms.updateThemeSettings(s)}
+              onUpdateSiteSettings={(s) => cms.updateSiteSettings(s)}
               onResetDefaults={() => cms.resetToFactoryDefaults()}
             />
           )}
@@ -884,6 +936,7 @@ export default function App() {
               themeSettings={cms.themeSettings}
               categories={cms.categories}
               tags={cms.tags}
+              authors={cms.authors}
               media={cms.media}
               menus={cms.menus}
               deploymentSettings={cms.deploymentSettings}
@@ -903,6 +956,10 @@ export default function App() {
           {adminView === 'users' && (
             <UsersManager
               authors={cms.authors}
+              onAddAuthor={(author) => cms.saveAuthor(author)}
+              onUpdateAuthorRole={(id, role) => cms.updateAuthorRole(id, role)}
+              onDeleteAuthor={(id) => cms.deleteAuthor(id)}
+              currentUserEmail={authState?.currentUser?.email}
               onNavigateToSecurity={() => setAdminView('account-security')}
             />
           )}

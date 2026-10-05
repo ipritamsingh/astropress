@@ -474,6 +474,40 @@ export function useCMS() {
     setData(updated);
   };
 
+  // AUTHORS & USER MANAGEMENT
+  const saveAuthor = (author: Author) => {
+    const existingIndex = data.authors.findIndex((a) => a.id === author.id);
+    let updatedAuthors: Author[];
+    if (existingIndex >= 0) {
+      updatedAuthors = [...data.authors];
+      updatedAuthors[existingIndex] = author;
+    } else {
+      updatedAuthors = [...data.authors, author];
+    }
+    const updated = { ...data, authors: updatedAuthors };
+    saveStoredData(updated);
+    setData(updated);
+    recordCommit(`feat(users): ${existingIndex >= 0 ? 'update' : 'add'} user "${author.name}" (${author.role})`, updated);
+  };
+
+  const updateAuthorRole = (id: string, role: string) => {
+    const target = data.authors.find((a) => a.id === id);
+    const updatedAuthors = data.authors.map((a) => (a.id === id ? { ...a, role } : a));
+    const updated = { ...data, authors: updatedAuthors };
+    saveStoredData(updated);
+    setData(updated);
+    recordCommit(`feat(access): update role of "${target?.name || id}" to ${role}`, updated);
+  };
+
+  const deleteAuthor = (id: string) => {
+    const target = data.authors.find((a) => a.id === id);
+    const updatedAuthors = data.authors.filter((a) => a.id !== id);
+    const updated = { ...data, authors: updatedAuthors };
+    saveStoredData(updated);
+    setData(updated);
+    recordCommit(`feat(users): remove user "${target?.name || id}"`, updated);
+  };
+
   // THEME SETTINGS
   const updateThemeSettings = (newSettings: Partial<ThemeSettings>) => {
     const updatedSettings = { ...data.themeSettings, ...newSettings };
@@ -577,6 +611,9 @@ export function useCMS() {
     deleteCategory,
     saveTag,
     deleteTag,
+    saveAuthor,
+    updateAuthorRole,
+    deleteAuthor,
     addMediaItem,
     updateMediaItem,
     deleteMediaItem,

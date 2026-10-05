@@ -7,6 +7,7 @@ import {
   ThemeSettings,
   Category,
   Tag,
+  Author,
   MediaItem,
   Menu,
 } from '../types/cms';
@@ -701,6 +702,7 @@ export interface FullPushPayload {
   themeSettings?: ThemeSettings;
   categories?: Category[];
   tags?: Tag[];
+  authors?: Author[];
   media?: MediaItem[];
   menus?: Menu[];
   deploymentSettings: DeploymentSettings;
@@ -725,6 +727,7 @@ export async function executeFullRepositoryPush(payload: FullPushPayload): Promi
     themeSettings,
     categories,
     tags,
+    authors,
     media,
     menus,
     deploymentSettings,
@@ -810,6 +813,11 @@ ${page.body || ''}`;
       null,
       2
     );
+  }
+
+  // 6b. Overlay authors and system users
+  if (authors && authors.length > 0) {
+    fullFilesMap['src/data/authors.json'] = JSON.stringify(authors, null, 2);
   }
 
   // 7. Overlay media metadata and binary assets

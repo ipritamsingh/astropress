@@ -1,0 +1,23 @@
+[
+  {
+    "id": "auth-1",
+    "name": "Amit Singh",
+    "slug": "amit-singh",
+    "email": "amitsinghpritam@gmail.com",
+    "role": "Lead Architect & Editor-in-Chief",
+    "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80",
+    "bio": "Software engineer and publishing architect specializing in Astro, headless CMS patterns, and edge deployment infrastructures.",
+    "twitter": "@amitsingh",
+    "github": "amitsingh"
+  },
+  {
+    "id": "auth-2",
+    "name": "Sarah Lin",
+    "slug": "sarah-lin",
+    "email": "sarah@example.com",
+    "role": "Staff Design Engineer",
+    "avatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=300&q=80",
+    "bio": "Design systems engineer crafting accessible typography, Gutenberg block architectures, and responsive digital journals.",
+    "twitter": "@sarahlin"
+  }
+]

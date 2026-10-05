@@ -8,6 +8,7 @@ import {
   ThemeSettings,
   Category,
   Tag,
+  Author,
   MediaItem,
   Menu,
 } from '../../types/cms';
@@ -54,6 +55,7 @@ interface Props {
   themeSettings?: ThemeSettings;
   categories?: Category[];
   tags?: Tag[];
+  authors?: Author[];
   media?: MediaItem[];
   menus?: Menu[];
   onUpdateSessionToken?: (token: string) => void;
@@ -72,6 +74,7 @@ export const GitHubDeploymentView: React.FC<Props> = ({
   themeSettings,
   categories,
   tags,
+  authors,
   media,
   menus,
   onUpdateSessionToken,
@@ -190,6 +193,7 @@ export const GitHubDeploymentView: React.FC<Props> = ({
         themeSettings,
         categories,
         tags,
+        authors,
         media,
         menus,
         deploymentSettings: settings,

@@ -1,28 +1,57 @@
-import React, { useState } from 'react';
-import { ThemeSettings } from '../../types/cms';
+import React, { useState, useEffect } from 'react';
+import { ThemeSettings, SiteSettings } from '../../types/cms';
 import { Settings, Save, Check, RefreshCw, AlertTriangle } from 'lucide-react';
 
 interface Props {
   themeSettings: ThemeSettings;
+  siteSettings?: SiteSettings;
   onUpdateSettings: (settings: Partial<ThemeSettings>) => void;
+  onUpdateSiteSettings?: (settings: Partial<SiteSettings>) => void;
   onResetDefaults: () => void;
 }
 
 export const SettingsManager: React.FC<Props> = ({
   themeSettings,
+  siteSettings,
   onUpdateSettings,
+  onUpdateSiteSettings,
   onResetDefaults,
 }) => {
-  const [siteName, setSiteName] = useState(themeSettings.siteName);
-  const [tagline, setTagline] = useState(themeSettings.tagline);
+  const [siteName, setSiteName] = useState(siteSettings?.siteTitle || themeSettings.siteName);
+  const [tagline, setTagline] = useState(siteSettings?.siteTagline || themeSettings.tagline);
   const [adminEmail, setAdminEmail] = useState('amitsinghpritam@gmail.com');
-  const [postsPerPage, setPostsPerPage] = useState(6);
-  const [permalinkStructure, setPermalinkStructure] = useState('/posts/%postname%/');
+  const [postsPerPage, setPostsPerPage] = useState(siteSettings?.postsPerPage || 6);
+  const [permalinkStructure, setPermalinkStructure] = useState(
+    siteSettings?.permalinkStructure || '/%postname%/'
+  );
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    if (siteSettings?.permalinkStructure) {
+      setPermalinkStructure(siteSettings.permalinkStructure);
+    }
+    if (siteSettings?.siteTitle) {
+      setSiteName(siteSettings.siteTitle);
+    }
+    if (siteSettings?.siteTagline) {
+      setTagline(siteSettings.siteTagline);
+    }
+    if (siteSettings?.postsPerPage) {
+      setPostsPerPage(siteSettings.postsPerPage);
+    }
+  }, [siteSettings]);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     onUpdateSettings({ siteName, tagline });
+    if (onUpdateSiteSettings) {
+      onUpdateSiteSettings({
+        siteTitle: siteName,
+        siteTagline: tagline,
+        postsPerPage,
+        permalinkStructure,
+      });
+    }
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2000);
   };
@@ -124,7 +153,8 @@ export const SettingsManager: React.FC<Props> = ({
         </p>
         <div className="space-y-2">
           {[
-            { label: 'Post name (Recommended for SEO)', format: '/posts/%postname%/' },
+            { label: 'Post name (Root-level)', format: '/%postname%/' },
+            { label: 'Post name', format: '/posts/%postname%/' },
             { label: 'Day and name', format: '/%year%/%month%/%day%/%postname%/' },
             { label: 'Numeric ID', format: '/archives/%post_id%/' },
           ].map((item) => (
