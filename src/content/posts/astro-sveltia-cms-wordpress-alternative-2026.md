@@ -7,9 +7,9 @@ draft: false
 author: "Amit Singh"
 category: "Technology"
 tags: ["Astro", "Sveltia CMS", "WordPress", "Cloudflare Pages"]
-featuredImage: "/uploads/1000402922.webp"
+featuredImage: "/uploads/1000402916.webp"
 excerpt: "Explore how combining the familiar editorial feel of WordPress with the blazing static speed of Astro and the Git-native simplicity of Sveltia CMS revolutionizes modern publishing."
-readingTime: 7
+readingTime: 8
 template: "cover-hero"
 seo:
   metaTitle: "Astro + Sveltia CMS: The Definitive WordPress Alternative"
@@ -26,6 +26,8 @@ For more than two decades, WordPress has powered a vast portion of the global we
 > “By pairing Astro’s zero-JS-by-default architecture with Sveltia CMS’s clean browser-based Git client, publishers achieve sub-second TTFB without sacrificing WordPress familiarity.”
 >
 > — Notable Author
+
+![1000402916](/uploads/1000402916.webp)
 
 ### Key Advantages of the AstroPress Architecture
 
