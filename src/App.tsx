@@ -162,14 +162,56 @@ export default function App() {
         return;
       }
 
+      const cleanPath = path.replace(/^\//, '').replace(/\/$/, '');
+
+      if (!cleanPath) {
+        setCurrentRoute({ type: 'home' });
+        setMode('frontend');
+        return;
+      }
+
       if (path.startsWith('/posts/')) {
         const postSlug = path.replace('/posts/', '').replace(/\/$/, '');
-        const foundPost = cms.posts.find((p) => p.slug === postSlug);
-        if (foundPost) {
+        const foundPost = cms.posts.find(
+          (p) => p.slug.replace(/^\//, '') === postSlug || p.slug === postSlug
+        );
+        if (foundPost && foundPost.status === 'published') {
           setCurrentRoute({ type: 'post', post: foundPost });
           setMode('frontend');
           return;
         }
+      }
+
+      if (path.startsWith('/category/')) {
+        const catSlug = path.replace('/category/', '').replace(/\/$/, '');
+        const cat = cms.categories.find(
+          (c) => c.slug === catSlug || c.name.toLowerCase() === catSlug.toLowerCase()
+        );
+        if (cat) {
+          setCurrentRoute({ type: 'archive', archiveType: 'category', item: cat });
+          setMode('frontend');
+          return;
+        }
+      }
+
+      // Direct post slug check (e.g. /demo-check)
+      const foundPost = cms.posts.find(
+        (p) => p.slug.replace(/^\//, '') === cleanPath || p.slug === cleanPath
+      );
+      if (foundPost && foundPost.status === 'published') {
+        setCurrentRoute({ type: 'post', post: foundPost });
+        setMode('frontend');
+        return;
+      }
+
+      // Page check (e.g. /about)
+      const foundPage = cms.pages.find(
+        (p) => p.slug.replace(/^\//, '') === cleanPath || p.slug === cleanPath
+      );
+      if (foundPage) {
+        setCurrentRoute({ type: 'page', page: foundPage });
+        setMode('frontend');
+        return;
       }
     };
 
@@ -198,9 +240,43 @@ export default function App() {
 
   // Calculate post counts per category
   const postCountsByCategory = cms.categories.reduce<Record<string, number>>((acc, cat) => {
-    acc[cat.name] = cms.posts.filter((p) => p.category === cat.name).length;
+    acc[cat.name] = cms.posts.filter((p) => {
+      if (p.status !== 'published') return false;
+      const pCat = (p.category || '').trim().toLowerCase();
+      return pCat === (cat.name || '').trim().toLowerCase() || pCat === (cat.slug || '').trim().toLowerCase() || pCat === cat.id;
+    }).length;
     return acc;
   }, {});
+
+  const handleSelectPost = (post: Post) => {
+    if (post.status !== 'published') return;
+    const cleanSlug = post.slug.replace(/^\//, '');
+    setCurrentRoute({ type: 'post', post });
+    setMode('frontend');
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', `/${cleanSlug}`);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSelectPage = (page: Page) => {
+    const cleanSlug = page.slug.replace(/^\//, '');
+    setCurrentRoute({ type: 'page', page });
+    setMode('frontend');
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', `/${cleanSlug}`);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSelectCategory = (cat: Category) => {
+    setCurrentRoute({ type: 'archive', archiveType: 'category', item: cat });
+    setMode('frontend');
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', `/category/${cat.slug}`);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Handle Frontend Navigation paths
   const handleNavigate = (path: string) => {
@@ -216,44 +292,64 @@ export default function App() {
 
     if (path === '/' || path === '') {
       setCurrentRoute({ type: 'home' });
+      setMode('frontend');
+      if (typeof window !== 'undefined') {
+        window.history.pushState({}, '', '/');
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
+
     if (path === '/posts') {
       const techCat = cms.categories[0];
       if (techCat) {
-        setCurrentRoute({ type: 'archive', archiveType: 'category', item: techCat });
+        handleSelectCategory(techCat);
       }
       return;
     }
+
+    const cleanPathSlug = path.replace(/^\//, '').replace(/\/$/, '');
+
+    // Check if path is /posts/:slug
     if (path.startsWith('/posts/')) {
       const postSlug = path.replace('/posts/', '').replace(/\/$/, '');
-      const foundPost = cms.posts.find((p) => p.slug === postSlug);
-      if (foundPost) {
-        setCurrentRoute({ type: 'post', post: foundPost });
-        setMode('frontend');
-        if (typeof window !== 'undefined') {
-          window.history.pushState({}, '', path);
-        }
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+      const foundPost = cms.posts.find(
+        (p) => p.slug.replace(/^\//, '') === postSlug || p.slug === postSlug
+      );
+      if (foundPost && foundPost.status === 'published') {
+        handleSelectPost(foundPost);
         return;
       }
     }
+
+    // Check category archive e.g. /category/:slug
     if (path.startsWith('/category/')) {
-      const slug = path.replace('/category/', '');
-      const cat = cms.categories.find((c) => c.slug === slug);
+      const slug = path.replace('/category/', '').replace(/\/$/, '');
+      const cat = cms.categories.find(
+        (c) => c.slug === slug || c.name.toLowerCase() === slug.toLowerCase()
+      );
       if (cat) {
-        setCurrentRoute({ type: 'archive', archiveType: 'category', item: cat });
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        handleSelectCategory(cat);
+        return;
       }
+    }
+
+    // Direct post slug check (e.g. /demo-check)
+    const foundPostDirect = cms.posts.find(
+      (p) => p.slug.replace(/^\//, '') === cleanPathSlug || p.slug === cleanPathSlug
+    );
+    if (foundPostDirect && foundPostDirect.status === 'published') {
+      handleSelectPost(foundPostDirect);
       return;
     }
+
     // Check pages (e.g. /about, /contact, /privacy-policy)
-    const cleanSlug = path.replace(/^\//, '');
-    const foundPage = cms.pages.find((p) => p.slug === cleanSlug);
+    const foundPage = cms.pages.find(
+      (p) => p.slug.replace(/^\//, '') === cleanPathSlug || p.slug === cleanPathSlug
+    );
     if (foundPage) {
-      setCurrentRoute({ type: 'page', page: foundPage });
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      handleSelectPage(foundPage);
+      return;
     }
   };
 
@@ -383,14 +479,8 @@ export default function App() {
                 heroConfig={cms.heroConfig}
                 themeSettings={cms.themeSettings}
                 onNavigate={handleNavigate}
-                onSelectPost={(post) => {
-                  setCurrentRoute({ type: 'post', post });
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                onSelectCategory={(cat) => {
-                  setCurrentRoute({ type: 'archive', archiveType: 'category', item: cat });
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
+                onSelectPost={handleSelectPost}
+                onSelectCategory={handleSelectCategory}
               />
             )}
 
@@ -400,15 +490,16 @@ export default function App() {
                 allPosts={cms.posts}
                 comments={cms.comments}
                 authors={cms.authors}
-                onBack={() => setCurrentRoute({ type: 'home' })}
+                onBack={() => {
+                  setCurrentRoute({ type: 'home' });
+                  if (typeof window !== 'undefined') window.history.pushState({}, '', '/');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
                 onEditPost={(p) => {
                   setEditingPost(p);
                   setMode('admin');
                 }}
-                onSelectPost={(p) => {
-                  setCurrentRoute({ type: 'post', post: p });
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
+                onSelectPost={handleSelectPost}
                 onAddComment={(newComment) => {
                   cms.addComment(newComment);
                 }}
@@ -418,7 +509,11 @@ export default function App() {
             {currentRoute.type === 'page' && (
               <SinglePageView
                 page={currentRoute.page}
-                onBack={() => setCurrentRoute({ type: 'home' })}
+                onBack={() => {
+                  setCurrentRoute({ type: 'home' });
+                  if (typeof window !== 'undefined') window.history.pushState({}, '', '/');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
                 onEditPage={(pg) => {
                   setEditingPage(pg);
                   setMode('admin');
@@ -431,11 +526,12 @@ export default function App() {
                 type={currentRoute.archiveType}
                 item={currentRoute.item}
                 posts={cms.posts}
-                onBack={() => setCurrentRoute({ type: 'home' })}
-                onSelectPost={(post) => {
-                  setCurrentRoute({ type: 'post', post });
+                onBack={() => {
+                  setCurrentRoute({ type: 'home' });
+                  if (typeof window !== 'undefined') window.history.pushState({}, '', '/');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
+                onSelectPost={handleSelectPost}
               />
             )}
           </main>
@@ -458,14 +554,8 @@ export default function App() {
             posts={cms.posts}
             pages={cms.pages}
             categories={cms.categories}
-            onSelectPost={(post) => {
-              setCurrentRoute({ type: 'post', post });
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onSelectPage={(page) => {
-              setCurrentRoute({ type: 'page', page });
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
+            onSelectPost={handleSelectPost}
+            onSelectPage={handleSelectPage}
           />
         </div>
       )}

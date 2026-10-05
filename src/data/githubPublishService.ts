@@ -380,6 +380,21 @@ export async function executeRealGitHubPublish(
 
       const finalUrl = isPage ? `${siteUrl}/${item.slug}` : `${siteUrl}/posts/${item.slug}`;
 
+      // Always attempt local markdown collection file write if server is running
+      try {
+        await fetch('/api/content/publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            slug: item.slug,
+            isPage,
+            content: markdownWithFrontmatter,
+          }),
+        });
+      } catch (e) {
+        // Non-blocking
+      }
+
       return {
         success: true,
         commit: newRecord,

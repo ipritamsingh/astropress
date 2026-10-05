@@ -22,8 +22,16 @@ export const ArchiveView: React.FC<Props> = ({
 
   const filteredPosts = posts.filter((p) => {
     if (p.status !== 'published') return false;
-    if (isCategory) return p.category === item.name;
-    return p.tags.includes(item.name);
+    if (isCategory) {
+      const pCat = (p.category || '').trim().toLowerCase();
+      const iName = (item.name || '').trim().toLowerCase();
+      const iSlug = ((item as Category).slug || '').trim().toLowerCase();
+      const iId = (item.id || '').trim().toLowerCase();
+      return pCat === iName || pCat === iSlug || pCat === iId;
+    }
+    const pTags = (p.tags || []).map((t) => (t || '').trim().toLowerCase());
+    const iName = (item.name || '').trim().toLowerCase();
+    return pTags.includes(iName);
   });
 
   return (

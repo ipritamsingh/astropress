@@ -42,12 +42,13 @@ export const SearchModal: React.FC<Props> = ({
   const matchedPosts = query
     ? posts.filter(
         (p) =>
-          p.title.toLowerCase().includes(normalized) ||
-          p.excerpt.toLowerCase().includes(normalized) ||
-          p.category.toLowerCase().includes(normalized) ||
-          p.tags.some((t) => t.toLowerCase().includes(normalized))
+          p.status === 'published' &&
+          (p.title.toLowerCase().includes(normalized) ||
+            p.excerpt.toLowerCase().includes(normalized) ||
+            p.category.toLowerCase().includes(normalized) ||
+            p.tags.some((t) => t.toLowerCase().includes(normalized)))
       )
-    : posts.slice(0, 4);
+    : posts.filter((p) => p.status === 'published').slice(0, 4);
 
   const matchedPages = query
     ? pages.filter((p) => p.title.toLowerCase().includes(normalized))

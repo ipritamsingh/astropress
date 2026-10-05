@@ -204,7 +204,8 @@ export function useCMS() {
     return () => window.removeEventListener(UPDATE_EVENT, handleUpdate);
   }, []);
 
-  const recordCommit = (message: string) => {
+  const recordCommit = (message: string, currentData?: CMSDataState) => {
+    const baseData = currentData || data;
     const newRecord: GitCommitRecord = {
       id: 'c-' + Date.now().toString(36),
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
@@ -214,8 +215,8 @@ export function useCMS() {
       status: 'synced',
     };
     const updated = {
-      ...data,
-      commitHistory: [newRecord, ...data.commitHistory.slice(0, 19)],
+      ...baseData,
+      commitHistory: [newRecord, ...(baseData.commitHistory || []).slice(0, 19)],
     };
     saveStoredData(updated);
     setData(updated);
@@ -236,7 +237,7 @@ export function useCMS() {
 
     // Only generate a production Git commit and Cloudflare deployment trigger when explicitly publishing
     if (isPublishAction || post.status === 'published') {
-      recordCommit(`feat(post): publish article "${post.title}" [/posts/${post.slug}]`);
+      recordCommit(`feat(post): publish article "${post.title}" [/posts/${post.slug}]`, updated);
     }
   };
 
@@ -249,7 +250,7 @@ export function useCMS() {
     saveStoredData(updated);
     setData(updated);
     if (target && target.status === 'published') {
-      recordCommit(`chore(post): remove article "${target.title}"`);
+      recordCommit(`chore(post): remove article "${target.title}"`, updated);
     }
   };
 
@@ -284,7 +285,7 @@ export function useCMS() {
     setData(updated);
 
     if (isPublishAction || page.status === 'published') {
-      recordCommit(`feat(page): publish static page "${page.title}" [/${page.slug}]`);
+      recordCommit(`feat(page): publish static page "${page.title}" [/${page.slug}]`, updated);
     }
   };
 
@@ -297,7 +298,7 @@ export function useCMS() {
     saveStoredData(updated);
     setData(updated);
     if (target && target.status === 'published') {
-      recordCommit(`chore(page): remove static page "${target.title}"`);
+      recordCommit(`chore(page): remove static page "${target.title}"`, updated);
     }
   };
 
@@ -313,7 +314,7 @@ export function useCMS() {
     const updated = { ...data, categories: newCats };
     saveStoredData(updated);
     setData(updated);
-    recordCommit(`feat(category): ${exists ? 'update' : 'add'} taxonomy "${category.name}"`);
+    recordCommit(`feat(category): ${exists ? 'update' : 'add'} taxonomy "${category.name}"`, updated);
   };
 
   const deleteCategory = (id: string) => {
@@ -325,7 +326,7 @@ export function useCMS() {
     saveStoredData(updated);
     setData(updated);
     if (target) {
-      recordCommit(`chore(category): remove taxonomy "${target.name}"`);
+      recordCommit(`chore(category): remove taxonomy "${target.name}"`, updated);
     }
   };
 
@@ -341,7 +342,7 @@ export function useCMS() {
     const updated = { ...data, tags: newTags };
     saveStoredData(updated);
     setData(updated);
-    recordCommit(`feat(tag): ${exists ? 'update' : 'add'} tag "${tag.name}"`);
+    recordCommit(`feat(tag): ${exists ? 'update' : 'add'} tag "${tag.name}"`, updated);
   };
 
   const deleteTag = (id: string) => {
@@ -353,7 +354,7 @@ export function useCMS() {
     saveStoredData(updated);
     setData(updated);
     if (target) {
-      recordCommit(`chore(tag): remove tag "${target.name}"`);
+      recordCommit(`chore(tag): remove tag "${target.name}"`, updated);
     }
   };
 
@@ -362,7 +363,7 @@ export function useCMS() {
     const updated = { ...data, media: [item, ...data.media] };
     saveStoredData(updated);
     setData(updated);
-    recordCommit(`feat(media): upload media asset "${item.name}"`);
+    recordCommit(`feat(media): upload media asset "${item.name}"`, updated);
   };
 
   const updateMediaItem = (id: string, updates: Partial<MediaItem>) => {
@@ -380,7 +381,7 @@ export function useCMS() {
     saveStoredData(updated);
     setData(updated);
     if (item) {
-      recordCommit(`chore(media): remove asset "${item.name}"`);
+      recordCommit(`chore(media): remove asset "${item.name}"`, updated);
     }
   };
 
@@ -429,7 +430,7 @@ export function useCMS() {
     const updated = { ...data, themeSettings: updatedSettings };
     saveStoredData(updated);
     setData(updated);
-    recordCommit('style: update website theme and customizer preferences');
+    recordCommit('style: update website theme and customizer preferences', updated);
   };
 
   // SITE SETTINGS
@@ -438,7 +439,7 @@ export function useCMS() {
     const updated = { ...data, siteSettings: updatedSiteSettings };
     saveStoredData(updated);
     setData(updated);
-    recordCommit('config(site): update global site metadata and permalink structure');
+    recordCommit('config(site): update global site metadata and permalink structure', updated);
   };
 
   // TEMPLATES
@@ -447,14 +448,14 @@ export function useCMS() {
     const updated = { ...data, templates: updatedTemplates };
     saveStoredData(updated);
     setData(updated);
-    recordCommit(`style(template): update template layout config for "${id}"`);
+    recordCommit(`style(template): update template layout config for "${id}"`, updated);
   };
 
   const updateTemplates = (templates: TemplateConfig[]) => {
     const updated = { ...data, templates };
     saveStoredData(updated);
     setData(updated);
-    recordCommit('style(template): update site-wide template layouts');
+    recordCommit('style(template): update site-wide template layouts', updated);
   };
 
   // HOMEPAGE SECTIONS
@@ -462,7 +463,7 @@ export function useCMS() {
     const updated = { ...data, homepageSections: sections };
     saveStoredData(updated);
     setData(updated);
-    recordCommit('feat(homepage): reorder and configure homepage builder sections');
+    recordCommit('feat(homepage): reorder and configure homepage builder sections', updated);
   };
 
   // MENUS
@@ -470,7 +471,7 @@ export function useCMS() {
     const updated = { ...data, menus };
     saveStoredData(updated);
     setData(updated);
-    recordCommit('feat(navigation): update navigation menu hierarchy');
+    recordCommit('feat(navigation): update navigation menu hierarchy', updated);
   };
 
   // DEPLOYMENT SETTINGS
@@ -479,7 +480,7 @@ export function useCMS() {
     const updated = { ...data, deploymentSettings: updatedSettings };
     saveStoredData(updated);
     setData(updated);
-    recordCommit('ci(cloudflare): update GitHub and Cloudflare deployment parameters');
+    recordCommit('ci(cloudflare): update GitHub and Cloudflare deployment parameters', updated);
   };
 
   // HERO SECTION CONFIG
@@ -489,7 +490,7 @@ export function useCMS() {
     saveStoredData(updated);
     setData(updated);
     if (isPublishAction) {
-      recordCommit('feat(hero): customize homepage hero visual layout and content');
+      recordCommit('feat(hero): customize homepage hero visual layout and content', updated);
     }
   };
 

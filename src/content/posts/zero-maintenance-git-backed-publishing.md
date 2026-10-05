@@ -7,4 +7,6 @@ category: "Headless CMS"
 template: "standard"
 ---
 
-Draft article reviewing the long-term operational cost of maintaining traditional MySQL backends.
+## Comparing Infrastructure Costs and Maintenance Overhead
+
+Traditional WordPress hosts charge substantial monthly retainers for managed MySQL instances, backup systems, caching layers, and security firewalls. Git-backed Astro websites reduce hosting bills to near-zero.
