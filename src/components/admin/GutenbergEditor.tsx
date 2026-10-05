@@ -510,15 +510,16 @@ export const GutenbergEditor: React.FC<Props> = ({
       .join('\n\n');
   };
 
-  const generateYamlFrontmatter = (): string => {
+  const generateYamlFrontmatter = (targetStatus?: Post['status']): string => {
+    const activeStatus = targetStatus || status || 'draft';
     const cleanSlug = slug || 'new-post';
     const cleanDate = (initialItem as Post).pubDate || new Date().toISOString();
     return `---
 title: "${title.replace(/"/g, '\\"')}"
 slug: "${cleanSlug}"
 pubDate: ${cleanDate}
-status: "${status}"
-draft: ${status === 'draft'}
+status: "${activeStatus}"
+draft: ${activeStatus === 'draft'}
 author: "${author}"
 category: "${category}"
 tags: [${selectedTags.map((t) => `"${t}"`).join(', ')}]
@@ -609,9 +610,10 @@ ${compileBlocksToMarkdown()}`;
 
     setIsPublishing(true);
     setPublishError(null);
+    setStatus('published');
 
     const finalSlug = slug || generateSlug(title);
-    const fullYamlMarkdown = generateYamlFrontmatter();
+    const fullYamlMarkdown = generateYamlFrontmatter('published');
     const markdownBody = compileBlocksToMarkdown();
 
     const itemToPublish: any = isPage
