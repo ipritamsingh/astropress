@@ -29,15 +29,25 @@ function openDatabase(): Promise<IDBDatabase> {
 /**
  * Persist binary Blob or Data URL to IndexedDB
  */
-export async function persistMediaBlob(id: string, blobOrDataUrl: Blob | string): Promise<void> {
+export async function persistMediaBlob(id: string, blobOrDataUrl: Blob | string, filename?: string): Promise<void> {
   try {
     const db = await openDatabase();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
-      const req = store.put({ id, data: blobOrDataUrl, timestamp: Date.now() });
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
+      const cleanName = filename ? filename.replace(/^\/?uploads\//, '') : id;
+      // Store by ID
+      store.put({ id, filename: cleanName, data: blobOrDataUrl, timestamp: Date.now() });
+      // Also store directly by filename for O(1) filename lookup
+      if (cleanName && cleanName !== id) {
+        store.put({ id: cleanName, filename: cleanName, data: blobOrDataUrl, timestamp: Date.now() });
+      }
+      // Also store with /uploads/ prefix
+      if (cleanName) {
+        store.put({ id: `/uploads/${cleanName}`, filename: cleanName, data: blobOrDataUrl, timestamp: Date.now() });
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
     });
   } catch (err) {
     console.warn('Could not persist to IndexedDB:', err);
@@ -47,14 +57,33 @@ export async function persistMediaBlob(id: string, blobOrDataUrl: Blob | string)
 /**
  * Retrieve all persisted media items from IndexedDB
  */
-export async function getAllPersistedMediaBlobs(): Promise<Array<{ id: string; data: Blob | string }>> {
+export async function getAllPersistedMediaBlobs(): Promise<Array<{ id: string; filename?: string; data: string }>> {
   try {
     const db = await openDatabase();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readonly');
       const store = tx.objectStore(STORE_NAME);
       const req = store.getAll();
-      req.onsuccess = () => resolve(req.result || []);
+      req.onsuccess = async () => {
+        const rawItems = req.result || [];
+        const itemsWithDataUrl: Array<{ id: string; filename?: string; data: string }> = [];
+        for (const item of rawItems) {
+          if (!item.data) continue;
+          if (typeof item.data === 'string') {
+            itemsWithDataUrl.push(item);
+          } else if (item.data instanceof Blob) {
+            try {
+              const dataUrl = await new Promise<string>((res) => {
+                const reader = new FileReader();
+                reader.onloadend = () => res(reader.result as string);
+                reader.readAsDataURL(item.data);
+              });
+              itemsWithDataUrl.push({ ...item, data: dataUrl });
+            } catch {}
+          }
+        }
+        resolve(itemsWithDataUrl);
+      };
       req.onerror = () => reject(req.error);
     });
   } catch (err) {
@@ -64,22 +93,85 @@ export async function getAllPersistedMediaBlobs(): Promise<Array<{ id: string; d
 }
 
 /**
- * Retrieve binary Blob or Data URL from IndexedDB
+ * Retrieve binary Blob or Data URL from IndexedDB by id or filename or path
  */
-export async function getPersistedMediaBlob(id: string): Promise<Blob | string | null> {
+export async function getPersistedMediaBlob(idOrPath: string): Promise<string | null> {
+  if (!idOrPath) return null;
+  const cleanKey = idOrPath.replace(/^\/?uploads\//, '');
   try {
     const db = await openDatabase();
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const tx = db.transaction(STORE_NAME, 'readonly');
       const store = tx.objectStore(STORE_NAME);
-      const req = store.get(id);
-      req.onsuccess = () => resolve(req.result ? req.result.data : null);
-      req.onerror = () => reject(req.error);
+      
+      const req = store.get(cleanKey);
+      req.onsuccess = async () => {
+        let result = req.result;
+        if (!result && cleanKey !== idOrPath) {
+          const req2 = store.get(idOrPath);
+          req2.onsuccess = async () => {
+            const result2 = req2.result;
+            if (result2) {
+              resolve(await convertEntryToDataUrl(result2.data));
+            } else {
+              // Final fallback: scan all items
+              const allReq = store.getAll();
+              allReq.onsuccess = async () => {
+                const all = allReq.result || [];
+                const found = all.find(
+                  (r: any) =>
+                    r.id === cleanKey ||
+                    r.filename === cleanKey ||
+                    r.id === idOrPath ||
+                    r.filename === idOrPath
+                );
+                resolve(found ? await convertEntryToDataUrl(found.data) : null);
+              };
+              allReq.onerror = () => resolve(null);
+            }
+          };
+          req2.onerror = () => resolve(null);
+          return;
+        }
+
+        if (result) {
+          resolve(await convertEntryToDataUrl(result.data));
+        } else {
+          // Scan fallback
+          const allReq = store.getAll();
+          allReq.onsuccess = async () => {
+            const all = allReq.result || [];
+            const found = all.find(
+              (r: any) =>
+                r.id === cleanKey ||
+                r.filename === cleanKey ||
+                r.id === idOrPath ||
+                r.filename === idOrPath
+            );
+            resolve(found ? await convertEntryToDataUrl(found.data) : null);
+          };
+          allReq.onerror = () => resolve(null);
+        }
+      };
+      req.onerror = () => resolve(null);
     });
   } catch (err) {
     console.warn('Could not retrieve from IndexedDB:', err);
     return null;
   }
+}
+
+async function convertEntryToDataUrl(data: any): Promise<string | null> {
+  if (!data) return null;
+  if (typeof data === 'string') return data;
+  if (data instanceof Blob) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(data);
+    });
+  }
+  return null;
 }
 
 /**
@@ -154,7 +246,7 @@ export async function processUploadedFile(
       const reader = new FileReader();
       reader.onload = async () => {
         const dataUrl = reader.result as string;
-        await persistMediaBlob(id, dataUrl);
+        await persistMediaBlob(id, dataUrl, safeName);
 
         const sizeKb = Math.round(file.size / 1024);
         const sizeStr = sizeKb >= 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
@@ -162,7 +254,8 @@ export async function processUploadedFile(
         resolve({
           id,
           name: safeName,
-          url: dataUrl,
+          url: `/uploads/${safeName}`,
+          originalUrl: `/uploads/${safeName}`,
           type: file.type.startsWith('video/') ? 'video' : 'document',
           format: 'other',
           size: sizeStr,
@@ -186,10 +279,10 @@ export async function processUploadedFile(
   const safeName = sanitizeFilename(optimization.filename, existingNames);
 
   // Persist optimized dataUrl to IndexedDB for offline/instant access
-  await persistMediaBlob(id, optimization.dataUrl);
+  await persistMediaBlob(id, optimization.dataUrl, safeName);
 
   // Upload asset to server /public/uploads directory
-  let finalUrl = optimization.dataUrl;
+  let finalUrl = `/uploads/${safeName}`;
   try {
     const uploadRes = await fetch('/api/media/upload', {
       method: 'POST',
@@ -212,7 +305,8 @@ export async function processUploadedFile(
   const mediaItem: MediaItem = {
     id,
     name: safeName,
-    url: finalUrl,
+    url: `/uploads/${safeName}`,
+    originalUrl: `/uploads/${safeName}`,
     type: 'image',
     format: optimization.format,
     size: optimization.optimizedSizeFormatted,

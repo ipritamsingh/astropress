@@ -172,10 +172,16 @@ export default function App() {
 
       if (path.startsWith('/posts/')) {
         const postSlug = path.replace('/posts/', '').replace(/\/$/, '');
-        const foundPost = cms.posts.find(
+        let foundPost = cms.posts.find(
           (p) => p.slug.replace(/^\//, '') === postSlug || p.slug === postSlug
         );
-        if (foundPost && foundPost.status === 'published') {
+        if (!foundPost && typeof window !== 'undefined' && (window as any).__ASTROPRESS_INITIAL_POST__) {
+          const serverP = (window as any).__ASTROPRESS_INITIAL_POST__;
+          if (serverP.slug === postSlug || serverP.slug?.replace(/^\//, '') === postSlug) {
+            foundPost = serverP;
+          }
+        }
+        if (foundPost) {
           setCurrentRoute({ type: 'post', post: foundPost });
           setMode('frontend');
           return;

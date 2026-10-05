@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GutenbergBlock } from '../../types/cms';
+import { getPersistedMediaBlob } from '../../data/mediaStorage';
 import {
   Quote,
   CheckCircle2,
@@ -13,12 +14,82 @@ import {
   ExternalLink,
 } from 'lucide-react';
 
+const BlockImage: React.FC<{
+  src: string;
+  alt: string;
+  className?: string;
+}> = ({ src, alt, className }) => {
+  const [currentSrc, setCurrentSrc] = useState(src);
+
+  useEffect(() => {
+    setCurrentSrc(src);
+    if (src && (src.startsWith('/uploads/') || src.startsWith('uploads/'))) {
+      getPersistedMediaBlob(src).then((blob) => {
+        if (blob) setCurrentSrc(blob);
+      }).catch(() => {});
+    }
+  }, [src]);
+
+  return (
+    <img
+      src={currentSrc || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=80'}
+      alt={alt}
+      className={className}
+      loading="lazy"
+      onError={async () => {
+        if (src) {
+          const fallback = await getPersistedMediaBlob(src);
+          if (fallback) setCurrentSrc(fallback);
+        }
+      }}
+    />
+  );
+};
+
+function parseMarkdownToBlocks(markdown: string): GutenbergBlock[] {
+  if (!markdown) return [];
+  const blocks: GutenbergBlock[] = [];
+  const sections = markdown.split(/\n\n+/);
+  sections.forEach((sec, idx) => {
+    const trimmed = sec.trim();
+    if (!trimmed) return;
+    if (trimmed.startsWith('# ')) {
+      blocks.push({ id: `md-h1-${idx}`, type: 'heading', content: trimmed.replace(/^#\s+/, ''), settings: { level: 1 } });
+    } else if (trimmed.startsWith('## ')) {
+      blocks.push({ id: `md-h2-${idx}`, type: 'heading', content: trimmed.replace(/^##\s+/, ''), settings: { level: 2 } });
+    } else if (trimmed.startsWith('### ')) {
+      blocks.push({ id: `md-h3-${idx}`, type: 'heading', content: trimmed.replace(/^###\s+/, ''), settings: { level: 3 } });
+    } else if (trimmed.startsWith('>')) {
+      blocks.push({ id: `md-q-${idx}`, type: 'quote', content: trimmed.replace(/^>\s*/gm, '').trim(), settings: {} });
+    } else if (trimmed.startsWith('```')) {
+      const lines = trimmed.split('\n');
+      const lang = lines[0].replace('```', '').trim() || 'typescript';
+      const code = lines.slice(1, -1).join('\n');
+      blocks.push({ id: `md-code-${idx}`, type: 'code', content: code, settings: { codeLanguage: lang } });
+    } else {
+      const imgMatch = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/);
+      if (imgMatch) {
+        blocks.push({
+          id: `md-img-${idx}`,
+          type: 'image',
+          content: imgMatch[2],
+          settings: { imageUrl: imgMatch[2], imageAlt: imgMatch[1] },
+        });
+      } else {
+        blocks.push({ id: `md-p-${idx}`, type: 'paragraph', content: trimmed, settings: {} });
+      }
+    }
+  });
+  return blocks;
+}
+
 interface Props {
-  blocks: GutenbergBlock[];
+  blocks?: GutenbergBlock[];
+  rawMarkdown?: string;
   previewMode?: boolean;
 }
 
-export const GutenbergBlockRenderer: React.FC<Props> = ({ blocks, previewMode = false }) => {
+export const GutenbergBlockRenderer: React.FC<Props> = ({ blocks, rawMarkdown, previewMode = false }) => {
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
   const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>({});
 
@@ -32,13 +103,15 @@ export const GutenbergBlockRenderer: React.FC<Props> = ({ blocks, previewMode = 
     setTimeout(() => setCopiedCodeId(null), 2000);
   };
 
-  if (!blocks || blocks.length === 0) {
+  const renderBlocks = (blocks && blocks.length > 0) ? blocks : (rawMarkdown ? parseMarkdownToBlocks(rawMarkdown) : []);
+
+  if (!renderBlocks || renderBlocks.length === 0) {
     return null;
   }
 
   return (
     <div className="space-y-6 text-slate-800 leading-relaxed font-normal">
-      {blocks.map((block) => {
+      {renderBlocks.map((block) => {
         const { id, type, content, settings = {} } = block;
 
         switch (type) {
@@ -179,11 +252,10 @@ export const GutenbergBlockRenderer: React.FC<Props> = ({ blocks, previewMode = 
             return (
               <figure key={id} className="my-8 text-center">
                 <div className="overflow-hidden rounded-xl bg-slate-100 shadow-sm border border-slate-200/60 max-w-4xl mx-auto">
-                  <img
-                    src={imageUrl || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=80'}
+                  <BlockImage
+                    src={imageUrl}
                     alt={settings.imageAlt || 'Article illustration'}
                     className="w-full h-auto object-cover max-h-[550px] transition-transform duration-300 hover:scale-[1.01]"
-                    loading="lazy"
                   />
                 </div>
                 {(settings.imageCaption || settings.imageAlt) && (

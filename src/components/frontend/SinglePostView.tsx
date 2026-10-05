@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Post, Comment, Author, Category } from '../../types/cms';
 import { GutenbergBlockRenderer } from '../common/GutenbergBlockRenderer';
+import { getPersistedMediaBlob } from '../../data/mediaStorage';
 import {
   Clock,
   User,
@@ -134,6 +135,17 @@ export const SinglePostView: React.FC<Props> = ({
     image: post.featuredImage || undefined,
   });
 
+  const [featuredImgSrc, setFeaturedImgSrc] = useState<string>(post.featuredImage || '');
+
+  useEffect(() => {
+    setFeaturedImgSrc(post.featuredImage || '');
+    if (post.featuredImage && (post.featuredImage.startsWith('/uploads/') || post.featuredImage.startsWith('uploads/'))) {
+      getPersistedMediaBlob(post.featuredImage).then((blob) => {
+        if (blob) setFeaturedImgSrc(blob);
+      }).catch(() => {});
+    }
+  }, [post.featuredImage]);
+
   return (
     <article className="max-w-4xl mx-auto py-8 px-4 sm:px-6 font-sans">
       {/* Schema.org Article Structured Data */}
@@ -223,16 +235,22 @@ export const SinglePostView: React.FC<Props> = ({
       {post.featuredImage && (
         <div className="my-8 rounded-2xl overflow-hidden bg-slate-100 shadow-md border border-slate-200">
           <img
-            src={post.featuredImage}
+            src={featuredImgSrc || post.featuredImage}
             alt={post.title}
             className="w-full h-auto object-cover max-h-[500px]"
+            onError={async () => {
+              if (post.featuredImage) {
+                const fallback = await getPersistedMediaBlob(post.featuredImage);
+                if (fallback) setFeaturedImgSrc(fallback);
+              }
+            }}
           />
         </div>
       )}
 
       {/* Body Content & Rendered Gutenberg Blocks */}
       <div className="py-6">
-        <GutenbergBlockRenderer blocks={post.blocks} />
+        <GutenbergBlockRenderer blocks={post.blocks} rawMarkdown={post.body} />
       </div>
 
       {/* Tags Section */}

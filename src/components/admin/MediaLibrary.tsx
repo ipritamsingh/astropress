@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MediaItem } from '../../types/cms';
-import { processUploadedFile } from '../../data/mediaStorage';
+import { processUploadedFile, getPersistedMediaBlob } from '../../data/mediaStorage';
 import {
   Upload,
   Search,
@@ -18,6 +18,59 @@ import {
   Save,
   CheckCircle2,
 } from 'lucide-react';
+
+export const MediaThumbnail: React.FC<{ item: MediaItem; className?: string; style?: React.CSSProperties }> = ({
+  item,
+  className,
+  style,
+}) => {
+  const [displaySrc, setDisplaySrc] = useState<string>(item.originalUrl || item.url);
+
+  useEffect(() => {
+    let active = true;
+    if (item.url && (item.url.startsWith('/uploads/') || item.url.startsWith('uploads/'))) {
+      getPersistedMediaBlob(item.id || item.name).then((blobUrl) => {
+        if (active && blobUrl) {
+          setDisplaySrc(blobUrl);
+        }
+      }).catch(() => {});
+    } else {
+      setDisplaySrc(item.originalUrl || item.url);
+    }
+    return () => {
+      active = false;
+    };
+  }, [item.url, item.id, item.name, item.originalUrl]);
+
+  const handleImgError = async () => {
+    try {
+      const fallback = await getPersistedMediaBlob(item.id || item.name);
+      if (fallback) {
+        setDisplaySrc(fallback);
+      }
+    } catch {}
+  };
+
+  if (item.type === 'video') {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800 text-slate-300">
+        <Film className="h-8 w-8 mb-1" />
+        <span className="text-[10px] font-mono">Video</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={displaySrc}
+      alt={item.altText || item.name}
+      onError={handleImgError}
+      className={className || 'w-full h-full object-cover'}
+      style={style}
+      loading="lazy"
+    />
+  );
+};
 
 interface Props {
   media: MediaItem[];
@@ -310,14 +363,7 @@ export const MediaLibrary: React.FC<Props> = ({
                         : 'border-slate-200 hover:border-slate-400'
                     }`}
                   >
-                    {item.type === 'video' ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800 text-slate-300">
-                        <Film className="h-8 w-8 mb-1" />
-                        <span className="text-[10px] font-mono">Video</span>
-                      </div>
-                    ) : (
-                      <img src={item.url} alt={item.altText || item.name} className="w-full h-full object-cover" />
-                    )}
+                    <MediaThumbnail item={item} />
 
                     <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col justify-end text-white text-[10px]">
                       <span className="font-bold truncate">{item.name}</span>
@@ -360,9 +406,8 @@ export const MediaLibrary: React.FC<Props> = ({
                       }`}
                     >
                       <td className="p-3 w-14">
-                        <img
-                          src={item.url}
-                          alt=""
+                        <MediaThumbnail
+                          item={item}
                           className="h-10 w-10 rounded-lg object-cover border border-slate-200 bg-slate-100"
                         />
                       </td>
@@ -404,9 +449,8 @@ export const MediaLibrary: React.FC<Props> = ({
           {selectedItem ? (
             <div className="space-y-4 text-xs">
               <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100 max-h-48 flex items-center justify-center p-1">
-                <img
-                  src={selectedItem.url}
-                  alt={selectedItem.altText || selectedItem.name}
+                <MediaThumbnail
+                  item={selectedItem}
                   className="max-h-44 object-contain rounded-lg"
                 />
               </div>

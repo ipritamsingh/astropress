@@ -100,8 +100,29 @@ function loadStoredData(): CMSDataState {
       return initial;
     }
     const parsed = JSON.parse(raw);
+    const serverPosts: Post[] = typeof window !== 'undefined' ? (window as any).__ASTROPRESS_SERVER_POSTS__ || [] : [];
+    const serverPost: Post = typeof window !== 'undefined' ? (window as any).__ASTROPRESS_INITIAL_POST__ : undefined;
+    if (serverPost && !serverPosts.some((sp) => sp.slug === serverPost.slug)) {
+      serverPosts.push(serverPost);
+    }
+
+    let loadedPosts = parsed.posts || initialPosts;
+    if (serverPosts.length > 0) {
+      const postMap = new Map<string, Post>();
+      loadedPosts.forEach((p: Post) => postMap.set(p.slug, p));
+      serverPosts.forEach((sp: Post) => {
+        const existing = postMap.get(sp.slug);
+        if (!existing) {
+          postMap.set(sp.slug, sp);
+        } else if (existing.status !== 'published' && sp.status === 'published') {
+          postMap.set(sp.slug, { ...existing, ...sp, status: 'published' });
+        }
+      });
+      loadedPosts = Array.from(postMap.values());
+    }
+
     return {
-      posts: parsed.posts || initialPosts,
+      posts: loadedPosts,
       pages: parsed.pages || initialPages,
       categories: parsed.categories || initialCategories,
       tags: parsed.tags || initialTags,
@@ -152,30 +173,33 @@ function sanitizeDataForLocalStorage(data: CMSDataState): CMSDataState {
     }
   });
 
-  // Sanitize media items with huge dataUrls if present
+  // Sanitize media items: remove any large dataUrls from url or originalUrl to prevent QuotaExceededError
   cleanData.media = cleanData.media.map((m) => {
-    if (m.url && m.url.startsWith('data:') && m.url.length > 50000) {
-      return { ...m, url: `/uploads/${m.name}` };
+    let url = m.url;
+    let originalUrl = m.originalUrl;
+    if (url && url.startsWith('data:')) {
+      url = `/uploads/${m.name}`;
     }
-    return m;
+    if (originalUrl && originalUrl.startsWith('data:')) {
+      originalUrl = `/uploads/${m.name}`;
+    }
+    return { ...m, url, originalUrl };
   });
 
   // Sanitize posts with huge dataUrls in blocks or featuredImage
   cleanData.posts = cleanData.posts.map((p) => {
     let cleanFeatured = p.featuredImage;
-    if (cleanFeatured && cleanFeatured.startsWith('data:') && cleanFeatured.length > 50000) {
+    if (cleanFeatured && cleanFeatured.startsWith('data:')) {
       const foundUrl = mediaByUrl.get(cleanFeatured);
       if (foundUrl) {
         cleanFeatured = foundUrl;
-      } else {
-        cleanFeatured = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=80';
       }
     }
     const cleanBlocks = (p.blocks || []).map((b) => {
       let cleanContent = b.content;
       const cleanSettings = { ...b.settings };
 
-      if (cleanContent && cleanContent.startsWith('data:') && cleanContent.length > 50000) {
+      if (cleanContent && cleanContent.startsWith('data:')) {
         const foundUrl = mediaByUrl.get(cleanContent);
         if (foundUrl) {
           cleanContent = foundUrl;
@@ -184,7 +208,7 @@ function sanitizeDataForLocalStorage(data: CMSDataState): CMSDataState {
         }
       }
 
-      if (cleanSettings.imageUrl && cleanSettings.imageUrl.startsWith('data:') && cleanSettings.imageUrl.length > 50000) {
+      if (cleanSettings.imageUrl && cleanSettings.imageUrl.startsWith('data:')) {
         const foundUrl = mediaByUrl.get(cleanSettings.imageUrl);
         if (foundUrl) {
           cleanSettings.imageUrl = foundUrl;

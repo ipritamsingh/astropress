@@ -1,8 +1,31 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import App from '../App';
+import { getCollection } from 'astro:content';
+
+const collectionPosts = await getCollection('posts');
+const serverPosts = collectionPosts.map((post) => ({
+  id: post.id,
+  title: post.data.title,
+  slug: post.data.slug || post.id.replace(/\.md$/, ''),
+  pubDate: post.data.pubDate ? new Date(post.data.pubDate).toISOString() : new Date().toISOString(),
+  status: post.data.draft ? 'draft' : (post.data.status || 'published'),
+  author: post.data.author,
+  category: post.data.category,
+  tags: post.data.tags || [],
+  featuredImage: post.data.featuredImage || '',
+  excerpt: post.data.excerpt || '',
+  readingTime: post.data.readingTime || 5,
+  template: post.data.template || 'standard',
+  blocks: post.data.blocks || [],
+  body: post.body || '',
+  seo: post.data.seo || {},
+}));
 ---
 
 <Layout title="AstroPress — WordPress-Style Sveltia CMS Platform">
+  <script is:inline define:vars={{ serverPosts }}>
+    window.__ASTROPRESS_SERVER_POSTS__ = serverPosts;
+  </script>
   <App client:only="react" />
 </Layout>

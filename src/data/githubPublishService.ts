@@ -314,7 +314,14 @@ export async function executeRealGitHubPublish(
         ? `${deploymentSettings.cloudflareWorkerUrl!.trim()}/repos/${owner}/${repoName}/contents/${filePath}`
         : `https://api.github.com/repos/${owner}/${repoName}/contents/${filePath}`;
 
-      // 1. Check if file already exists to get its SHA for update
+      // 1. Sync referenced image assets to public/uploads/ in repo and locally FIRST so images exist when Cloudflare builds
+      try {
+        await syncReferencedImageAssets(item, markdownWithFrontmatter, cleanToken, owner, repoName, branch, deploymentSettings);
+      } catch (e) {
+        console.warn('Asset sync warning:', e);
+      }
+
+      // 2. Check if file already exists to get its SHA for update
       let existingFileSha: string | undefined = undefined;
       try {
         const getFileRes = await fetch(`${apiUrl}?ref=${branch}`, {
@@ -332,7 +339,7 @@ export async function executeRealGitHubPublish(
         // File doesn't exist yet, proceed with new file creation
       }
 
-      // 2. Put file contents (Base64 encoded UTF-8)
+      // 3. Put file contents (Base64 encoded UTF-8)
       const contentBase64 = utf8ToBase64(markdownWithFrontmatter);
       const putBody: any = {
         message: commitMessage,
@@ -394,13 +401,6 @@ export async function executeRealGitHubPublish(
         });
       } catch (e) {
         // Non-blocking
-      }
-
-      // Sync referenced images to public/uploads/ in repo and locally
-      try {
-        await syncReferencedImageAssets(item, markdownWithFrontmatter, cleanToken, owner, repoName, branch, deploymentSettings);
-      } catch (e) {
-        console.warn('Asset sync warning:', e);
       }
 
       return {
@@ -647,8 +647,13 @@ export async function pushSingleFileToGitHub(
       // file does not exist yet
     }
 
-    // 2. Put file contents (Base64 encoded UTF-8)
-    const contentBase64 = utf8ToBase64(content);
+    // 2. Put file contents (Base64 encoded)
+    let contentBase64 = '';
+    if (typeof content === 'string' && content.startsWith('data:') && content.includes(';base64,')) {
+      contentBase64 = content.replace(/^data:[^;]+;base64,/, '').trim();
+    } else {
+      contentBase64 = utf8ToBase64(content);
+    }
     const putBody: any = {
       message: commitMessage,
       content: contentBase64,
@@ -745,15 +750,28 @@ export async function executeFullRepositoryPush(payload: FullPushPayload): Promi
   // 1. Start with the complete project files manifest (root config, Astro engine, layouts, pages, components, public assets)
   const fullFilesMap: Record<string, string> = { ...projectFilesManifest };
 
-  // 2. Overlay dynamic CMS posts
+  // 2. Overlay dynamic CMS posts with full frontmatter, featured image, and blocks
   posts.forEach((post) => {
     const md = `---
 title: "${(post.title || '').replace(/"/g, '\\"')}"
-description: "${(post.excerpt || '').replace(/"/g, '\\"')}"
+slug: "${post.slug}"
 pubDate: ${post.pubDate || new Date().toISOString()}
-author: "${(post.author || 'Pritam Singh').replace(/"/g, '\\"')}"
+status: "${post.status || 'published'}"
+draft: ${post.status === 'draft'}
+author: "${(post.author || 'Amit Singh').replace(/"/g, '\\"')}"
 category: "${(post.category || 'General').replace(/"/g, '\\"')}"
+tags: [${(post.tags || []).map((t) => `"${t}"`).join(', ')}]
+featuredImage: "${post.featuredImage || ''}"
+excerpt: "${(post.excerpt || '').replace(/"/g, '\\"')}"
+readingTime: ${post.readingTime || Math.max(1, Math.ceil((post.blocks || []).length * 0.8))}
 template: "${post.template || 'standard'}"
+blocks: ${JSON.stringify(post.blocks || [])}
+seo:
+  metaTitle: "${(post.seo?.metaTitle || post.title || '').replace(/"/g, '\\"')}"
+  metaDescription: "${(post.seo?.metaDescription || post.excerpt || '').replace(/"/g, '\\"')}"
+  focusKeyword: "${post.seo?.focusKeyword || ''}"
+  robotsIndex: ${post.seo?.robotsIndex !== false}
+  robotsFollow: ${post.seo?.robotsFollow !== false}
 ---
 
 ${post.body || ''}`;
@@ -764,7 +782,11 @@ ${post.body || ''}`;
   pages.forEach((page) => {
     const md = `---
 title: "${(page.title || '').replace(/"/g, '\\"')}"
+slug: "${page.slug}"
 pubDate: ${new Date().toISOString()}
+template: "${page.template || 'default'}"
+draft: ${page.status === 'draft'}
+blocks: ${JSON.stringify(page.blocks || [])}
 ---
 
 ${page.body || ''}`;
@@ -790,9 +812,66 @@ ${page.body || ''}`;
     );
   }
 
-  // 7. Overlay media
+  // 7. Overlay media metadata and binary assets
   if (media && media.length > 0) {
     fullFilesMap['src/data/media.json'] = JSON.stringify(media, null, 2);
+  }
+
+  // Collect and include all uploaded media binary files into public/uploads/
+  const storedBlobs = await getAllPersistedMediaBlobs().catch(() => []);
+  const allMedia = media || [];
+
+  const neededImageFilenames = new Set<string>();
+  allMedia.forEach((m) => {
+    if (m.name && m.type === 'image') neededImageFilenames.add(m.name.replace(/^\/?uploads\//, ''));
+  });
+  posts.forEach((p) => {
+    if (p.featuredImage && (p.featuredImage.startsWith('/uploads/') || p.featuredImage.startsWith('uploads/'))) {
+      neededImageFilenames.add(p.featuredImage.replace(/^\/?uploads\//, ''));
+    }
+    (p.blocks || []).forEach((b) => {
+      if (b.type === 'image') {
+        const u = b.settings?.imageUrl || b.content;
+        if (u && (u.startsWith('/uploads/') || u.startsWith('uploads/'))) {
+          neededImageFilenames.add(u.replace(/^\/?uploads\//, ''));
+        }
+      }
+    });
+    if (p.body) {
+      const matches = p.body.match(/\/uploads\/[A-Za-z0-9_.-]+/g);
+      if (matches) {
+        matches.forEach((m) => neededImageFilenames.add(m.replace(/^\/?uploads\//, '')));
+      }
+    }
+  });
+
+  for (const filename of Array.from(neededImageFilenames)) {
+    const assetPath = `public/uploads/${filename}`;
+    if (fullFilesMap[assetPath]) continue;
+
+    let dataUrl = '';
+    const foundBlob = storedBlobs.find(
+      (b) => b.filename === filename || b.id === filename || b.id === `/uploads/${filename}`
+    );
+    if (foundBlob && foundBlob.data) {
+      dataUrl = foundBlob.data;
+    }
+    if (!dataUrl) {
+      try {
+        const res = await fetch(`/uploads/${filename}`);
+        if (res.ok) {
+          const blob = await res.blob();
+          dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+        }
+      } catch (e) {}
+    }
+    if (dataUrl) {
+      fullFilesMap[assetPath] = dataUrl;
+    }
   }
 
   // 8. Overlay menus
@@ -834,13 +913,51 @@ ${page.body || ''}`;
       }
     } catch (e) {}
 
-    // Step B: Build Tree items
-    const treeItems = allFilePaths.map((path) => ({
-      path,
-      mode: '100644',
-      type: 'blob',
-      content: fullFilesMap[path],
-    }));
+    // Step B: Build Tree items with proper binary blob creation
+    const treeItems: Array<{ path: string; mode: string; type: string; sha?: string; content?: string }> = [];
+
+    for (let i = 0; i < allFilePaths.length; i++) {
+      const path = allFilePaths[i];
+      const rawContent = fullFilesMap[path];
+
+      // Check if file is binary (e.g. data:image/...;base64, or image file extension)
+      const isBinary =
+        (typeof rawContent === 'string' && rawContent.startsWith('data:') && rawContent.includes(';base64,')) ||
+        /\.(webp|png|jpg|jpeg|gif|ico|pdf|woff|woff2|ttf|eot|mp4|webm)$/i.test(path);
+
+      if (isBinary && typeof rawContent === 'string' && rawContent.includes(';base64,')) {
+        try {
+          const base64Data = rawContent.replace(/^data:[^;]+;base64,/, '').trim();
+          const blobRes = await fetch(`${baseApiUrl}/git/blobs`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              content: base64Data,
+              encoding: 'base64',
+            }),
+          });
+          if (blobRes.ok) {
+            const blobData = await blobRes.json();
+            treeItems.push({
+              path,
+              mode: '100644',
+              type: 'blob',
+              sha: blobData.sha,
+            });
+            continue;
+          }
+        } catch (blobErr) {
+          console.warn(`Failed to create Git blob for ${path}:`, blobErr);
+        }
+      }
+
+      treeItems.push({
+        path,
+        mode: '100644',
+        type: 'blob',
+        content: rawContent,
+      });
+    }
 
     if (onProgress) {
       onProgress({
@@ -1006,35 +1123,80 @@ export async function syncReferencedImageAssets(
     });
   }
 
-  // Extract /uploads/... paths from markdown text
+  // Extract /uploads/... paths and data: URLs from markdown text
   const mdMatches = markdownText.match(/\/uploads\/[A-Za-z0-9_.-]+/g);
   if (mdMatches) {
     mdMatches.forEach((m) => referencedUrls.add(m));
+  }
+  const dataMatches = markdownText.match(/data:image\/[a-zA-Z+]+;base64,[A-Za-z0-9+/=]+/g);
+  if (dataMatches) {
+    dataMatches.forEach((m) => referencedUrls.add(m));
   }
 
   // Get persisted media blobs from IndexedDB
   const storedBlobs = await getAllPersistedMediaBlobs().catch(() => []);
 
+  // Retrieve CMS media library from localStorage if available
+  let cmsMedia: MediaItem[] = [];
+  try {
+    const raw = localStorage.getItem('astropress_cms_state_v3');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed.media)) cmsMedia = parsed.media;
+    }
+  } catch (e) {}
+
   for (const rawUrl of Array.from(referencedUrls)) {
     if (!rawUrl || rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) continue;
 
     let filename = '';
-    if (rawUrl.startsWith('/uploads/') || rawUrl.startsWith('uploads/')) {
+    let dataUrl = '';
+
+    if (rawUrl.startsWith('data:image/')) {
+      dataUrl = rawUrl;
+      filename = `upload-asset-${Date.now()}-${Math.floor(Math.random() * 1000)}.webp`;
+    } else if (rawUrl.startsWith('/uploads/') || rawUrl.startsWith('uploads/')) {
       filename = rawUrl.replace(/^\/?uploads\//, '');
     }
 
     if (!filename) continue;
 
-    // Find binary dataUrl for this image asset
-    let dataUrl = '';
-    const foundStored = storedBlobs.find(
-      (b) => b.id.includes(filename) || (typeof b.data === 'string' && b.data.includes(filename))
-    );
-    if (foundStored && typeof foundStored.data === 'string') {
-      dataUrl = foundStored.data;
+    // 1. Check if binary data is in storedBlobs by filename or id
+    if (!dataUrl) {
+      const foundStored = storedBlobs.find(
+        (b) =>
+          b.filename === filename ||
+          b.id.includes(filename) ||
+          (typeof b.data === 'string' && b.data.includes(filename))
+      );
+      if (foundStored && typeof foundStored.data === 'string') {
+        dataUrl = foundStored.data;
+      }
     }
 
-    // Try fetching from local /uploads/{filename} if not in IndexedDB
+    // 2. Check if binary data is in cmsMedia matching filename
+    if (!dataUrl) {
+      const foundMedia = cmsMedia.find(
+        (m) =>
+          m.name === filename ||
+          (m.url && m.url.includes(filename)) ||
+          (m.originalUrl && m.originalUrl.includes(filename))
+      );
+      if (foundMedia) {
+        if (foundMedia.url && foundMedia.url.startsWith('data:')) {
+          dataUrl = foundMedia.url;
+        } else if (foundMedia.originalUrl && foundMedia.originalUrl.startsWith('data:')) {
+          dataUrl = foundMedia.originalUrl;
+        } else {
+          const blobById = storedBlobs.find((b) => b.id === foundMedia.id);
+          if (blobById && typeof blobById.data === 'string') {
+            dataUrl = blobById.data;
+          }
+        }
+      }
+    }
+
+    // 3. Try fetching from local /uploads/{filename}
     if (!dataUrl) {
       try {
         const res = await fetch(`/uploads/${filename}`);
@@ -1051,7 +1213,7 @@ export async function syncReferencedImageAssets(
 
     if (!dataUrl) continue;
 
-    // 1. Always attempt local upload to public/uploads/
+    // A. Always write asset locally to public/uploads/
     try {
       await fetch('/api/media/upload', {
         method: 'POST',
@@ -1060,7 +1222,7 @@ export async function syncReferencedImageAssets(
       });
     } catch (e) {}
 
-    // 2. If GitHub token is provided, commit image file to public/uploads/{filename} in GitHub repo
+    // B. Push image file to public/uploads/{filename} in GitHub repository
     if (token && token.trim() && owner && repoName) {
       try {
         const cleanToken = token.trim();
@@ -1073,7 +1235,6 @@ export async function syncReferencedImageAssets(
           ? `${deploymentSettings!.cloudflareWorkerUrl!.trim()}/repos/${owner}/${repoName}/contents/${assetPath}`
           : `https://api.github.com/repos/${owner}/${repoName}/contents/${assetPath}`;
 
-        // Check if image file already exists on GitHub
         let existingSha: string | undefined = undefined;
         try {
           const checkRes = await fetch(`${apiUrl}?ref=${branch}`, {
@@ -1089,10 +1250,10 @@ export async function syncReferencedImageAssets(
           }
         } catch (e) {}
 
-        const base64Content = dataUrl.replace(/^data:image\/[a-zA-Z+]+;base64,/, '').trim();
+        const base64Content = dataUrl.replace(/^data:[^;]+;base64,/, '').trim();
         if (base64Content) {
           const putBody: any = {
-            message: `chore(media): upload public asset public/uploads/${filename}`,
+            message: `chore(media): sync asset public/uploads/${filename}`,
             content: base64Content,
             branch,
           };

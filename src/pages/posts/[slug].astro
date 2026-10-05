@@ -14,6 +14,25 @@ export async function getStaticPaths() {
 const { post } = Astro.props;
 ---
 
-<Layout title={`${post.data.title} — AstroPress`} description={post.data.excerpt}>
+<Layout title={`${post.data.title} — AstroPress`} description={post.data.excerpt} ogImage={post.data.featuredImage}>
+  <script is:inline define:vars={{ initialPost: {
+    id: post.id,
+    title: post.data.title,
+    slug: post.data.slug || post.id.replace(/\.md$/, ''),
+    pubDate: post.data.pubDate ? new Date(post.data.pubDate).toISOString() : new Date().toISOString(),
+    status: post.data.draft ? 'draft' : (post.data.status || 'published'),
+    author: post.data.author,
+    category: post.data.category,
+    tags: post.data.tags || [],
+    featuredImage: post.data.featuredImage || '',
+    excerpt: post.data.excerpt || '',
+    readingTime: post.data.readingTime || 5,
+    template: post.data.template || 'standard',
+    blocks: post.data.blocks || [],
+    body: post.body || '',
+    seo: post.data.seo || {},
+  } }}>
+    window.__ASTROPRESS_INITIAL_POST__ = initialPost;
+  </script>
   <App client:only="react" />
 </Layout>

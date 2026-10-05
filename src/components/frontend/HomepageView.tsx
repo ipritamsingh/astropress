@@ -69,6 +69,8 @@ export const HomepageView: React.FC<Props> = ({
 
         switch (section.type) {
           case 'hero':
+            // If the customizable HeroSection is active above, skip the legacy hero section to avoid duplicate heroes
+            if (heroConfig && heroConfig.enabled) return null;
             if (!heroPost) return null;
             return (
               <section key={section.id} className="relative pt-6">

@@ -38,10 +38,41 @@ try {
   const filePaths = getAllFiles(rootDir).sort();
   const manifest = {};
 
+  const BINARY_EXTS = new Set([
+    '.webp',
+    '.png',
+    '.jpg',
+    '.jpeg',
+    '.gif',
+    '.ico',
+    '.pdf',
+    '.woff',
+    '.woff2',
+    '.ttf',
+    '.eot',
+    '.mp4',
+    '.webm',
+  ]);
+
   for (const relPath of filePaths) {
     const fullPath = path.join(rootDir, relPath);
     try {
-      manifest[relPath] = fs.readFileSync(fullPath, 'utf8');
+      const ext = path.extname(relPath).toLowerCase();
+      if (BINARY_EXTS.has(ext)) {
+        const mime =
+          ext === '.webp'
+            ? 'image/webp'
+            : ext === '.png'
+            ? 'image/png'
+            : ext === '.jpg' || ext === '.jpeg'
+            ? 'image/jpeg'
+            : ext === '.gif'
+            ? 'image/gif'
+            : 'application/octet-stream';
+        manifest[relPath] = `data:${mime};base64,` + fs.readFileSync(fullPath).toString('base64');
+      } else {
+        manifest[relPath] = fs.readFileSync(fullPath, 'utf8');
+      }
     } catch (e) {
       console.warn(`[Manifest Generator] Skipped reading ${relPath}: ${e.message}`);
     }
