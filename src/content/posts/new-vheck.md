@@ -1,6 +1,6 @@
 ---
-title: "New vheck"
-slug: "new-check"
+title: "New vheck update"
+slug: "new-vheck"
 pubDate: 2026-10-06T12:23:24.386Z
 status: "published"
 draft: false

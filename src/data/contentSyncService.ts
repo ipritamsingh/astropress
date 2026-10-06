@@ -356,20 +356,22 @@ export function mergeCMSStates(localState: CMSDataState, remoteState: Partial<CM
 
     // Merge local posts
     localState.posts.forEach((lp) => {
-      const existing =
-        postMap.get(lp.slug) ||
-        (lp.id ? Array.from(postMap.values()).find((p) => p.id === lp.id) : undefined);
-
+      const existing = postMap.get(lp.slug);
       if (!existing) {
         // Local newly drafted or created post that hasn't been published to remote yet
         postMap.set(lp.slug, lp);
       } else {
-        // If slug was changed, delete old slug entry to prevent duplicate posts
-        if (existing.slug !== lp.slug) {
-          postMap.delete(existing.slug);
+        // If remote is published, preserve remote content unless local has an active draft edit with newer timestamp
+        const remoteUpdated = new Date(existing.updatedDate || existing.pubDate || 0).getTime();
+        const localUpdated = new Date(lp.updatedDate || lp.pubDate || 0).getTime();
+
+        if (localUpdated > remoteUpdated) {
+          // Keep local updated content
+          postMap.set(lp.slug, { ...existing, ...lp });
+        } else {
+          // Remote is authoritative
+          postMap.set(lp.slug, existing);
         }
-        // Local updated content takes priority during active editing session
-        postMap.set(lp.slug, { ...existing, ...lp });
       }
     });
 
@@ -382,16 +384,11 @@ export function mergeCMSStates(localState: CMSDataState, remoteState: Partial<CM
     const pageMap = new Map<string, Page>();
     remoteState.pages.forEach((rp) => pageMap.set(rp.slug, rp));
     localState.pages.forEach((lp) => {
-      const existing =
-        pageMap.get(lp.slug) ||
-        (lp.id ? Array.from(pageMap.values()).find((p) => p.id === lp.id) : undefined);
-
+      const existing = pageMap.get(lp.slug);
       if (!existing) {
         pageMap.set(lp.slug, lp);
       } else {
-        if (existing.slug !== lp.slug) {
-          pageMap.delete(existing.slug);
-        }
+        // Preserve local modifications during active editing session
         pageMap.set(lp.slug, { ...existing, ...lp });
       }
     });

@@ -491,9 +491,9 @@ async function performAtomicBulkDeploy(payload: FullPushPayload) {
     console.warn('[Deploy] Warning fetching remote tree:', err);
   }
 
-  // 3. Retrieve local CMS state: Always merge localStorage with any passed payload
-  let localPosts: Post[] = [];
-  let localPages: Page[] = [];
+  // 3. Retrieve local CMS state from props or fallback to localStorage
+  let localPosts = payload.posts;
+  let localPages = payload.pages;
   let localHeroConfig = payload.heroConfig;
   let localThemeSettings = payload.themeSettings;
   let localCategories = payload.categories;
@@ -506,59 +506,17 @@ async function performAtomicBulkDeploy(payload: FullPushPayload) {
     const raw = typeof window !== 'undefined' ? localStorage.getItem('astropress_cms_state_v3') : null;
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.posts)) localPosts = parsed.posts;
-      if (Array.isArray(parsed.pages)) localPages = parsed.pages;
-      if (!localHeroConfig && parsed.heroConfig) localHeroConfig = parsed.heroConfig;
-      if (!localThemeSettings && parsed.themeSettings) localThemeSettings = parsed.themeSettings;
-      if (!localCategories && Array.isArray(parsed.categories)) localCategories = parsed.categories;
-      if (!localTags && Array.isArray(parsed.tags)) localTags = parsed.tags;
-      if (!localAuthors && Array.isArray(parsed.authors)) localAuthors = parsed.authors;
-      if (!localMedia && Array.isArray(parsed.media)) localMedia = parsed.media;
-      if (!localMenus && Array.isArray(parsed.menus)) localMenus = parsed.menus;
+      if (!localPosts || localPosts.length === 0) localPosts = parsed.posts || [];
+      if (!localPages || localPages.length === 0) localPages = parsed.pages || [];
+      if (!localHeroConfig) localHeroConfig = parsed.heroConfig;
+      if (!localThemeSettings) localThemeSettings = parsed.themeSettings;
+      if (!localCategories || localCategories.length === 0) localCategories = parsed.categories || [];
+      if (!localTags || localTags.length === 0) localTags = parsed.tags || [];
+      if (!localAuthors || localAuthors.length === 0) localAuthors = parsed.authors || [];
+      if (!localMedia || localMedia.length === 0) localMedia = parsed.media || [];
+      if (!localMenus || localMenus.length === 0) localMenus = parsed.menus || [];
     }
   } catch {}
-
-  // If specific payload posts/pages passed, merge them on top of localPosts/localPages
-  if (payload.posts && payload.posts.length > 0) {
-    const postMap = new Map<string, Post>();
-    localPosts.forEach((p) => {
-      postMap.set(p.slug, p);
-      if (p.id) postMap.set(p.id, p);
-    });
-    payload.posts.forEach((p) => {
-      const existingKey = Array.from(postMap.entries()).find(
-        ([key, post]) => key === p.slug || (p.id && post.id === p.id) || post.slug === p.slug
-      );
-      if (existingKey) {
-        postMap.delete(existingKey[1].slug);
-        if (existingKey[1].id) postMap.delete(existingKey[1].id);
-      }
-      postMap.set(p.slug, p);
-    });
-    const uniqueBySlug = new Map<string, Post>();
-    Array.from(postMap.values()).forEach((p) => uniqueBySlug.set(p.slug, p));
-    localPosts = Array.from(uniqueBySlug.values());
-  }
-  if (payload.pages && payload.pages.length > 0) {
-    const pageMap = new Map<string, Page>();
-    localPages.forEach((p) => {
-      pageMap.set(p.slug, p);
-      if (p.id) pageMap.set(p.id, p);
-    });
-    payload.pages.forEach((p) => {
-      const existingKey = Array.from(pageMap.entries()).find(
-        ([key, page]) => key === p.slug || (p.id && page.id === p.id) || page.slug === p.slug
-      );
-      if (existingKey) {
-        pageMap.delete(existingKey[1].slug);
-        if (existingKey[1].id) pageMap.delete(existingKey[1].id);
-      }
-      pageMap.set(p.slug, p);
-    });
-    const uniqueBySlug = new Map<string, Page>();
-    Array.from(pageMap.values()).forEach((p) => uniqueBySlug.set(p.slug, p));
-    localPages = Array.from(uniqueBySlug.values());
-  }
 
   // 4. Safe remote state merge (never overwrite newer Live Admin / remote content)
   let activePosts = [...(localPosts || [])];

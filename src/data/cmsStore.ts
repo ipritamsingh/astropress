@@ -363,10 +363,10 @@ export function useCMS() {
 
   // POSTS
   const savePost = (post: Post, isPublishAction = false) => {
-    const exists = data.posts.some((p) => p.id === post.id || (post.slug && p.slug === post.slug));
+    const exists = data.posts.some((p) => p.id === post.id);
     let newPosts: Post[];
     if (exists) {
-      newPosts = data.posts.map((p) => (p.id === post.id || (post.slug && p.slug === post.slug) ? post : p));
+      newPosts = data.posts.map((p) => (p.id === post.id ? post : p));
     } else {
       newPosts = [post, ...data.posts];
     }
@@ -412,10 +412,10 @@ export function useCMS() {
 
   // PAGES
   const savePage = (page: Page, isPublishAction = false) => {
-    const exists = data.pages.some((p) => p.id === page.id || (page.slug && p.slug === page.slug));
+    const exists = data.pages.some((p) => p.id === page.id);
     let newPages: Page[];
     if (exists) {
-      newPages = data.pages.map((p) => (p.id === page.id || (page.slug && p.slug === page.slug) ? page : p));
+      newPages = data.pages.map((p) => (p.id === page.id ? page : p));
     } else {
       newPages = [...data.pages, page];
     }
