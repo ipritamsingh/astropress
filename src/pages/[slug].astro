@@ -5,41 +5,71 @@ import { getCollection } from 'astro:content';
 
 export async function getStaticPaths() {
   const posts = await getCollection('posts');
+  const pages = await getCollection('pages');
   const reserved = new Set(['about', 'contact', 'dashboard', 'admin', 'posts', 'api', 'uploads']);
   
-  return posts
+  const postPaths = posts
     .filter((post) => {
       const slug = post.data.slug || post.id.replace(/\.md$/, '');
       return !reserved.has(slug);
     })
     .map((post) => ({
       params: { slug: post.data.slug || post.id.replace(/\.md$/, '') },
-      props: { post },
+      props: { post, isPage: false },
     }));
+
+  const pagePaths = pages
+    .filter((page) => {
+      const slug = page.data.slug || page.id.replace(/\.md$/, '');
+      return !reserved.has(slug);
+    })
+    .map((page) => ({
+      params: { slug: page.data.slug || page.id.replace(/\.md$/, '') },
+      props: { page, isPage: true },
+    }));
+
+  return [...postPaths, ...pagePaths];
 }
 
-const { post } = Astro.props;
+const { post, page, isPage } = Astro.props as any;
+const pageTitle = isPage ? `${page.data.title} — AstroPress` : `${post.data.title} — AstroPress`;
+const pageDescription = isPage ? '' : (post?.data?.excerpt || '');
+const pageOgImage = isPage ? '' : (post?.data?.featuredImage || '');
 ---
 
-<Layout title={`${post.data.title} — AstroPress`} description={post.data.excerpt} ogImage={post.data.featuredImage}>
-  <script is:inline define:vars={{ initialPost: {
-    id: post.id,
-    title: post.data.title,
-    slug: post.data.slug || post.id.replace(/\.md$/, ''),
-    pubDate: post.data.pubDate ? new Date(post.data.pubDate).toISOString() : new Date().toISOString(),
-    status: post.data.draft ? 'draft' : (post.data.status || 'published'),
-    author: post.data.author,
-    category: post.data.category,
-    tags: post.data.tags || [],
-    featuredImage: post.data.featuredImage || '',
-    excerpt: post.data.excerpt || '',
-    readingTime: post.data.readingTime || 5,
-    template: post.data.template || 'standard',
-    blocks: post.data.blocks || [],
-    body: post.body || '',
-    seo: post.data.seo || {},
-  } }}>
-    window.__ASTROPRESS_INITIAL_POST__ = initialPost;
-  </script>
+<Layout title={pageTitle} description={pageDescription} ogImage={pageOgImage}>
+  {isPage ? (
+    <script is:inline define:vars={{ initialPage: {
+      id: page.id,
+      title: page.data.title,
+      slug: page.data.slug || page.id.replace(/\.md$/, ''),
+      status: page.data.draft ? 'draft' : 'published',
+      template: page.data.template || 'default',
+      blocks: page.data.blocks || [],
+      body: page.body || '',
+    } }}>
+      window.__ASTROPRESS_INITIAL_PAGE__ = initialPage;
+    </script>
+  ) : (
+    <script is:inline define:vars={{ initialPost: {
+      id: post.id,
+      title: post.data.title,
+      slug: post.data.slug || post.id.replace(/\.md$/, ''),
+      pubDate: post.data.pubDate ? new Date(post.data.pubDate).toISOString() : new Date().toISOString(),
+      status: post.data.draft ? 'draft' : (post.data.status || 'published'),
+      author: post.data.author,
+      category: post.data.category,
+      tags: post.data.tags || [],
+      featuredImage: post.data.featuredImage || '',
+      excerpt: post.data.excerpt || '',
+      readingTime: post.data.readingTime || 5,
+      template: post.data.template || 'standard',
+      blocks: post.data.blocks || [],
+      body: post.body || '',
+      seo: post.data.seo || {},
+    } }}>
+      window.__ASTROPRESS_INITIAL_POST__ = initialPost;
+    </script>
+  )}
   <App client:only="react" />
 </Layout>

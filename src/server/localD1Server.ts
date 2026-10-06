@@ -245,6 +245,73 @@ export async function handleLocalApiRequest(req: any, res: any) {
     }
   }
 
+  // Content sync/list endpoint: Reads all disk posts, pages, data files and uploads
+  if (url.startsWith('/api/content/all') && req.method === 'GET') {
+    try {
+      const postsDir = path.join(rootDir, 'src', 'content', 'posts');
+      const pagesDir = path.join(rootDir, 'src', 'content', 'pages');
+      const posts: Array<{ filename: string; slug: string; content: string }> = [];
+      const pages: Array<{ filename: string; slug: string; content: string }> = [];
+
+      if (fs.existsSync(postsDir)) {
+        const postFiles = fs.readdirSync(postsDir);
+        for (const f of postFiles) {
+          if (f.endsWith('.md')) {
+            const raw = fs.readFileSync(path.join(postsDir, f), 'utf8');
+            posts.push({ filename: f, slug: f.replace(/\.md$/, ''), content: raw });
+          }
+        }
+      }
+
+      if (fs.existsSync(pagesDir)) {
+        const pageFiles = fs.readdirSync(pagesDir);
+        for (const f of pageFiles) {
+          if (f.endsWith('.md')) {
+            const raw = fs.readFileSync(path.join(pagesDir, f), 'utf8');
+            pages.push({ filename: f, slug: f.replace(/\.md$/, ''), content: raw });
+          }
+        }
+      }
+
+      // Read json configs if present
+      const readJsonSafe = (p: string) => {
+        try {
+          if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8'));
+        } catch (e) {}
+        return null;
+      };
+
+      const categories = readJsonSafe(path.join(rootDir, 'src', 'data', 'categories.json'));
+      const authors = readJsonSafe(path.join(rootDir, 'src', 'data', 'authors.json'));
+      const heroConfig = readJsonSafe(path.join(rootDir, 'src', 'data', 'heroConfig.json'));
+      const themeSettings = readJsonSafe(path.join(rootDir, 'src', 'data', 'themeSettings.json'));
+      const menus = readJsonSafe(path.join(rootDir, 'src', 'data', 'menus.json'));
+
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          success: true,
+          posts,
+          pages,
+          categories: categories?.categories,
+          tags: categories?.tags,
+          authors,
+          heroConfig,
+          themeSettings,
+          menus,
+        })
+      );
+      return;
+    } catch (err: any) {
+      console.error('[Content All Error]', err);
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: err.message || 'Failed to list content' }));
+      return;
+    }
+  }
+
   res.statusCode = 404;
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify({ error: 'Not found' }));

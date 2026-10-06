@@ -228,10 +228,26 @@ export default function App() {
         }
       }
 
-      // Static Page check (e.g. /about, /contact)
-      const foundPage = cms.pages.find(
+      // Check /pages/:slug prefix
+      if (path.startsWith('/pages/')) {
+        const pageSlug = path.replace('/pages/', '').replace(/\/$/, '');
+        const foundPage = cms.pages.find(
+          (p) => p.slug.replace(/^\//, '') === pageSlug || p.slug === pageSlug
+        );
+        if (foundPage) {
+          setCurrentRoute({ type: 'page', page: foundPage });
+          setMode('frontend');
+          return;
+        }
+      }
+
+      // Static Page check (e.g. /about, /contact, /privacy-policy)
+      let foundPage = cms.pages.find(
         (p) => p.slug.replace(/^\//, '') === cleanPath || p.slug === cleanPath
       );
+      if (!foundPage && typeof window !== 'undefined' && (window as any).__ASTROPRESS_INITIAL_PAGE__) {
+        foundPage = (window as any).__ASTROPRESS_INITIAL_PAGE__;
+      }
       if (foundPage) {
         setCurrentRoute({ type: 'page', page: foundPage });
         setMode('frontend');
@@ -320,7 +336,9 @@ export default function App() {
     setCurrentRoute({ type: 'page', page });
     setMode('frontend');
     if (typeof window !== 'undefined') {
-      window.history.pushState({}, '', `/${cleanSlug}`);
+      const pageFormat = cms.siteSettings?.pagePermalinkStructure || '/%pagename%/';
+      const targetUrl = pageFormat === '/pages/%pagename%/' ? `/pages/${cleanSlug}/` : `/${cleanSlug}/`;
+      window.history.pushState({}, '', targetUrl);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -374,6 +392,18 @@ export default function App() {
       );
       if (foundPost && foundPost.status === 'published') {
         handleSelectPost(foundPost);
+        return;
+      }
+    }
+
+    // Check if path is /pages/:slug
+    if (path.startsWith('/pages/')) {
+      const pageSlug = path.replace('/pages/', '').replace(/\/$/, '');
+      const foundPage = cms.pages.find(
+        (p) => p.slug.replace(/^\//, '') === pageSlug || p.slug === pageSlug
+      );
+      if (foundPage) {
+        handleSelectPage(foundPage);
         return;
       }
     }
@@ -946,6 +976,7 @@ export default function App() {
               onUpdateDeploymentSettings={(settings) => cms.updateDeploymentSettings(settings)}
               onRecordCommit={(msg) => cms.recordCommit(msg)}
               onUpdateGithubSyncStatus={(s) => setGithubSyncStatus(s)}
+              onSyncRemoteCMS={() => cms.syncWithAuthoritativeRemote()}
             />
           )}
 

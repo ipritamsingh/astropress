@@ -13,11 +13,11 @@ readingTime: 2
 template: "standard"
 blocks: [{"id":"b-501","type":"heading","content":"Comparing Infrastructure Costs and Maintenance Overhead","settings":{"level":2}},{"id":"b-502","type":"paragraph","content":"Traditional WordPress hosts charge substantial monthly retainers for managed MySQL instances, backup systems, caching layers, and security firewalls. Git-backed Astro websites reduce hosting bills to near-zero.","settings":{}}]
 seo:
-  metaTitle: "Zero-Maintenance Git-Backed Publishing"
-  metaDescription: "Cost and security analysis of Git-backed publishing versus traditional SQL CMSs."
-  focusKeyword: "Git backed CMS cost"
-  robotsIndex: false
-  robotsFollow: false
+  metaTitle: "Zero-Maintenance Git-Backed Publishing: No Database, No Downtime"
+  metaDescription: "Draft article reviewing the long-term operational cost of maintaining traditional MySQL/PostgreSQL backends versus flat-file Git content repositories."
+  focusKeyword: ""
+  robotsIndex: true
+  robotsFollow: true
 ---
 
 ## Comparing Infrastructure Costs and Maintenance Overhead

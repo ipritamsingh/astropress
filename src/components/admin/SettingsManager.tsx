@@ -24,11 +24,17 @@ export const SettingsManager: React.FC<Props> = ({
   const [permalinkStructure, setPermalinkStructure] = useState(
     siteSettings?.permalinkStructure || '/%postname%/'
   );
+  const [pagePermalinkStructure, setPagePermalinkStructure] = useState(
+    siteSettings?.pagePermalinkStructure || '/%pagename%/'
+  );
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     if (siteSettings?.permalinkStructure) {
       setPermalinkStructure(siteSettings.permalinkStructure);
+    }
+    if (siteSettings?.pagePermalinkStructure) {
+      setPagePermalinkStructure(siteSettings.pagePermalinkStructure);
     }
     if (siteSettings?.siteTitle) {
       setSiteName(siteSettings.siteTitle);
@@ -50,6 +56,7 @@ export const SettingsManager: React.FC<Props> = ({
         siteTagline: tagline,
         postsPerPage,
         permalinkStructure,
+        pagePermalinkStructure,
       });
     }
     setSaveSuccess(true);
@@ -176,6 +183,53 @@ export const SettingsManager: React.FC<Props> = ({
               <div>
                 <span className="block">{item.label}</span>
                 <code className="text-[11px] text-slate-400 font-mono">{item.format}</code>
+              </div>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Page Permalink Structure Card */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-6 space-y-4">
+        <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3">
+          Page Permalink Structure
+        </h3>
+        <p className="text-slate-500">
+          Select the public URL routing structure for standalone static pages:
+        </p>
+        <div className="space-y-2">
+          {[
+            {
+              label: 'Page name (Root-level)',
+              format: '/%pagename%/',
+              example: '/about/, /contact/, /privacy-policy/',
+            },
+            {
+              label: 'Default directory prefix',
+              format: '/pages/%pagename%/',
+              example: '/pages/about/, /pages/contact/, /pages/privacy-policy/',
+            },
+          ].map((item) => (
+            <label
+              key={item.format}
+              className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                pagePermalinkStructure === item.format
+                  ? 'bg-blue-50 border-blue-400 font-bold text-blue-900'
+                  : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+              }`}
+            >
+              <input
+                type="radio"
+                name="page_permalink"
+                checked={pagePermalinkStructure === item.format}
+                onChange={() => setPagePermalinkStructure(item.format)}
+                className="text-blue-600"
+              />
+              <div>
+                <span className="block">{item.label}</span>
+                <code className="text-[11px] text-slate-400 font-mono">
+                  {item.format} &mdash; <span className="text-slate-500">{item.example}</span>
+                </code>
               </div>
             </label>
           ))}

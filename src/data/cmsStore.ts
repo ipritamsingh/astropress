@@ -33,6 +33,11 @@ import {
   initialSiteSettings,
   initialHeroConfig,
 } from './initialData';
+import {
+  fetchRemoteCMSDataFromGitHub,
+  mergeCMSStates,
+  parseFrontmatterAndMarkdown,
+} from './contentSyncService';
 
 export interface CMSDataState {
   posts: Post[];
@@ -244,6 +249,65 @@ export function saveStoredData(data: CMSDataState) {
 export function useCMS() {
   const [data, setData] = useState<CMSDataState>(loadStoredData);
 
+  const syncWithAuthoritativeRemote = async (customSettings?: DeploymentSettings, customToken?: string): Promise<boolean> => {
+    const settings = customSettings || data.deploymentSettings;
+    const token = (customToken || settings.githubToken || '').trim();
+    let remoteMerged = false;
+
+    // 1. Try syncing with local dev server disk content (/api/content/all)
+    try {
+      const res = await fetch('/api/content/all');
+      if (res.ok) {
+        const diskData = await res.json();
+        if (diskData.success) {
+          const parsedPosts: Post[] = (diskData.posts || []).map((p: any) =>
+            parseFrontmatterAndMarkdown(p.content, p.slug, false) as Post
+          );
+          const parsedPages: Page[] = (diskData.pages || []).map((p: any) =>
+            parseFrontmatterAndMarkdown(p.content, p.slug, true) as Page
+          );
+
+          setData((prev) => {
+            const merged = mergeCMSStates(prev, {
+              posts: parsedPosts.length > 0 ? parsedPosts : undefined,
+              pages: parsedPages.length > 0 ? parsedPages : undefined,
+              categories: diskData.categories,
+              tags: diskData.tags,
+              authors: diskData.authors,
+              menus: diskData.menus,
+              heroConfig: diskData.heroConfig,
+              themeSettings: diskData.themeSettings,
+            });
+            saveStoredData(merged);
+            return merged;
+          });
+          remoteMerged = true;
+        }
+      }
+    } catch (e) {
+      // Non-blocking
+    }
+
+    // 2. Try syncing with authoritative remote GitHub repository
+    if (settings.githubRepo) {
+      try {
+        const remoteResult = await fetchRemoteCMSDataFromGitHub(settings, token);
+        if (remoteResult.success && remoteResult.data) {
+          setData((prev) => {
+            const merged = mergeCMSStates(prev, remoteResult.data!);
+            saveStoredData(merged);
+            return merged;
+          });
+          remoteMerged = true;
+        }
+      } catch (err) {
+        console.warn('Remote GitHub CMS background sync warning:', err);
+      }
+    }
+
+    return remoteMerged;
+  };
+
   useEffect(() => {
     const handleUpdate = (e: any) => {
       if (e.detail) {
@@ -251,6 +315,10 @@ export function useCMS() {
       }
     };
     window.addEventListener(UPDATE_EVENT, handleUpdate);
+
+    // Run authoritative sync on mount in background
+    syncWithAuthoritativeRemote().catch(() => {});
+
     return () => window.removeEventListener(UPDATE_EVENT, handleUpdate);
   }, []);
 
@@ -629,6 +697,7 @@ export function useCMS() {
     updateMenus,
     updateDeploymentSettings,
     recordCommit,
+    syncWithAuthoritativeRemote,
     resetToFactoryDefaults,
   };
 }

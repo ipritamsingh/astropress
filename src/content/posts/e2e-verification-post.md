@@ -15,7 +15,7 @@ blocks: [{"id":"b-heading-1","type":"heading","content":"Verified Image Integrat
 seo:
   metaTitle: "End-to-End Image Pipeline Verification"
   metaDescription: "Testing end-to-end verification of featured images and block editor content images."
-  focusKeyword: "AstroPress Image Pipeline"
+  focusKeyword: ""
   robotsIndex: true
   robotsFollow: true
 ---

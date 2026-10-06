@@ -62,6 +62,7 @@ interface Props {
   onUpdateDeploymentSettings: (settings: Partial<DeploymentSettings>) => void;
   onRecordCommit: (message: string) => void;
   onUpdateGithubSyncStatus?: (status: 'Connected' | 'Syncing' | 'Error' | 'Disconnected') => void;
+  onSyncRemoteCMS?: () => Promise<boolean>;
 }
 
 export const GitHubDeploymentView: React.FC<Props> = ({
@@ -81,6 +82,7 @@ export const GitHubDeploymentView: React.FC<Props> = ({
   onUpdateDeploymentSettings,
   onRecordCommit,
   onUpdateGithubSyncStatus,
+  onSyncRemoteCMS,
 }) => {
   const initialRepoString = deploymentSettings.githubRepo || 'ipritamsingh/astropress';
   const [initialOwner, initialRepoName] = initialRepoString.split('/');
@@ -110,6 +112,8 @@ export const GitHubDeploymentView: React.FC<Props> = ({
 
   // Batch Publish & Full Sync State
   const [isPublishingBatch, setIsPublishingBatch] = useState(false);
+  const [isPullingRemote, setIsPullingRemote] = useState(false);
+  const [pullMessage, setPullMessage] = useState<string | null>(null);
   const [pushProgress, setPushProgress] = useState<{
     current: number;
     total: number;
@@ -226,6 +230,25 @@ export const GitHubDeploymentView: React.FC<Props> = ({
     }
   };
 
+  const handlePullRemoteCMS = async () => {
+    setIsPullingRemote(true);
+    setPullMessage(null);
+    try {
+      if (onSyncRemoteCMS) {
+        const success = await onSyncRemoteCMS();
+        setPullMessage(success ? 'Successfully synchronized latest Live CMS content!' : 'CMS content is already up to date.');
+      } else {
+        setPullMessage('Sync complete.');
+      }
+      setTimeout(() => setPullMessage(null), 4000);
+    } catch (err: any) {
+      setPullMessage(`Sync warning: ${err.message || 'Check network connection'}`);
+      setTimeout(() => setPullMessage(null), 4000);
+    } finally {
+      setIsPullingRemote(false);
+    }
+  };
+
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     const fullRepo = `${owner.trim()}/${repoName.trim()}`;
@@ -264,6 +287,16 @@ export const GitHubDeploymentView: React.FC<Props> = ({
 
         <div className="flex items-center gap-2">
           <button
+            onClick={handlePullRemoteCMS}
+            disabled={isPullingRemote}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs shadow-xs transition-colors disabled:opacity-50 border border-slate-300"
+            title="Pull latest live CMS posts, pages, and media from GitHub repository"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 text-slate-600 ${isPullingRemote ? 'animate-spin' : ''}`} />
+            <span>{isPullingRemote ? 'Pulling from Live...' : 'Pull Live Content'}</span>
+          </button>
+
+          <button
             onClick={handleCheckConnection}
             disabled={isChecking}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs transition-colors disabled:opacity-50"
@@ -292,6 +325,14 @@ export const GitHubDeploymentView: React.FC<Props> = ({
           </button>
         </div>
       </div>
+
+      {/* Pull Feedback Toast */}
+      {pullMessage && (
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-800 text-xs font-semibold flex items-center justify-between animate-fade-in">
+          <span>{pullMessage}</span>
+          <button onClick={() => setPullMessage(null)} className="text-blue-500 hover:text-blue-700 font-bold ml-2">✕</button>
+        </div>
+      )}
 
       {/* Real-time Progress Bar Card during Push */}
       {isPublishingBatch && (

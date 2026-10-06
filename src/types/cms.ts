@@ -313,6 +313,10 @@ export interface SiteSettings {
     | '/%year%/%month%/%postname%/'
     | '/archives/%post_id%/'
     | string;
+  pagePermalinkStructure?:
+    | '/%pagename%/'
+    | '/pages/%pagename%/'
+    | string;
   postsPerPage: number;
   commentsAutoApprove: boolean;
   customHeadCode?: string;

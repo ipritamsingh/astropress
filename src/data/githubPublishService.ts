@@ -13,6 +13,11 @@ import {
 } from '../types/cms';
 import { projectFilesManifest } from './projectFilesManifest';
 import { getAllPersistedMediaBlobs } from './mediaStorage';
+import {
+  fetchRemoteCMSDataFromGitHub,
+  mergeCMSStates,
+  parseFrontmatterAndMarkdown,
+} from './contentSyncService';
 
 export interface PublishResult {
   success: boolean;
@@ -721,15 +726,15 @@ export async function executeFullRepositoryPush(payload: FullPushPayload): Promi
   message: string;
 }> {
   const {
-    posts,
-    pages,
-    heroConfig,
-    themeSettings,
-    categories,
-    tags,
-    authors,
-    media,
-    menus,
+    posts: initialLocalPosts,
+    pages: initialLocalPages,
+    heroConfig: initialHeroConfig,
+    themeSettings: initialThemeSettings,
+    categories: initialCategories,
+    tags: initialTags,
+    authors: initialAuthors,
+    media: initialMedia,
+    menus: initialMenus,
     deploymentSettings,
     sessionToken,
     onProgress,
@@ -750,11 +755,82 @@ export async function executeFullRepositoryPush(payload: FullPushPayload): Promi
     };
   }
 
+  const useProxy =
+    deploymentSettings.cloudflareWorkerUrl?.trim() &&
+    !isAuthenticatorWorkerUrl(deploymentSettings.cloudflareWorkerUrl);
+
+  const baseApiUrl = useProxy
+    ? `${deploymentSettings.cloudflareWorkerUrl!.trim()}/repos/${owner}/${repoName}`
+    : `https://api.github.com/repos/${owner}/${repoName}`;
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/vnd.github.v3+json',
+    'Content-Type': 'application/json',
+  };
+
+  // STEP 0: Fetch latest authoritative remote repository state & remote tree before push
+  let remoteTreeItems: Array<{ path: string; mode: string; type: string; sha: string }> = [];
+  let headSha: string | null = null;
+  let activePosts = [...initialLocalPosts];
+  let activePages = [...initialLocalPages];
+  let activeCategories = initialCategories ? [...initialCategories] : [];
+  let activeTags = initialTags ? [...initialTags] : [];
+  let activeAuthors = initialAuthors ? [...initialAuthors] : [];
+  let activeMedia = initialMedia ? [...initialMedia] : [];
+  let activeMenus = initialMenus ? [...initialMenus] : [];
+  let activeHeroConfig = initialHeroConfig;
+  let activeThemeSettings = initialThemeSettings;
+
+  if (onProgress) {
+    onProgress({ current: 0, total: 100, filePath: 'Checking remote GitHub repository state for live CMS changes...', status: 'pushing' });
+  }
+
+  try {
+    const remoteResult = await fetchRemoteCMSDataFromGitHub(deploymentSettings, token);
+    if (remoteResult.success && remoteResult.data) {
+      if (remoteResult.headSha) headSha = remoteResult.headSha;
+
+      const mergedState = mergeCMSStates(
+        {
+          posts: initialLocalPosts,
+          pages: initialLocalPages,
+          categories: initialCategories || [],
+          tags: initialTags || [],
+          authors: initialAuthors || [],
+          media: initialMedia || [],
+          comments: [],
+          menus: initialMenus || [],
+          homepageSections: [],
+          heroConfig: initialHeroConfig || ({} as any),
+          themeSettings: initialThemeSettings || ({} as any),
+          templates: [],
+          siteSettings: {} as any,
+          deploymentSettings,
+          commitHistory: [],
+        },
+        remoteResult.data
+      );
+
+      activePosts = mergedState.posts;
+      activePages = mergedState.pages;
+      activeCategories = mergedState.categories;
+      activeTags = mergedState.tags;
+      activeAuthors = mergedState.authors;
+      activeMedia = mergedState.media;
+      activeMenus = mergedState.menus;
+      activeHeroConfig = mergedState.heroConfig;
+      activeThemeSettings = mergedState.themeSettings;
+    }
+  } catch (syncErr) {
+    console.warn('Remote CMS pre-push check warning:', syncErr);
+  }
+
   // 1. Start with the complete project files manifest (root config, Astro engine, layouts, pages, components, public assets)
   const fullFilesMap: Record<string, string> = { ...projectFilesManifest };
 
   // 2. Overlay dynamic CMS posts with full frontmatter, featured image, and blocks
-  posts.forEach((post) => {
+  activePosts.forEach((post) => {
     const md = `---
 title: "${(post.title || '').replace(/"/g, '\\"')}"
 slug: "${post.slug}"
@@ -782,7 +858,7 @@ ${post.body || ''}`;
   });
 
   // 3. Overlay dynamic CMS pages
-  pages.forEach((page) => {
+  activePages.forEach((page) => {
     const md = `---
 title: "${(page.title || '').replace(/"/g, '\\"')}"
 slug: "${page.slug}"
@@ -797,43 +873,43 @@ ${page.body || ''}`;
   });
 
   // 4. Overlay hero config
-  if (heroConfig) {
-    fullFilesMap['src/data/heroConfig.json'] = JSON.stringify(heroConfig, null, 2);
+  if (activeHeroConfig) {
+    fullFilesMap['src/data/heroConfig.json'] = JSON.stringify(activeHeroConfig, null, 2);
   }
 
   // 5. Overlay theme settings
-  if (themeSettings) {
-    fullFilesMap['src/data/themeSettings.json'] = JSON.stringify(themeSettings, null, 2);
+  if (activeThemeSettings) {
+    fullFilesMap['src/data/themeSettings.json'] = JSON.stringify(activeThemeSettings, null, 2);
   }
 
   // 6. Overlay taxonomy (Categories & Tags)
-  if (categories || tags) {
+  if (activeCategories.length > 0 || activeTags.length > 0) {
     fullFilesMap['src/data/categories.json'] = JSON.stringify(
-      { categories: categories || [], tags: tags || [] },
+      { categories: activeCategories, tags: activeTags },
       null,
       2
     );
   }
 
   // 6b. Overlay authors and system users
-  if (authors && authors.length > 0) {
-    fullFilesMap['src/data/authors.json'] = JSON.stringify(authors, null, 2);
+  if (activeAuthors.length > 0) {
+    fullFilesMap['src/data/authors.json'] = JSON.stringify(activeAuthors, null, 2);
   }
 
   // 7. Overlay media metadata and binary assets
-  if (media && media.length > 0) {
-    fullFilesMap['src/data/media.json'] = JSON.stringify(media, null, 2);
+  if (activeMedia.length > 0) {
+    fullFilesMap['src/data/media.json'] = JSON.stringify(activeMedia, null, 2);
   }
 
   // Collect and include all uploaded media binary files into public/uploads/
   const storedBlobs = await getAllPersistedMediaBlobs().catch(() => []);
-  const allMedia = media || [];
+  const allMedia = activeMedia || [];
 
   const neededImageFilenames = new Set<string>();
   allMedia.forEach((m) => {
     if (m.name && m.type === 'image') neededImageFilenames.add(m.name.replace(/^\/?uploads\//, ''));
   });
-  posts.forEach((p) => {
+  activePosts.forEach((p) => {
     if (p.featuredImage && (p.featuredImage.startsWith('/uploads/') || p.featuredImage.startsWith('uploads/'))) {
       neededImageFilenames.add(p.featuredImage.replace(/^\/?uploads\//, ''));
     }
@@ -883,27 +959,13 @@ ${page.body || ''}`;
   }
 
   // 8. Overlay menus
-  if (menus && menus.length > 0) {
-    fullFilesMap['src/data/menus.json'] = JSON.stringify(menus, null, 2);
+  if (activeMenus.length > 0) {
+    fullFilesMap['src/data/menus.json'] = JSON.stringify(activeMenus, null, 2);
   }
 
   const allFilePaths = Object.keys(fullFilesMap);
   const totalFiles = allFilePaths.length;
   const commitMessage = `feat: synchronize complete AstroPress project (${totalFiles} files: root configuration, Astro engine, layouts, components, and CMS content)`;
-
-  const useProxy =
-    deploymentSettings.cloudflareWorkerUrl?.trim() &&
-    !isAuthenticatorWorkerUrl(deploymentSettings.cloudflareWorkerUrl);
-
-  const baseApiUrl = useProxy
-    ? `${deploymentSettings.cloudflareWorkerUrl!.trim()}/repos/${owner}/${repoName}`
-    : `https://api.github.com/repos/${owner}/${repoName}`;
-
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`,
-    Accept: 'application/vnd.github.v3+json',
-    'Content-Type': 'application/json',
-  };
 
   // Primary Path: Atomic Git Trees & Commit API (Pushes everything in a SINGLE atomic commit)
   try {
@@ -911,18 +973,42 @@ ${page.body || ''}`;
       onProgress({ current: 1, total: totalFiles, filePath: 'Preparing Git Tree for complete project...', status: 'pushing' });
     }
 
-    // Step A: Get current HEAD commit of target branch
-    let headSha: string | null = null;
-    try {
-      const refRes = await fetch(`${baseApiUrl}/git/ref/heads/${branch}`, { method: 'GET', headers });
-      if (refRes.ok) {
-        const refData = await refRes.json();
-        headSha = refData.object?.sha || null;
-      }
-    } catch (e) {}
+    // Step A: Get current HEAD commit of target branch if not retrieved
+    if (!headSha) {
+      try {
+        const refRes = await fetch(`${baseApiUrl}/git/ref/heads/${branch}`, { method: 'GET', headers });
+        if (refRes.ok) {
+          const refData = await refRes.json();
+          headSha = refData.object?.sha || null;
+        }
+      } catch (e) {}
+    }
 
-    // Step B: Build Tree items with proper binary blob creation
-    const treeItems: Array<{ path: string; mode: string; type: string; sha?: string; content?: string }> = [];
+    // Fetch existing remote tree to preserve existing remote blobs (such as previous uploaded assets)
+    if (headSha && remoteTreeItems.length === 0) {
+      try {
+        const treeRes = await fetch(`${baseApiUrl}/git/trees/${headSha}?recursive=1`, { headers });
+        if (treeRes.ok) {
+          const treeData = await treeRes.json();
+          remoteTreeItems = treeData.tree || [];
+        }
+      } catch (e) {}
+    }
+
+    // Step B: Build Tree items with proper binary blob creation & remote blob retention
+    const treeItemsMap = new Map<string, { path: string; mode: string; type: string; sha?: string; content?: string }>();
+
+    // First retain existing remote uploaded media assets and files that exist in the remote tree
+    remoteTreeItems.forEach((remoteItem) => {
+      if (remoteItem.type === 'blob' && remoteItem.path.startsWith('public/uploads/')) {
+        treeItemsMap.set(remoteItem.path, {
+          path: remoteItem.path,
+          mode: remoteItem.mode || '100644',
+          type: 'blob',
+          sha: remoteItem.sha,
+        });
+      }
+    });
 
     for (let i = 0; i < allFilePaths.length; i++) {
       const path = allFilePaths[i];
@@ -946,7 +1032,7 @@ ${page.body || ''}`;
           });
           if (blobRes.ok) {
             const blobData = await blobRes.json();
-            treeItems.push({
+            treeItemsMap.set(path, {
               path,
               mode: '100644',
               type: 'blob',
@@ -959,7 +1045,7 @@ ${page.body || ''}`;
         }
       }
 
-      treeItems.push({
+      treeItemsMap.set(path, {
         path,
         mode: '100644',
         type: 'blob',
@@ -967,16 +1053,18 @@ ${page.body || ''}`;
       });
     }
 
+    const treeItems = Array.from(treeItemsMap.values());
+
     if (onProgress) {
       onProgress({
         current: Math.floor(totalFiles / 2),
         total: totalFiles,
-        filePath: `Creating unified Git Tree (${totalFiles} project files)...`,
+        filePath: `Creating unified Git Tree (${treeItems.length} project files)...`,
         status: 'pushing',
       });
     }
 
-    // Step C: Create Git Tree (Creating fresh tree without base_tree ensures repository root has package.json, astro.config.mjs, public/, src/)
+    // Step C: Create Git Tree
     const treeRes = await fetch(`${baseApiUrl}/git/trees`, {
       method: 'POST',
       headers,
@@ -987,7 +1075,7 @@ ${page.body || ''}`;
       const treeData = await treeRes.json();
       const newTreeSha = treeData.sha;
 
-      // Step D: Create Git Commit
+      // Step D: Create Git Commit with headSha as parent
       if (onProgress) {
         onProgress({ current: totalFiles - 1, total: totalFiles, filePath: 'Creating unified commit on branch...', status: 'pushing' });
       }
@@ -1014,39 +1102,46 @@ ${page.body || ''}`;
         const updateRefRes = await fetch(`${baseApiUrl}/git/refs/heads/${branch}`, {
           method: 'PATCH',
           headers,
-          body: JSON.stringify({ sha: newCommitSha, force: true }),
+          body: JSON.stringify({ sha: newCommitSha, force: false }),
         });
 
-        if (updateRefRes.ok) {
-          if (onProgress) {
-            onProgress({ current: totalFiles, total: totalFiles, filePath: 'Verifying repository root contents...', status: 'done' });
-          }
-
-          // Step F: Post-push Verification
-          let verifiedRootFiles: string[] = [];
-          try {
-            const contentsRes = await fetch(`${baseApiUrl}/contents?ref=${branch}`, { method: 'GET', headers });
-            if (contentsRes.ok) {
-              const contentsData = await contentsRes.json();
-              if (Array.isArray(contentsData)) {
-                verifiedRootFiles = contentsData.map((item: any) => item.name);
-              }
-            }
-          } catch (e) {}
-
-          const commitUrl = `https://github.com/${owner}/${repoName}/commit/${newCommitSha}`;
-
-          return {
-            success: true,
-            totalPushed: totalFiles,
-            totalFiles,
-            failedFiles: [],
-            commitSha: newCommitSha,
-            commitUrl,
-            verifiedRootFiles,
-            message: `Successfully synchronized complete AstroPress project (${totalFiles} files) to GitHub in a single commit!`,
-          };
+        // If fast-forward update is rejected due to concurrent push, retry with force=true on branch
+        if (!updateRefRes.ok) {
+          await fetch(`${baseApiUrl}/git/refs/heads/${branch}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ sha: newCommitSha, force: true }),
+          });
         }
+
+        if (onProgress) {
+          onProgress({ current: totalFiles, total: totalFiles, filePath: 'Verifying repository root contents...', status: 'done' });
+        }
+
+        // Step F: Post-push Verification
+        let verifiedRootFiles: string[] = [];
+        try {
+          const contentsRes = await fetch(`${baseApiUrl}/contents?ref=${branch}`, { method: 'GET', headers });
+          if (contentsRes.ok) {
+            const contentsData = await contentsRes.json();
+            if (Array.isArray(contentsData)) {
+              verifiedRootFiles = contentsData.map((item: any) => item.name);
+            }
+          }
+        } catch (e) {}
+
+        const commitUrl = `https://github.com/${owner}/${repoName}/commit/${newCommitSha}`;
+
+        return {
+          success: true,
+          totalPushed: treeItems.length,
+          totalFiles: treeItems.length,
+          failedFiles: [],
+          commitSha: newCommitSha,
+          commitUrl,
+          verifiedRootFiles,
+          message: `Successfully synchronized complete AstroPress project (${treeItems.length} files) to GitHub in a single commit!`,
+        };
       }
     }
   } catch (treeErr: any) {
