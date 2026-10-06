@@ -976,7 +976,9 @@ export async function executeRealGitHubPublish(
   isPage: boolean,
   markdownWithFrontmatter: string,
   deploymentSettings: DeploymentSettings,
-  sessionToken?: string
+  sessionToken?: string,
+  customCommitMessage?: string,
+  onProgress?: (progress: { current: number; total: number; filePath: string; status: 'pushing' | 'done' | 'error' }) => void
 ): Promise<PublishResult> {
   const branch = deploymentSettings.githubBranch || 'main';
   const repoString = deploymentSettings.githubRepo || 'ipritamsingh/astropress';
@@ -1022,12 +1024,22 @@ export async function executeRealGitHubPublish(
     await syncReferencedImageAssets(item, markdownWithFrontmatter, token, owner, repoName, branch, deploymentSettings);
   } catch {}
 
-  // 3. ONLY push immediately if user explicitly enabled autoDeployOnPublish
-  if (deploymentSettings.autoDeployOnPublish && token && owner && repoName) {
+  // 3. If GitHub token is present, deploy all accumulated changes in ONE atomic commit & push
+  if (token && owner && repoName) {
+    const effectiveSettings: DeploymentSettings = {
+      ...deploymentSettings,
+      githubToken: token,
+    };
+
     const deployResult = await executeAtomicBulkDeploy({
-      deploymentSettings,
+      posts: !isPage ? [item as Post] : undefined,
+      pages: isPage ? [item as Page] : undefined,
+      deploymentSettings: effectiveSettings,
       sessionToken: token,
-      customCommitMessage: `feat(content): publish ${isPage ? 'page' : 'post'} "${item.title.trim()}"`,
+      customCommitMessage:
+        customCommitMessage?.trim() ||
+        `feat(content): publish ${isPage ? 'page' : 'post'} "${item.title.trim()}"`,
+      onProgress,
     });
 
     if (deployResult.success) {
@@ -1036,7 +1048,9 @@ export async function executeRealGitHubPublish(
       const newRecord: GitCommitRecord = {
         id: shortSha,
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
-        message: `feat(content): publish ${isPage ? 'page' : 'post'} "${item.title.trim()}" [atomic push]`,
+        message:
+          customCommitMessage?.trim() ||
+          `feat(content): publish ${isPage ? 'page' : 'post'} "${item.title.trim()}" [atomic push]`,
         author: 'AstroPress Admin',
         branch,
         status: 'synced',
@@ -1066,8 +1080,8 @@ export async function executeRealGitHubPublish(
     }
   }
 
-  // 4. Default: Staged locally in Preview (0 Git pushes, 0 Cloudflare builds).
-  // All accumulated changes will be deployed together in 1 atomic commit when user clicks Update & Deploy.
+  // 4. Default if no token provided: Staged locally in Preview (0 Git pushes, 0 Cloudflare builds).
+  // All accumulated changes will be deployed together in 1 atomic commit when user enters token in Update & Deploy.
   const commitId = 'c-' + Math.random().toString(36).substring(2, 9);
   const newRecord: GitCommitRecord = {
     id: commitId,
@@ -1086,7 +1100,7 @@ export async function executeRealGitHubPublish(
     publishedUrl: finalUrl,
     buildTriggered: false,
     status: 'local_saved',
-    message: `Saved & published in Preview! Changes are staged. To push all accumulated updates in 1 atomic commit, use 'Update & Deploy' in GitHub & Deployment.`,
+    message: `Saved & published in Preview! Changes are staged. To push all accumulated updates in 1 atomic commit, enter your GitHub PAT in 'Update & Deploy'.`,
   };
 }
 
@@ -1113,7 +1127,7 @@ export async function executePublishContent(payload: PublishContentPayload): Pro
     const siteUrl = settings.productionUrl || '';
     const branch = settings.githubBranch || 'main';
 
-    if (settings.autoDeployOnPublish && token && settings.githubRepo) {
+    if (token && settings.githubRepo) {
       const deployResult = await executeAtomicBulkDeploy({
         heroConfig,
         deploymentSettings: settings,

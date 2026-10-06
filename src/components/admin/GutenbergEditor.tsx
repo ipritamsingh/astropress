@@ -200,6 +200,7 @@ export const GutenbergEditor: React.FC<Props> = ({
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [customCommitMsg, setCustomCommitMsg] = useState('');
   const [modalGithubToken, setModalGithubToken] = useState<string>(sessionToken || deploymentSettings.githubToken || '');
+  const [deployProgressText, setDeployProgressText] = useState<string>('');
   const [realCommitUrl, setRealCommitUrl] = useState<string | null>(null);
   const [mediaPickerTarget, setMediaPickerTarget] = useState<{
     type: 'block' | 'featured';
@@ -682,6 +683,7 @@ ${compileBlocksToMarkdown()}`;
 
     setIsPublishing(true);
     setPublishError(null);
+    setDeployProgressText('Preparing content for deployment...');
     setStatus('published');
 
     const finalSlug = slug || generateSlug(title);
@@ -720,18 +722,27 @@ ${compileBlocksToMarkdown()}`;
         };
 
     try {
-      const activeToken = modalGithubToken.trim() || sessionToken || deploymentSettings.githubToken;
+      const activeToken = modalGithubToken.trim() || sessionToken || deploymentSettings.githubToken || '';
       // Persist published item in CMS state immediately so local state & localStorage have it
       onSave(itemToPublish, true);
       setStatus('published');
 
-      // Execute publish: stages locally unless autoDeployOnPublish is true
+      const effectiveDeploymentSettings: DeploymentSettings = {
+        ...deploymentSettings,
+        githubToken: activeToken || deploymentSettings.githubToken,
+      };
+
+      // Execute publish: pushes atomically to GitHub if token is present, stages in Preview if not
       const result = await executeRealGitHubPublish(
         itemToPublish,
         isPage,
         fullYamlMarkdown,
-        deploymentSettings,
-        activeToken
+        effectiveDeploymentSettings,
+        activeToken,
+        customCommitMsg.trim() || undefined,
+        (progress) => {
+          setDeployProgressText(progress.filePath || 'Deploying changes to GitHub...');
+        }
       );
 
       if (!result.success) {
@@ -742,11 +753,12 @@ ${compileBlocksToMarkdown()}`;
       setPublishSuccessMsg(result.message);
       setRealCommitUrl(result.commitUrl || null);
       setShowPublishModal(false);
-      setTimeout(() => setPublishSuccessMsg(null), 6000);
+      setTimeout(() => setPublishSuccessMsg(null), 8000);
     } catch (err: any) {
       setPublishError(err?.message || 'Error occurred during publishing. Draft was saved safely.');
     } finally {
       setIsPublishing(false);
+      setDeployProgressText('');
     }
   };
 
@@ -2586,15 +2598,32 @@ ${compileBlocksToMarkdown()}`;
             )}
 
             {/* Batch Deployment Protection Note */}
-            {!deploymentSettings.autoDeployOnPublish && (
+            {modalGithubToken || sessionToken || deploymentSettings.githubToken ? (
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2">
+                <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <span className="font-bold block">1 Atomic Commit &amp; 1 Push Deployment</span>
+                  <p className="text-[11px] leading-relaxed">
+                    All accumulated updates and this article will be bundled into <strong>exactly 1 Git commit</strong> and <strong>1 push</strong>, triggering only 1 Cloudflare Pages build.
+                  </p>
+                </div>
+              </div>
+            ) : (
               <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs flex items-start gap-2">
                 <ShieldCheck className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
                 <div className="space-y-0.5">
                   <span className="font-bold block">Push Batching Protection Active</span>
                   <p className="text-[11px] leading-relaxed">
-                    This post will be published and staged in Preview immediately with 0 GitHub pushes. Accumulate multiple updates, then perform 1 atomic push under <strong>Admin &gt; GitHub &amp; Deployment</strong> to trigger a single Cloudflare Pages build.
+                    This post will be published and staged in Preview immediately with 0 GitHub pushes. Enter your token above or deploy all accumulated changes later in <strong>Admin &gt; GitHub &amp; Deployment</strong>.
                   </p>
                 </div>
+              </div>
+            )}
+
+            {isPublishing && deployProgressText && (
+              <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs flex items-center gap-2.5 animate-pulse">
+                <RefreshCw className="h-4 w-4 text-blue-600 animate-spin shrink-0" />
+                <span className="font-mono text-[11px] font-medium">{deployProgressText}</span>
               </div>
             )}
 
@@ -2624,14 +2653,14 @@ ${compileBlocksToMarkdown()}`;
                 {isPublishing ? (
                   <>
                     <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                    <span>Saving &amp; Staging...</span>
+                    <span>{deployProgressText || 'Deploying to GitHub...'}</span>
                   </>
                 ) : (
                   <>
                     <Zap className="h-3.5 w-3.5 text-amber-300" />
                     <span>
-                      {deploymentSettings.autoDeployOnPublish
-                        ? 'Confirm & Publish to GitHub (1 Push)'
+                      {modalGithubToken || sessionToken || deploymentSettings.githubToken
+                        ? 'Confirm & Deploy to GitHub (1 Push)'
                         : 'Confirm & Publish to Preview (Stage for Push)'}
                     </span>
                   </>
