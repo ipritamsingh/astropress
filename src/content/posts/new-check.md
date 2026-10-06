@@ -9,9 +9,7 @@ category: "Technology"
 tags: ["Astro", "Sveltia CMS"]
 featuredImage: "/uploads/1000402910.webp"
 excerpt: "Title of your new story...
-
 Start writing your engaging article here. You can add columns, alerts, and quotes from the block inserter.
-
 ![1000402910](/upload"
 readingTime: 4
 template: "standard"
@@ -19,9 +17,7 @@ blocks: [{"id":"md-h2-0","type":"heading","content":"Title of your new story..."
 seo:
   metaTitle: "New vheck"
   metaDescription: "Title of your new story...
-
 Start writing your engaging article here. You can add columns, alerts, and quotes from the block inserter.
-
 ![1000402910](/upload"
   focusKeyword: ""
   robotsIndex: true
