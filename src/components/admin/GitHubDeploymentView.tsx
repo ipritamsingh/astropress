@@ -124,10 +124,12 @@ export const GitHubDeploymentView: React.FC<Props> = ({
     success: boolean;
     totalPushed: number;
     totalFiles: number;
+    modifiedFiles?: string[];
     commitSha?: string;
     commitUrl?: string;
     verifiedRootFiles?: string[];
     message: string;
+    noChanges?: boolean;
     failedFiles?: { path: string; error: string }[];
   } | null>(null);
 
@@ -212,7 +214,9 @@ export const GitHubDeploymentView: React.FC<Props> = ({
       if (result.success) {
         if (onUpdateGithubSyncStatus) onUpdateGithubSyncStatus('Connected');
         onRecordCommit(
-          `feat(sync): pushed ${result.totalPushed} content & configuration files to ${owner}/${repoName} (${branch})`
+          result.noChanges
+            ? `feat(sync): verified all files in sync with ${owner}/${repoName} (${branch}) [0 pushes, 0 Cloudflare builds]`
+            : `feat(deploy): pushed ${result.totalPushed} modified files to ${owner}/${repoName} (${branch}) in 1 atomic push [1 Cloudflare build]`
         );
       } else {
         if (onUpdateGithubSyncStatus) onUpdateGithubSyncStatus('Error');
@@ -417,14 +421,16 @@ export const GitHubDeploymentView: React.FC<Props> = ({
           {pushResultSummary.success && (
             <div className="pt-3 border-t border-slate-200 space-y-2 text-xs font-mono text-slate-700">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg border border-emerald-200 font-bold">
-                    ✓ {pushResultSummary.totalPushed}/{pushResultSummary.totalFiles} Project Files Synced
+                    {pushResultSummary.noChanges
+                      ? '✓ All Files Up-to-Date (0 Pushes, 0 Cloudflare Builds)'
+                      : `✓ ${pushResultSummary.totalPushed} Files Pushed (1 Atomic Push • 1 Cloudflare Build)`}
                   </span>
                   <span>
                     Repo: <strong>{owner}/{repoName}</strong> ({branch})
                   </span>
-                  {pushResultSummary.commitSha && (
+                  {pushResultSummary.commitSha && !pushResultSummary.noChanges && (
                     <span>
                       Commit SHA:{' '}
                       <code className="bg-slate-100 px-1.5 py-0.5 rounded text-purple-700 font-bold">
@@ -443,6 +449,22 @@ export const GitHubDeploymentView: React.FC<Props> = ({
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               </div>
+
+              {pushResultSummary.modifiedFiles && pushResultSummary.modifiedFiles.length > 0 && (
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-[11px] text-slate-600 space-y-1 font-sans">
+                  <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-blue-500 inline-block" />
+                    <span>Files Published in Single Atomic Push ({pushResultSummary.modifiedFiles.length}):</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 font-mono text-[10px]">
+                    {pushResultSummary.modifiedFiles.map((file, idx) => (
+                      <span key={idx} className="bg-white px-2 py-0.5 rounded border border-slate-200 font-semibold text-slate-700">
+                        {file}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {pushResultSummary.verifiedRootFiles && pushResultSummary.verifiedRootFiles.length > 0 && (
                 <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-[11px] text-slate-600 space-y-1 font-sans">

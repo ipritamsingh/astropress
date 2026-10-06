@@ -90,6 +90,7 @@ import {
   CheckCircle2,
   Zap,
   Key,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface Props {
@@ -248,6 +249,7 @@ export const GutenbergEditor: React.FC<Props> = ({
   };
 
   const openMediaPickerForBlock = (blockId: string) => {
+    setSelectedBlockId(blockId);
     setMediaPickerTarget({ type: 'block', blockId });
     setShowMediaPicker(true);
   };
@@ -258,18 +260,41 @@ export const GutenbergEditor: React.FC<Props> = ({
   };
 
   const handleSelectMediaAsset = (item: MediaItem) => {
-    if (mediaPickerTarget?.type === 'block' && mediaPickerTarget.blockId) {
-      updateBlock(mediaPickerTarget.blockId, {
-        content: item.url,
-        settings: {
-          ...blocks.find((b) => b.id === mediaPickerTarget.blockId)?.settings,
-          imageUrl: item.url,
-          imageAlt: item.altText || item.name,
-          imageCaption: item.caption || '',
-        },
-      });
+    if (!item) return;
+    const mediaUrl = item.url || item.originalUrl || (item.name ? `/uploads/${item.name}` : '');
+    const cleanAlt = item.altText || item.name || '';
+    const rawCaption = item.caption || '';
+    const cleanCaption = (rawCaption.toLowerCase().includes('webp optimized') || rawCaption.toLowerCase().includes('saved ')) ? '' : rawCaption;
+
+    const targetBlockId =
+      mediaPickerTarget?.type === 'block' && mediaPickerTarget.blockId
+        ? mediaPickerTarget.blockId
+        : (!mediaPickerTarget && selectedBlockId && blocks.find((b) => b.id === selectedBlockId)?.type === 'image')
+        ? selectedBlockId
+        : null;
+
+    if (targetBlockId) {
+      setBlocks((prevBlocks) =>
+        prevBlocks.map((b) => {
+          if (b.id === targetBlockId) {
+            return {
+              ...b,
+              content: mediaUrl,
+              settings: {
+                ...b.settings,
+                imageUrl: mediaUrl,
+                imageAlt: cleanAlt,
+                imageCaption: cleanCaption,
+              },
+            };
+          }
+          return b;
+        })
+      );
+      setSelectedBlockId(targetBlockId);
+      setActiveSidebarTab('block');
     } else {
-      setFeaturedImage(item.url);
+      setFeaturedImage(mediaUrl);
     }
     setShowMediaPicker(false);
     setMediaPickerTarget(null);
@@ -410,8 +435,20 @@ export const GutenbergEditor: React.FC<Props> = ({
   };
 
   const updateBlock = (id: string, updates: Partial<GutenbergBlock>) => {
-    setBlocks(
-      blocks.map((b) => (b.id === id ? { ...b, ...updates, settings: { ...b.settings, ...updates.settings } } : b))
+    setBlocks((prevBlocks) =>
+      prevBlocks.map((b) =>
+        b.id === id
+          ? {
+              ...b,
+              ...updates,
+              content: updates.content !== undefined ? updates.content : b.content,
+              settings: {
+                ...b.settings,
+                ...(updates.settings || {}),
+              },
+            }
+          : b
+      )
     );
   };
 
@@ -684,7 +721,11 @@ ${compileBlocksToMarkdown()}`;
 
     try {
       const activeToken = modalGithubToken.trim() || sessionToken || deploymentSettings.githubToken;
-      // Execute Real GitHub publish using user token or worker proxy
+      // Persist published item in CMS state immediately so local state & localStorage have it
+      onSave(itemToPublish, true);
+      setStatus('published');
+
+      // Execute publish: stages locally unless autoDeployOnPublish is true
       const result = await executeRealGitHubPublish(
         itemToPublish,
         isPage,
@@ -698,9 +739,6 @@ ${compileBlocksToMarkdown()}`;
         return;
       }
 
-      // Persist published item in CMS state
-      onSave(itemToPublish, true);
-      setStatus('published');
       setPublishSuccessMsg(result.message);
       setRealCommitUrl(result.commitUrl || null);
       setShowPublishModal(false);
@@ -2547,6 +2585,19 @@ ${compileBlocksToMarkdown()}`;
               </div>
             )}
 
+            {/* Batch Deployment Protection Note */}
+            {!deploymentSettings.autoDeployOnPublish && (
+              <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs flex items-start gap-2">
+                <ShieldCheck className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <span className="font-bold block">Push Batching Protection Active</span>
+                  <p className="text-[11px] leading-relaxed">
+                    This post will be published and staged in Preview immediately with 0 GitHub pushes. Accumulate multiple updates, then perform 1 atomic push under <strong>Admin &gt; GitHub &amp; Deployment</strong> to trigger a single Cloudflare Pages build.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {publishError && (
               <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
                 <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
@@ -2573,12 +2624,16 @@ ${compileBlocksToMarkdown()}`;
                 {isPublishing ? (
                   <>
                     <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                    <span>Pushing Atomic Commit...</span>
+                    <span>Saving &amp; Staging...</span>
                   </>
                 ) : (
                   <>
                     <Zap className="h-3.5 w-3.5 text-amber-300" />
-                    <span>Confirm &amp; Publish to GitHub</span>
+                    <span>
+                      {deploymentSettings.autoDeployOnPublish
+                        ? 'Confirm & Publish to GitHub (1 Push)'
+                        : 'Confirm & Publish to Preview (Stage for Push)'}
+                    </span>
                   </>
                 )}
               </button>

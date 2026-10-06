@@ -363,8 +363,8 @@ export function mergeCMSStates(localState: CMSDataState, remoteState: Partial<CM
         const remoteUpdated = new Date(existing.updatedDate || existing.pubDate || 0).getTime();
         const localUpdated = new Date(lp.updatedDate || lp.pubDate || 0).getTime();
 
-        if (localUpdated > remoteUpdated && lp.status === 'draft') {
-          // Keep local draft content
+        if (localUpdated > remoteUpdated) {
+          // Keep local updated content
           postMap.set(lp.slug, { ...existing, ...lp });
         } else {
           // Remote is authoritative
@@ -382,8 +382,12 @@ export function mergeCMSStates(localState: CMSDataState, remoteState: Partial<CM
     const pageMap = new Map<string, Page>();
     remoteState.pages.forEach((rp) => pageMap.set(rp.slug, rp));
     localState.pages.forEach((lp) => {
-      if (!pageMap.has(lp.slug)) {
+      const existing = pageMap.get(lp.slug);
+      if (!existing) {
         pageMap.set(lp.slug, lp);
+      } else {
+        // Preserve local modifications during active editing session
+        pageMap.set(lp.slug, { ...existing, ...lp });
       }
     });
     mergedPages = Array.from(pageMap.values());

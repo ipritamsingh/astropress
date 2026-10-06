@@ -105,11 +105,37 @@ export const MediaLibrary: React.FC<Props> = ({
   // Sync edit form with selected item
   React.useEffect(() => {
     if (selectedItem) {
-      setEditName(selectedItem.name);
+      setEditName(selectedItem.name || '');
       setEditAlt(selectedItem.altText || '');
-      setEditCaption(selectedItem.caption || '');
+      const rawCap = selectedItem.caption || '';
+      const cleanCap = (rawCap.toLowerCase().includes('webp optimized') || rawCap.toLowerCase().includes('saved ')) ? '' : rawCap;
+      setEditCaption(cleanCap);
     }
-  }, [selectedItem?.id]);
+  }, [selectedItem?.id, selectedItem?.name, selectedItem?.url]);
+
+  const handleInsertAsset = (itemToInsert?: MediaItem | null) => {
+    const target = itemToInsert || selectedItem;
+    if (!target) return;
+    const isCurrentSelected = !itemToInsert || itemToInsert.id === selectedItem?.id;
+    const rawCaption = isCurrentSelected ? (editCaption.trim() || target.caption || '') : (target.caption || '');
+    const cleanCaption = (rawCaption.toLowerCase().includes('webp optimized') || rawCaption.toLowerCase().includes('saved ')) ? '' : rawCaption;
+    const targetName = isCurrentSelected ? (editName.trim() || target.name) : target.name;
+    const targetAlt = isCurrentSelected ? (editAlt.trim() || target.altText || targetName) : (target.altText || targetName);
+    const mediaUrl = target.url || target.originalUrl || (targetName ? `/uploads/${targetName}` : '');
+
+    const finalItem: MediaItem = {
+      ...target,
+      id: target.id || targetName,
+      name: targetName,
+      altText: targetAlt,
+      caption: cleanCaption,
+      url: mediaUrl,
+      originalUrl: target.originalUrl || mediaUrl,
+    };
+    if (onSelectMedia) {
+      onSelectMedia(finalItem);
+    }
+  };
 
   const filteredMedia = media.filter((m) => {
     const matchesSearch =
@@ -145,9 +171,9 @@ export const MediaLibrary: React.FC<Props> = ({
       setUploadStatusMsg(`Successfully uploaded ${files.length} asset(s) to persistent storage!`);
       if (lastUploaded) {
         setSelectedItem(lastUploaded);
-        if (isModalPicker && onSelectMedia) {
-          onSelectMedia(lastUploaded);
-        }
+        setEditName(lastUploaded.name);
+        setEditAlt(lastUploaded.altText || '');
+        setEditCaption('');
       }
       setTimeout(() => {
         setIsUploading(false);
@@ -312,18 +338,30 @@ export const MediaLibrary: React.FC<Props> = ({
           </div>
 
           {isModalPicker && (
-            <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs cursor-pointer shrink-0">
-              <Upload className="h-3.5 w-3.5" />
-              <span>Upload New</span>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleFileUpload}
-                className="hidden"
-                disabled={isUploading}
-              />
-            </label>
+            <div className="flex items-center gap-2">
+              <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs cursor-pointer shrink-0 border border-slate-300 transition-colors">
+                <Upload className="h-3.5 w-3.5 text-blue-600" />
+                <span>Upload New</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  disabled={isUploading}
+                />
+              </label>
+              {selectedItem && (
+                <button
+                  type="button"
+                  onClick={() => handleInsertAsset(selectedItem)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer shrink-0"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  <span>Insert Asset</span>
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -354,12 +392,8 @@ export const MediaLibrary: React.FC<Props> = ({
                 return (
                   <div
                     key={item.id}
-                    onClick={() => {
-                      setSelectedItem(item);
-                      if (onSelectMedia && isModalPicker) {
-                        onSelectMedia(item);
-                      }
-                    }}
+                    onClick={() => setSelectedItem(item)}
+                    onDoubleClick={() => handleInsertAsset(item)}
                     className={`group cursor-pointer rounded-xl overflow-hidden border aspect-square relative bg-slate-100 transition-all ${
                       isSelected
                         ? 'border-blue-600 ring-2 ring-blue-600/30 shadow-md'
@@ -398,12 +432,8 @@ export const MediaLibrary: React.FC<Props> = ({
                   {filteredMedia.map((item) => (
                     <tr
                       key={item.id}
-                      onClick={() => {
-                        setSelectedItem(item);
-                        if (onSelectMedia && isModalPicker) {
-                          onSelectMedia(item);
-                        }
-                      }}
+                      onClick={() => setSelectedItem(item)}
+                      onDoubleClick={() => handleInsertAsset(item)}
                       className={`hover:bg-slate-50 cursor-pointer ${
                         selectedItem?.id === item.id ? 'bg-blue-50/50' : ''
                       }`}
@@ -558,8 +588,9 @@ export const MediaLibrary: React.FC<Props> = ({
 
                   {isModalPicker && onSelectMedia && (
                     <button
-                      onClick={() => onSelectMedia(selectedItem)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors"
+                      type="button"
+                      onClick={() => handleInsertAsset(selectedItem)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
                     >
                       <Check className="h-3.5 w-3.5" />
                       <span>Insert Asset</span>

@@ -269,569 +269,29 @@ export async function checkGitHubConnection(
 }
 
 /**
- * Executes a real atomic commit operation against GitHub Git Data API.
- * Pushes Markdown + Frontmatter directly to the repository branch and returns real SHA.
+ * Calculates standard Git blob SHA-1: sha1("blob <size>\0<content>")
  */
-export async function executeRealGitHubPublish(
-  item: Post | Page,
-  isPage: boolean,
-  markdownWithFrontmatter: string,
-  deploymentSettings: DeploymentSettings,
-  sessionToken?: string
-): Promise<PublishResult> {
-  const branch = deploymentSettings.githubBranch || 'main';
-  const repoString = deploymentSettings.githubRepo || 'ipritamsingh/astropress';
-  const [owner, repoName] = repoString.split('/');
-  const token = sessionToken || deploymentSettings.githubToken;
-  const siteUrl = deploymentSettings.productionUrl || '';
-
-  if (!item.title || !item.title.trim()) {
-    return {
-      success: false,
-      buildTriggered: false,
-      status: 'failed',
-      message: 'Title is required before publishing.',
-      error: 'Missing title',
-    };
-  }
-
-  if (!item.slug || !item.slug.trim()) {
-    return {
-      success: false,
-      buildTriggered: false,
-      status: 'failed',
-      message: 'Permalink slug is required.',
-      error: 'Missing slug',
-    };
-  }
-
-  const filePath = isPage ? `src/content/pages/${item.slug}.md` : `src/content/posts/${item.slug}.md`;
-  const commitMessage = `feat(content): publish ${isPage ? 'page' : 'post'} "${item.title}" [${filePath}]`;
-
-  // If user has provided a real GitHub token, make actual GitHub API request
-  if (token && token.trim() && owner && repoName) {
-    try {
-      const cleanToken = token.trim();
-      const useProxy =
-        deploymentSettings.cloudflareWorkerUrl?.trim() &&
-        !isAuthenticatorWorkerUrl(deploymentSettings.cloudflareWorkerUrl);
-
-      const apiUrl = useProxy
-        ? `${deploymentSettings.cloudflareWorkerUrl!.trim()}/repos/${owner}/${repoName}/contents/${filePath}`
-        : `https://api.github.com/repos/${owner}/${repoName}/contents/${filePath}`;
-
-      // 1. Sync referenced image assets to public/uploads/ in repo and locally FIRST so images exist when Cloudflare builds
-      try {
-        await syncReferencedImageAssets(item, markdownWithFrontmatter, cleanToken, owner, repoName, branch, deploymentSettings);
-      } catch (e) {
-        console.warn('Asset sync warning:', e);
-      }
-
-      // 2. Check if file already exists to get its SHA for update
-      let existingFileSha: string | undefined = undefined;
-      try {
-        const getFileRes = await fetch(`${apiUrl}?ref=${branch}`, {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${cleanToken}`,
-            Accept: 'application/vnd.github.v3+json',
-          },
-        });
-        if (getFileRes.status === 200) {
-          const fileData = await getFileRes.json();
-          existingFileSha = fileData.sha;
-        }
-      } catch (e) {
-        // File doesn't exist yet, proceed with new file creation
-      }
-
-      // 3. Put file contents (Base64 encoded UTF-8)
-      const contentBase64 = utf8ToBase64(markdownWithFrontmatter);
-      const putBody: any = {
-        message: commitMessage,
-        content: contentBase64,
-        branch,
-      };
-
-      if (existingFileSha) {
-        putBody.sha = existingFileSha;
-      }
-
-      const putRes = await fetch(apiUrl, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${cleanToken}`,
-          Accept: 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(putBody),
-      });
-
-      if (!putRes.ok) {
-        const errJson = await putRes.json().catch(() => ({}));
-        return {
-          success: false,
-          buildTriggered: false,
-          status: 'failed',
-          message: `GitHub API commit failed (${putRes.status}): ${errJson.message || putRes.statusText}`,
-          error: errJson.message || 'GitHub commit failed',
-        };
-      }
-
-      const putData = await putRes.json();
-      const realCommitSha = putData.commit?.sha || 'c-' + Date.now().toString(36);
-      const shortSha = realCommitSha.substring(0, 7);
-      const commitUrl = putData.commit?.html_url || `https://github.com/${owner}/${repoName}/commit/${realCommitSha}`;
-
-      const newRecord: GitCommitRecord = {
-        id: shortSha,
-        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
-        message: commitMessage,
-        author: putData.commit?.author?.name || 'AstroPress Admin',
-        branch,
-        status: 'synced',
-      };
-
-      const finalUrl = isPage ? `${siteUrl}/${item.slug}` : `${siteUrl}/posts/${item.slug}`;
-
-      // Always attempt local markdown collection file write if server is running
-      try {
-        await fetch('/api/content/publish', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            slug: item.slug,
-            isPage,
-            content: markdownWithFrontmatter,
-          }),
-        });
-      } catch (e) {
-        // Non-blocking
-      }
-
-      return {
-        success: true,
-        commit: newRecord,
-        commitSha: realCommitSha,
-        commitUrl,
-        publishedUrl: finalUrl,
-        buildTriggered: deploymentSettings.autoDeployOnPublish !== false,
-        status: 'published',
-        message: `Published to GitHub successfully! Commit ${shortSha} created on branch "${branch}".`,
-      };
-    } catch (networkErr: any) {
-      return {
-        success: false,
-        buildTriggered: false,
-        status: 'failed',
-        message: `Network error during GitHub publication: ${networkErr.message || 'Connection failed'}`,
-        error: networkErr.message,
-      };
-    }
-  }
-
-  // Always attempt local markdown collection file write if server is running
+export async function calculateGitBlobSha(content: string): Promise<string> {
   try {
-    await fetch('/api/content/publish', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        slug: item.slug,
-        isPage,
-        content: markdownWithFrontmatter,
-      }),
-    });
-  } catch (e) {
-    // Non-blocking in production static builds
-  }
+    const enc = new TextEncoder();
+    const contentBytes = enc.encode(content);
+    const headerBytes = enc.encode(`blob ${contentBytes.length}\0`);
+    const fullBytes = new Uint8Array(headerBytes.length + contentBytes.length);
+    fullBytes.set(headerBytes);
+    fullBytes.set(contentBytes, headerBytes.length);
 
-  // Sync referenced image assets locally and to repo
-  try {
-    await syncReferencedImageAssets(item, markdownWithFrontmatter, token, owner, repoName, branch, deploymentSettings);
-  } catch (e) {
-    console.warn('Fallback asset sync warning:', e);
-  }
-
-  // Fallback: If no PAT configured, record in local Git audit log with notification to configure token
-  const commitId = 'c-' + Math.random().toString(36).substring(2, 9);
-  const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
-
-  const newRecord: GitCommitRecord = {
-    id: commitId,
-    timestamp,
-    message: commitMessage,
-    author: 'Amit Singh <amitsinghpritam@gmail.com>',
-    branch,
-    status: 'synced',
-  };
-
-  const finalUrl = isPage ? `${siteUrl}/${item.slug}` : `${siteUrl}/posts/${item.slug}`;
-
-  return {
-    success: true,
-    commit: newRecord,
-    commitSha: commitId,
-    publishedUrl: finalUrl,
-    buildTriggered: false,
-    status: 'local_saved',
-    message: `Content saved as Published in local Astro Collections. Note: To push directly to your live GitHub repository, enter your GitHub PAT in Admin > GitHub & Deployment.`,
-  };
+    if (typeof crypto !== 'undefined' && crypto.subtle) {
+      const hashBuffer = await crypto.subtle.digest('SHA-1', fullBytes);
+      return Array.from(new Uint8Array(hashBuffer))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+    }
+  } catch {}
+  return '';
 }
 
-/**
- * Universal content publisher for Posts, Pages, and Hero Section configurations
- */
-export async function executePublishContent(payload: PublishContentPayload): Promise<PublishResult> {
-  const { type, item, isPage = false, markdownWithFrontmatter = '', heroConfig, settings, sessionToken } = payload;
-
-  if (type === 'post' || type === 'page') {
-    if (!item) {
-      return {
-        success: false,
-        buildTriggered: false,
-        status: 'failed',
-        message: 'No item provided to publish',
-      };
-    }
-    return executeRealGitHubPublish(item, isPage, markdownWithFrontmatter, settings, sessionToken);
-  }
-
-  if (type === 'hero' && heroConfig) {
-    const branch = settings.githubBranch || 'main';
-    const repoString = settings.githubRepo || 'ipritamsingh/astropress';
-    const [owner, repoName] = repoString.split('/');
-    const token = sessionToken || settings.githubToken;
-    const filePath = 'src/data/heroConfig.json';
-    const commitMessage = 'feat(hero): update homepage hero section visual settings';
-
-    if (token && token.trim() && owner && repoName) {
-      try {
-        const cleanToken = token.trim();
-        const apiUrl = settings.cloudflareWorkerUrl?.trim()
-          ? `${settings.cloudflareWorkerUrl.trim()}/repos/${owner}/${repoName}/contents/${filePath}`
-          : `https://api.github.com/repos/${owner}/${repoName}/contents/${filePath}`;
-
-        let existingFileSha: string | undefined = undefined;
-        try {
-          const getRes = await fetch(`${apiUrl}?ref=${branch}`, {
-            headers: { Authorization: `Bearer ${cleanToken}`, Accept: 'application/vnd.github.v3+json' },
-          });
-          if (getRes.status === 200) {
-            const data = await getRes.json();
-            existingFileSha = data.sha;
-          }
-        } catch (e) {}
-
-        const contentBase64 = utf8ToBase64(JSON.stringify(heroConfig, null, 2));
-        const putBody: any = {
-          message: commitMessage,
-          content: contentBase64,
-          branch,
-        };
-        if (existingFileSha) putBody.sha = existingFileSha;
-
-        const putRes = await fetch(apiUrl, {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${cleanToken}`,
-            Accept: 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(putBody),
-        });
-
-        if (putRes.ok) {
-          const putData = await putRes.json();
-          const realSha = putData.commit?.sha || 'c-' + Date.now().toString(36);
-          const shortSha = realSha.substring(0, 7);
-
-          const commitRecord: GitCommitRecord = {
-            id: shortSha,
-            timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
-            message: commitMessage,
-            author: putData.commit?.author?.name || 'AstroPress Admin',
-            branch,
-            status: 'synced',
-          };
-
-          return {
-            success: true,
-            commit: commitRecord,
-            commitSha: realSha,
-            commitUrl: putData.commit?.html_url,
-            publishedUrl: settings.productionUrl || undefined,
-            buildTriggered: settings.autoDeployOnPublish !== false,
-            status: 'published',
-            message: `Hero Section published to GitHub! Commit ${shortSha} created on branch "${branch}".`,
-          };
-        }
-      } catch (err: any) {
-        return {
-          success: false,
-          buildTriggered: false,
-          status: 'failed',
-          message: `Network error publishing hero: ${err.message}`,
-        };
-      }
-    }
-
-    // Local audit record
-    const commitId = 'c-' + Math.random().toString(36).substring(2, 9);
-    const commitRecord: GitCommitRecord = {
-      id: commitId,
-      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
-      message: commitMessage,
-      author: 'Amit Singh <amitsinghpritam@gmail.com>',
-      branch,
-      status: 'synced',
-    };
-
-    return {
-      success: true,
-      commit: commitRecord,
-      commitSha: commitId,
-      publishedUrl: settings.productionUrl || undefined,
-      buildTriggered: false,
-      status: 'local_saved',
-      message: 'Hero Section settings saved locally in Astro configuration.',
-    };
-  }
-
-  return {
-    success: false,
-    buildTriggered: false,
-    status: 'failed',
-    message: 'Unknown publish payload type',
-  };
-}
-
-export interface PushFilePayload {
-  filePath: string;
-  content: string;
-  commitMessage: string;
-  deploymentSettings: DeploymentSettings;
-  sessionToken?: string;
-}
-
-export async function pushSingleFileToGitHub(
-  payload: PushFilePayload
-): Promise<{ success: boolean; error?: string; commitSha?: string }> {
-  const { filePath, content, commitMessage, deploymentSettings, sessionToken } = payload;
-  const branch = deploymentSettings.githubBranch || 'main';
-  const repoString = deploymentSettings.githubRepo || 'ipritamsingh/astropress';
-  const [owner, repoName] = repoString.split('/');
-  const token = (sessionToken || deploymentSettings.githubToken || '').trim();
-
-  if (!token || !owner || !repoName) {
-    return { success: false, error: 'Missing GitHub Token or Repository configuration.' };
-  }
-
-  try {
-    const useProxy =
-      deploymentSettings.cloudflareWorkerUrl?.trim() &&
-      !isAuthenticatorWorkerUrl(deploymentSettings.cloudflareWorkerUrl);
-
-    const apiUrl = useProxy
-      ? `${deploymentSettings.cloudflareWorkerUrl!.trim()}/repos/${owner}/${repoName}/contents/${filePath}`
-      : `https://api.github.com/repos/${owner}/${repoName}/contents/${filePath}`;
-
-    // 1. Check if file exists to get SHA for update
-    let existingFileSha: string | undefined = undefined;
-    try {
-      const getFileRes = await fetch(`${apiUrl}?ref=${branch}`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/vnd.github.v3+json',
-        },
-      });
-      if (getFileRes.status === 200) {
-        const fileData = await getFileRes.json();
-        existingFileSha = fileData.sha;
-      }
-    } catch (e) {
-      // file does not exist yet
-    }
-
-    // 2. Put file contents (Base64 encoded)
-    let contentBase64 = '';
-    if (typeof content === 'string' && content.startsWith('data:') && content.includes(';base64,')) {
-      contentBase64 = content.replace(/^data:[^;]+;base64,/, '').trim();
-    } else {
-      contentBase64 = utf8ToBase64(content);
-    }
-    const putBody: any = {
-      message: commitMessage,
-      content: contentBase64,
-      branch,
-    };
-    if (existingFileSha) {
-      putBody.sha = existingFileSha;
-    }
-
-    const putRes = await fetch(apiUrl, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(putBody),
-    });
-
-    if (!putRes.ok) {
-      const errJson = await putRes.json().catch(() => ({}));
-      return {
-        success: false,
-        error: errJson.message || `HTTP ${putRes.status}: ${putRes.statusText}`,
-      };
-    }
-
-    const putData = await putRes.json();
-    return {
-      success: true,
-      commitSha: putData.commit?.sha,
-    };
-  } catch (err: any) {
-    return {
-      success: false,
-      error: err.message || 'Network fetch failure',
-    };
-  }
-}
-
-export interface FullPushPayload {
-  posts: Post[];
-  pages: Page[];
-  heroConfig?: HeroSectionConfig;
-  themeSettings?: ThemeSettings;
-  categories?: Category[];
-  tags?: Tag[];
-  authors?: Author[];
-  media?: MediaItem[];
-  menus?: Menu[];
-  deploymentSettings: DeploymentSettings;
-  sessionToken?: string;
-  onProgress?: (info: { current: number; total: number; filePath: string; status: 'pushing' | 'done' | 'error' }) => void;
-}
-
-export async function executeFullRepositoryPush(payload: FullPushPayload): Promise<{
-  success: boolean;
-  totalPushed: number;
-  totalFiles: number;
-  failedFiles: { path: string; error: string }[];
-  commitSha?: string;
-  commitUrl?: string;
-  verifiedRootFiles?: string[];
-  message: string;
-}> {
-  const {
-    posts: initialLocalPosts,
-    pages: initialLocalPages,
-    heroConfig: initialHeroConfig,
-    themeSettings: initialThemeSettings,
-    categories: initialCategories,
-    tags: initialTags,
-    authors: initialAuthors,
-    media: initialMedia,
-    menus: initialMenus,
-    deploymentSettings,
-    sessionToken,
-    onProgress,
-  } = payload;
-
-  const branch = deploymentSettings.githubBranch || 'main';
-  const repoString = deploymentSettings.githubRepo || 'ipritamsingh/astropress';
-  const [owner, repoName] = repoString.split('/');
-  const token = (sessionToken || deploymentSettings.githubToken || '').trim();
-
-  if (!token || !owner || !repoName) {
-    return {
-      success: false,
-      totalPushed: 0,
-      totalFiles: 0,
-      failedFiles: [{ path: 'auth', error: 'Missing GitHub Personal Access Token or Repository name' }],
-      message: 'Missing GitHub Token or Repository configuration.',
-    };
-  }
-
-  const useProxy =
-    deploymentSettings.cloudflareWorkerUrl?.trim() &&
-    !isAuthenticatorWorkerUrl(deploymentSettings.cloudflareWorkerUrl);
-
-  const baseApiUrl = useProxy
-    ? `${deploymentSettings.cloudflareWorkerUrl!.trim()}/repos/${owner}/${repoName}`
-    : `https://api.github.com/repos/${owner}/${repoName}`;
-
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`,
-    Accept: 'application/vnd.github.v3+json',
-    'Content-Type': 'application/json',
-  };
-
-  // STEP 0: Fetch latest authoritative remote repository state & remote tree before push
-  let remoteTreeItems: Array<{ path: string; mode: string; type: string; sha: string }> = [];
-  let headSha: string | null = null;
-  let activePosts = [...initialLocalPosts];
-  let activePages = [...initialLocalPages];
-  let activeCategories = initialCategories ? [...initialCategories] : [];
-  let activeTags = initialTags ? [...initialTags] : [];
-  let activeAuthors = initialAuthors ? [...initialAuthors] : [];
-  let activeMedia = initialMedia ? [...initialMedia] : [];
-  let activeMenus = initialMenus ? [...initialMenus] : [];
-  let activeHeroConfig = initialHeroConfig;
-  let activeThemeSettings = initialThemeSettings;
-
-  if (onProgress) {
-    onProgress({ current: 0, total: 100, filePath: 'Checking remote GitHub repository state for live CMS changes...', status: 'pushing' });
-  }
-
-  try {
-    const remoteResult = await fetchRemoteCMSDataFromGitHub(deploymentSettings, token);
-    if (remoteResult.success && remoteResult.data) {
-      if (remoteResult.headSha) headSha = remoteResult.headSha;
-
-      const mergedState = mergeCMSStates(
-        {
-          posts: initialLocalPosts,
-          pages: initialLocalPages,
-          categories: initialCategories || [],
-          tags: initialTags || [],
-          authors: initialAuthors || [],
-          media: initialMedia || [],
-          comments: [],
-          menus: initialMenus || [],
-          homepageSections: [],
-          heroConfig: initialHeroConfig || ({} as any),
-          themeSettings: initialThemeSettings || ({} as any),
-          templates: [],
-          siteSettings: {} as any,
-          deploymentSettings,
-          commitHistory: [],
-        },
-        remoteResult.data
-      );
-
-      activePosts = mergedState.posts;
-      activePages = mergedState.pages;
-      activeCategories = mergedState.categories;
-      activeTags = mergedState.tags;
-      activeAuthors = mergedState.authors;
-      activeMedia = mergedState.media;
-      activeMenus = mergedState.menus;
-      activeHeroConfig = mergedState.heroConfig;
-      activeThemeSettings = mergedState.themeSettings;
-    }
-  } catch (syncErr) {
-    console.warn('Remote CMS pre-push check warning:', syncErr);
-  }
-
-  // 1. Start with the complete project files manifest (root config, Astro engine, layouts, pages, components, public assets)
-  const fullFilesMap: Record<string, string> = { ...projectFilesManifest };
-
-  // 2. Overlay dynamic CMS posts with full frontmatter, featured image, and blocks
-  activePosts.forEach((post) => {
-    const md = `---
+function formatPostToMarkdown(post: Post): string {
+  return `---
 title: "${(post.title || '').replace(/"/g, '\\"')}"
 slug: "${post.slug}"
 pubDate: ${post.pubDate || new Date().toISOString()}
@@ -854,12 +314,10 @@ seo:
 ---
 
 ${post.body || ''}`;
-    fullFilesMap[`src/content/posts/${post.slug}.md`] = md;
-  });
+}
 
-  // 3. Overlay dynamic CMS pages
-  activePages.forEach((page) => {
-    const md = `---
+function formatPageToMarkdown(page: Page): string {
+  return `---
 title: "${(page.title || '').replace(/"/g, '\\"')}"
 slug: "${page.slug}"
 pubDate: ${new Date().toISOString()}
@@ -869,20 +327,285 @@ blocks: ${JSON.stringify(page.blocks || [])}
 ---
 
 ${page.body || ''}`;
-    fullFilesMap[`src/content/pages/${page.slug}.md`] = md;
+}
+
+// In-flight deployment lock to prevent concurrent or duplicate pushes
+let inFlightDeploymentPromise: Promise<{
+  success: boolean;
+  totalPushed: number;
+  totalFiles: number;
+  modifiedFiles?: string[];
+  failedFiles: { path: string; error: string }[];
+  commitSha?: string;
+  commitUrl?: string;
+  verifiedRootFiles?: string[];
+  message: string;
+  noChanges?: boolean;
+}> | null = null;
+
+export interface FullPushPayload {
+  posts?: Post[];
+  pages?: Page[];
+  heroConfig?: HeroSectionConfig;
+  themeSettings?: ThemeSettings;
+  categories?: Category[];
+  tags?: Tag[];
+  authors?: Author[];
+  media?: MediaItem[];
+  menus?: Menu[];
+  deploymentSettings: DeploymentSettings;
+  sessionToken?: string;
+  customCommitMessage?: string;
+  onProgress?: (info: { current: number; total: number; filePath: string; status: 'pushing' | 'done' | 'error' }) => void;
+}
+
+/**
+ * Unified Atomic Deployment Engine:
+ * - Collects ALL accumulated changes (posts, pages, media, settings)
+ * - Fetches latest remote state and safely merges (preserving Live Admin changes)
+ * - Diffs candidate files against the remote tree
+ * - If 0 changes, does NOT create an empty commit and does NOT push
+ * - If changes exist, creates ONE Git tree, ONE Git commit, and performs EXACTLY ONE push
+ * - Locks against concurrent duplicate calls
+ */
+export async function executeAtomicBulkDeploy(payload: FullPushPayload): Promise<{
+  success: boolean;
+  totalPushed: number;
+  totalFiles: number;
+  modifiedFiles?: string[];
+  failedFiles: { path: string; error: string }[];
+  commitSha?: string;
+  commitUrl?: string;
+  verifiedRootFiles?: string[];
+  message: string;
+  noChanges?: boolean;
+}> {
+  if (inFlightDeploymentPromise) {
+    console.log('[Deploy] A deployment is already running. Reusing active deployment to prevent duplicate push.');
+    return inFlightDeploymentPromise;
+  }
+
+  inFlightDeploymentPromise = (async () => {
+    try {
+      return await performAtomicBulkDeploy(payload);
+    } finally {
+      inFlightDeploymentPromise = null;
+    }
+  })();
+
+  return inFlightDeploymentPromise;
+}
+
+async function performAtomicBulkDeploy(payload: FullPushPayload) {
+  const { deploymentSettings, sessionToken, onProgress, customCommitMessage } = payload;
+  const branch = deploymentSettings.githubBranch || 'main';
+  const repoString = deploymentSettings.githubRepo || 'ipritamsingh/astropress';
+  const [owner, repoName] = repoString.split('/');
+  const token = (sessionToken || deploymentSettings.githubToken || '').trim();
+
+  if (!token || !owner || !repoName) {
+    return {
+      success: false,
+      totalPushed: 0,
+      totalFiles: 0,
+      failedFiles: [{ path: 'auth', error: 'Missing GitHub Token or Repository name' }],
+      message: 'Missing GitHub Personal Access Token or Repository configuration.',
+    };
+  }
+
+  const useProxy =
+    deploymentSettings.cloudflareWorkerUrl?.trim() &&
+    !isAuthenticatorWorkerUrl(deploymentSettings.cloudflareWorkerUrl);
+
+  const baseApiUrl = useProxy
+    ? `${deploymentSettings.cloudflareWorkerUrl!.trim()}/repos/${owner}/${repoName}`
+    : `https://api.github.com/repos/${owner}/${repoName}`;
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/vnd.github.v3+json',
+    'Content-Type': 'application/json',
+  };
+
+  if (onProgress) {
+    onProgress({ current: 0, total: 100, filePath: 'Connecting to GitHub repository and checking remote state...', status: 'pushing' });
+  }
+
+  // 1. Fetch current remote branch HEAD ref
+  let headSha: string | null = null;
+  let baseTreeSha: string | null = null;
+  try {
+    const refRes = await fetch(`${baseApiUrl}/git/ref/heads/${branch}`, { method: 'GET', headers });
+    if (!refRes.ok) {
+      const err = await refRes.json().catch(() => ({}));
+      return {
+        success: false,
+        totalPushed: 0,
+        totalFiles: 0,
+        failedFiles: [{ path: 'branch', error: err.message || refRes.statusText }],
+        message: `Could not reach branch "${branch}" on ${owner}/${repoName}: ${err.message || refRes.statusText}`,
+      };
+    }
+    const refData = await refRes.json();
+    headSha = refData.object?.sha || null;
+  } catch (err: any) {
+    return {
+      success: false,
+      totalPushed: 0,
+      totalFiles: 0,
+      failedFiles: [{ path: 'network', error: err.message || 'Connection failure' }],
+      message: `Network error connecting to GitHub: ${err.message || 'Connection failure'}`,
+    };
+  }
+
+  if (!headSha) {
+    return {
+      success: false,
+      totalPushed: 0,
+      totalFiles: 0,
+      failedFiles: [{ path: 'ref', error: 'Missing HEAD SHA' }],
+      message: `Failed to locate HEAD commit for branch "${branch}".`,
+    };
+  }
+
+  // 2. Fetch base tree SHA and recursive remote tree
+  const remoteTreeMap = new Map<string, { sha: string; mode: string; type: string }>();
+  try {
+    const commitRes = await fetch(`${baseApiUrl}/git/commits/${headSha}`, { method: 'GET', headers });
+    if (commitRes.ok) {
+      const commitData = await commitRes.json();
+      baseTreeSha = commitData.tree?.sha || null;
+    }
+
+    const treeRes = await fetch(`${baseApiUrl}/git/trees/${headSha}?recursive=1`, { headers });
+    if (treeRes.ok) {
+      const treeData = await treeRes.json();
+      const treeItems = treeData.tree || [];
+      treeItems.forEach((item: any) => {
+        if (item.path && item.sha) {
+          remoteTreeMap.set(item.path, { sha: item.sha, mode: item.mode || '100644', type: item.type || 'blob' });
+        }
+      });
+    }
+  } catch (err: any) {
+    console.warn('[Deploy] Warning fetching remote tree:', err);
+  }
+
+  // 3. Retrieve local CMS state from props or fallback to localStorage
+  let localPosts = payload.posts;
+  let localPages = payload.pages;
+  let localHeroConfig = payload.heroConfig;
+  let localThemeSettings = payload.themeSettings;
+  let localCategories = payload.categories;
+  let localTags = payload.tags;
+  let localAuthors = payload.authors;
+  let localMedia = payload.media;
+  let localMenus = payload.menus;
+
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('astropress_cms_state_v3') : null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (!localPosts || localPosts.length === 0) localPosts = parsed.posts || [];
+      if (!localPages || localPages.length === 0) localPages = parsed.pages || [];
+      if (!localHeroConfig) localHeroConfig = parsed.heroConfig;
+      if (!localThemeSettings) localThemeSettings = parsed.themeSettings;
+      if (!localCategories || localCategories.length === 0) localCategories = parsed.categories || [];
+      if (!localTags || localTags.length === 0) localTags = parsed.tags || [];
+      if (!localAuthors || localAuthors.length === 0) localAuthors = parsed.authors || [];
+      if (!localMedia || localMedia.length === 0) localMedia = parsed.media || [];
+      if (!localMenus || localMenus.length === 0) localMenus = parsed.menus || [];
+    }
+  } catch {}
+
+  // 4. Safe remote state merge (never overwrite newer Live Admin / remote content)
+  let activePosts = [...(localPosts || [])];
+  let activePages = [...(localPages || [])];
+  let activeHeroConfig = localHeroConfig;
+  let activeThemeSettings = localThemeSettings;
+  let activeCategories = localCategories ? [...localCategories] : [];
+  let activeTags = localTags ? [...localTags] : [];
+  let activeAuthors = localAuthors ? [...localAuthors] : [];
+  let activeMedia = localMedia ? [...localMedia] : [];
+  let activeMenus = localMenus ? [...localMenus] : [];
+
+  try {
+    const remoteResult = await fetchRemoteCMSDataFromGitHub(deploymentSettings, token);
+    if (remoteResult.success && remoteResult.data) {
+      const mergedState = mergeCMSStates(
+        {
+          posts: activePosts,
+          pages: activePages,
+          categories: activeCategories,
+          tags: activeTags,
+          authors: activeAuthors,
+          media: activeMedia,
+          comments: [],
+          menus: activeMenus,
+          homepageSections: [],
+          heroConfig: activeHeroConfig || ({} as any),
+          themeSettings: activeThemeSettings || ({} as any),
+          templates: [],
+          siteSettings: {} as any,
+          deploymentSettings,
+          commitHistory: [],
+        },
+        remoteResult.data
+      );
+
+      activePosts = mergedState.posts;
+      activePages = mergedState.pages;
+      activeCategories = mergedState.categories;
+      activeTags = mergedState.tags;
+      activeAuthors = mergedState.authors;
+      activeMedia = mergedState.media;
+      activeMenus = mergedState.menus;
+      activeHeroConfig = mergedState.heroConfig;
+      activeThemeSettings = mergedState.themeSettings;
+    }
+  } catch (syncErr) {
+    console.warn('[Deploy] Remote CMS pre-deploy sync warning:', syncErr);
+  }
+
+  // 5. Build candidate files map with complete accumulated state
+  const fullFilesMap: Record<string, string> = { ...projectFilesManifest };
+
+  activePosts.forEach((post) => {
+    fullFilesMap[`src/content/posts/${post.slug}.md`] = formatPostToMarkdown(post);
   });
 
-  // 4. Overlay hero config
+  activePages.forEach((page) => {
+    fullFilesMap[`src/content/pages/${page.slug}.md`] = formatPageToMarkdown(page);
+  });
+
+  // Also include any posts or pages written to local container disk during active editing session
+  try {
+    if (typeof window !== 'undefined') {
+      const diskRes = await fetch('/api/content/all');
+      if (diskRes.ok) {
+        const diskData = await diskRes.json();
+        if (diskData.success) {
+          (diskData.posts || []).forEach((p: any) => {
+            if (p.slug && p.content) {
+              fullFilesMap[`src/content/posts/${p.slug}.md`] = p.content;
+            }
+          });
+          (diskData.pages || []).forEach((p: any) => {
+            if (p.slug && p.content) {
+              fullFilesMap[`src/content/pages/${p.slug}.md`] = p.content;
+            }
+          });
+        }
+      }
+    }
+  } catch {}
+
   if (activeHeroConfig) {
     fullFilesMap['src/data/heroConfig.json'] = JSON.stringify(activeHeroConfig, null, 2);
   }
-
-  // 5. Overlay theme settings
   if (activeThemeSettings) {
     fullFilesMap['src/data/themeSettings.json'] = JSON.stringify(activeThemeSettings, null, 2);
   }
-
-  // 6. Overlay taxonomy (Categories & Tags)
   if (activeCategories.length > 0 || activeTags.length > 0) {
     fullFilesMap['src/data/categories.json'] = JSON.stringify(
       { categories: activeCategories, tags: activeTags },
@@ -890,23 +613,20 @@ ${page.body || ''}`;
       2
     );
   }
-
-  // 6b. Overlay authors and system users
   if (activeAuthors.length > 0) {
     fullFilesMap['src/data/authors.json'] = JSON.stringify(activeAuthors, null, 2);
   }
-
-  // 7. Overlay media metadata and binary assets
   if (activeMedia.length > 0) {
     fullFilesMap['src/data/media.json'] = JSON.stringify(activeMedia, null, 2);
+  }
+  if (activeMenus.length > 0) {
+    fullFilesMap['src/data/menus.json'] = JSON.stringify(activeMenus, null, 2);
   }
 
   // Collect and include all uploaded media binary files into public/uploads/
   const storedBlobs = await getAllPersistedMediaBlobs().catch(() => []);
-  const allMedia = activeMedia || [];
-
   const neededImageFilenames = new Set<string>();
-  allMedia.forEach((m) => {
+  activeMedia.forEach((m) => {
     if (m.name && m.type === 'image') neededImageFilenames.add(m.name.replace(/^\/?uploads\//, ''));
   });
   activePosts.forEach((p) => {
@@ -923,9 +643,7 @@ ${page.body || ''}`;
     });
     if (p.body) {
       const matches = p.body.match(/\/uploads\/[A-Za-z0-9_.-]+/g);
-      if (matches) {
-        matches.forEach((m) => neededImageFilenames.add(m.replace(/^\/?uploads\//, '')));
-      }
+      if (matches) matches.forEach((m) => neededImageFilenames.add(m.replace(/^\/?uploads\//, '')));
     }
   });
 
@@ -940,7 +658,7 @@ ${page.body || ''}`;
     if (foundBlob && foundBlob.data) {
       dataUrl = foundBlob.data;
     }
-    if (!dataUrl) {
+    if (!dataUrl && typeof window !== 'undefined') {
       try {
         const res = await fetch(`/uploads/${filename}`);
         if (res.ok) {
@@ -951,267 +669,564 @@ ${page.body || ''}`;
             reader.readAsDataURL(blob);
           });
         }
-      } catch (e) {}
+      } catch {}
     }
     if (dataUrl) {
       fullFilesMap[assetPath] = dataUrl;
     }
   }
 
-  // 8. Overlay menus
-  if (activeMenus.length > 0) {
-    fullFilesMap['src/data/menus.json'] = JSON.stringify(activeMenus, null, 2);
+  // 6. Diff candidate files against remote tree to find modified/new files
+  const allCandidatePaths = Object.keys(fullFilesMap);
+  const totalCandidateFiles = allCandidatePaths.length;
+  const modifiedTreeItems: Array<{ path: string; mode: string; type: string; sha?: string; content?: string }> = [];
+  const modifiedFilePaths: string[] = [];
+
+  if (onProgress) {
+    onProgress({ current: 10, total: totalCandidateFiles, filePath: 'Diffing local changes against remote Git tree...', status: 'pushing' });
   }
 
-  const allFilePaths = Object.keys(fullFilesMap);
-  const totalFiles = allFilePaths.length;
-  const commitMessage = `feat: synchronize complete AstroPress project (${totalFiles} files: root configuration, Astro engine, layouts, components, and CMS content)`;
+  for (let i = 0; i < allCandidatePaths.length; i++) {
+    const path = allCandidatePaths[i];
+    const rawContent = fullFilesMap[path];
 
-  // Primary Path: Atomic Git Trees & Commit API (Pushes everything in a SINGLE atomic commit)
-  try {
-    if (onProgress) {
-      onProgress({ current: 1, total: totalFiles, filePath: 'Preparing Git Tree for complete project...', status: 'pushing' });
-    }
+    const isBinary =
+      (typeof rawContent === 'string' && rawContent.startsWith('data:') && rawContent.includes(';base64,')) ||
+      /\.(webp|png|jpg|jpeg|gif|ico|pdf|woff|woff2|ttf|eot|mp4|webm)$/i.test(path);
 
-    // Step A: Get current HEAD commit of target branch if not retrieved
-    if (!headSha) {
-      try {
-        const refRes = await fetch(`${baseApiUrl}/git/ref/heads/${branch}`, { method: 'GET', headers });
-        if (refRes.ok) {
-          const refData = await refRes.json();
-          headSha = refData.object?.sha || null;
-        }
-      } catch (e) {}
-    }
-
-    // Fetch existing remote tree to preserve existing remote blobs (such as previous uploaded assets)
-    if (headSha && remoteTreeItems.length === 0) {
-      try {
-        const treeRes = await fetch(`${baseApiUrl}/git/trees/${headSha}?recursive=1`, { headers });
-        if (treeRes.ok) {
-          const treeData = await treeRes.json();
-          remoteTreeItems = treeData.tree || [];
-        }
-      } catch (e) {}
-    }
-
-    // Step B: Build Tree items with proper binary blob creation & remote blob retention
-    const treeItemsMap = new Map<string, { path: string; mode: string; type: string; sha?: string; content?: string }>();
-
-    // First retain existing remote uploaded media assets and files that exist in the remote tree
-    remoteTreeItems.forEach((remoteItem) => {
-      if (remoteItem.type === 'blob' && remoteItem.path.startsWith('public/uploads/')) {
-        treeItemsMap.set(remoteItem.path, {
-          path: remoteItem.path,
-          mode: remoteItem.mode || '100644',
-          type: 'blob',
-          sha: remoteItem.sha,
-        });
+    if (isBinary) {
+      if (remoteTreeMap.has(path)) {
+        // Binary asset already exists on remote, unchanged
+        continue;
       }
-    });
-
-    for (let i = 0; i < allFilePaths.length; i++) {
-      const path = allFilePaths[i];
-      const rawContent = fullFilesMap[path];
-
-      // Check if file is binary (e.g. data:image/...;base64, or image file extension)
-      const isBinary =
-        (typeof rawContent === 'string' && rawContent.startsWith('data:') && rawContent.includes(';base64,')) ||
-        /\.(webp|png|jpg|jpeg|gif|ico|pdf|woff|woff2|ttf|eot|mp4|webm)$/i.test(path);
-
-      if (isBinary && typeof rawContent === 'string' && rawContent.includes(';base64,')) {
+      // New binary asset: create blob in Git
+      const base64Data =
+        typeof rawContent === 'string' && rawContent.includes(';base64,')
+          ? rawContent.replace(/^data:[^;]+;base64,/, '').trim()
+          : '';
+      if (base64Data) {
         try {
-          const base64Data = rawContent.replace(/^data:[^;]+;base64,/, '').trim();
           const blobRes = await fetch(`${baseApiUrl}/git/blobs`, {
             method: 'POST',
             headers,
-            body: JSON.stringify({
-              content: base64Data,
-              encoding: 'base64',
-            }),
+            body: JSON.stringify({ content: base64Data, encoding: 'base64' }),
           });
           if (blobRes.ok) {
             const blobData = await blobRes.json();
-            treeItemsMap.set(path, {
-              path,
-              mode: '100644',
-              type: 'blob',
-              sha: blobData.sha,
-            });
-            continue;
+            modifiedTreeItems.push({ path, mode: '100644', type: 'blob', sha: blobData.sha });
+            modifiedFilePaths.push(path);
           }
         } catch (blobErr) {
-          console.warn(`Failed to create Git blob for ${path}:`, blobErr);
+          console.warn(`[Deploy] Could not create blob for ${path}:`, blobErr);
         }
       }
-
-      treeItemsMap.set(path, {
-        path,
-        mode: '100644',
-        type: 'blob',
-        content: rawContent,
-      });
+      continue;
     }
 
-    const treeItems = Array.from(treeItemsMap.values());
-
-    if (onProgress) {
-      onProgress({
-        current: Math.floor(totalFiles / 2),
-        total: totalFiles,
-        filePath: `Creating unified Git Tree (${treeItems.length} project files)...`,
-        status: 'pushing',
-      });
+    // Text file diff
+    const computedSha = await calculateGitBlobSha(rawContent);
+    const remoteEntry = remoteTreeMap.get(path);
+    if (remoteEntry && computedSha && remoteEntry.sha === computedSha) {
+      // Content is identical to remote, skip!
+      continue;
     }
 
-    // Step C: Create Git Tree
-    const treeRes = await fetch(`${baseApiUrl}/git/trees`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ tree: treeItems }),
+    // File is modified or new
+    modifiedTreeItems.push({
+      path,
+      mode: '100644',
+      type: 'blob',
+      content: rawContent,
     });
+    modifiedFilePaths.push(path);
+  }
 
-    if (treeRes.ok) {
-      const treeData = await treeRes.json();
-      const newTreeSha = treeData.sha;
+  // 7. Check if there are pending changes (Requirement 13)
+  if (modifiedTreeItems.length === 0) {
+    if (onProgress) {
+      onProgress({ current: totalCandidateFiles, total: totalCandidateFiles, filePath: 'No pending changes to deploy.', status: 'done' });
+    }
+    return {
+      success: true,
+      totalPushed: 0,
+      totalFiles: totalCandidateFiles,
+      modifiedFiles: [],
+      failedFiles: [],
+      commitSha: headSha,
+      commitUrl: `https://github.com/${owner}/${repoName}/commit/${headSha}`,
+      message: 'All site content and files are already up to date on GitHub. No deployment needed (0 pushes, 0 Cloudflare builds).',
+      noChanges: true,
+    };
+  }
 
-      // Step D: Create Git Commit with headSha as parent
-      if (onProgress) {
-        onProgress({ current: totalFiles - 1, total: totalFiles, filePath: 'Creating unified commit on branch...', status: 'pushing' });
-      }
+  if (onProgress) {
+    onProgress({
+      current: Math.floor(totalCandidateFiles * 0.7),
+      total: totalCandidateFiles,
+      filePath: `Creating unified Git Tree (${modifiedTreeItems.length} modified/new files)...`,
+      status: 'pushing',
+    });
+  }
 
-      const commitBody: any = {
-        message: commitMessage,
-        tree: newTreeSha,
-      };
-      if (headSha) {
-        commitBody.parents = [headSha];
-      }
+  // 8. Create ONE Atomic Git Tree with base_tree
+  const treeBody: any = { tree: modifiedTreeItems };
+  if (baseTreeSha) {
+    treeBody.base_tree = baseTreeSha;
+  }
 
-      const commitRes = await fetch(`${baseApiUrl}/git/commits`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(commitBody),
-      });
+  const treeRes = await fetch(`${baseApiUrl}/git/trees`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(treeBody),
+  });
 
-      if (commitRes.ok) {
-        const commitData = await commitRes.json();
-        const newCommitSha = commitData.sha;
+  if (!treeRes.ok) {
+    const err = await treeRes.json().catch(() => ({}));
+    return {
+      success: false,
+      totalPushed: 0,
+      totalFiles: totalCandidateFiles,
+      failedFiles: [{ path: 'git/trees', error: err.message || treeRes.statusText }],
+      message: `Failed to create Git tree on GitHub (${treeRes.status}): ${err.message || treeRes.statusText}`,
+    };
+  }
 
-        // Step E: Update branch reference
-        const updateRefRes = await fetch(`${baseApiUrl}/git/refs/heads/${branch}`, {
-          method: 'PATCH',
-          headers,
-          body: JSON.stringify({ sha: newCommitSha, force: false }),
-        });
+  const treeData = await treeRes.json();
+  const newTreeSha = treeData.sha;
 
-        // If fast-forward update is rejected due to concurrent push, retry with force=true on branch
-        if (!updateRefRes.ok) {
-          await fetch(`${baseApiUrl}/git/refs/heads/${branch}`, {
-            method: 'PATCH',
+  if (baseTreeSha && newTreeSha === baseTreeSha) {
+    // Tree did not change
+    return {
+      success: true,
+      totalPushed: 0,
+      totalFiles: totalCandidateFiles,
+      failedFiles: [],
+      commitSha: headSha,
+      commitUrl: `https://github.com/${owner}/${repoName}/commit/${headSha}`,
+      message: 'All site content and files are already up to date on GitHub. No deployment needed.',
+      noChanges: true,
+    };
+  }
+
+  // 9. Create ONE Atomic Git Commit
+  if (onProgress) {
+    onProgress({
+      current: Math.floor(totalCandidateFiles * 0.9),
+      total: totalCandidateFiles,
+      filePath: `Creating unified commit with ${modifiedTreeItems.length} changes...`,
+      status: 'pushing',
+    });
+  }
+
+  const filesSummary =
+    modifiedFilePaths.length <= 3
+      ? modifiedFilePaths.join(', ')
+      : `${modifiedFilePaths.slice(0, 3).join(', ')} and ${modifiedFilePaths.length - 3} more`;
+  const commitMessage =
+    customCommitMessage?.trim() ||
+    `feat(deploy): synchronize ${modifiedTreeItems.length} modified files [${filesSummary}]`;
+
+  const commitRes = await fetch(`${baseApiUrl}/git/commits`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      message: commitMessage,
+      tree: newTreeSha,
+      parents: [headSha],
+    }),
+  });
+
+  if (!commitRes.ok) {
+    const err = await commitRes.json().catch(() => ({}));
+    return {
+      success: false,
+      totalPushed: 0,
+      totalFiles: totalCandidateFiles,
+      failedFiles: [{ path: 'git/commits', error: err.message || commitRes.statusText }],
+      message: `Failed to create Git commit on GitHub: ${err.message || commitRes.statusText}`,
+    };
+  }
+
+  const commitData = await commitRes.json();
+  const newCommitSha = commitData.sha;
+
+  // 10. Perform EXACTLY ONE GitHub Push (update branch ref)
+  if (onProgress) {
+    onProgress({
+      current: totalCandidateFiles,
+      total: totalCandidateFiles,
+      filePath: `Updating ${branch} branch reference (triggering 1 Cloudflare build)...`,
+      status: 'pushing',
+    });
+  }
+
+  let updateRefRes = await fetch(`${baseApiUrl}/git/refs/heads/${branch}`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ sha: newCommitSha, force: false }),
+  });
+
+  // Handle fast-forward conflict safely if remote advanced concurrently
+  if (!updateRefRes.ok && updateRefRes.status === 422) {
+    try {
+      const retryRefRes = await fetch(`${baseApiUrl}/git/ref/heads/${branch}`, { method: 'GET', headers });
+      if (retryRefRes.ok) {
+        const retryRefData = await retryRefRes.json();
+        const currentHeadSha = retryRefData.object?.sha;
+        if (currentHeadSha && currentHeadSha !== headSha) {
+          const retryCommitRes = await fetch(`${baseApiUrl}/git/commits`, {
+            method: 'POST',
             headers,
-            body: JSON.stringify({ sha: newCommitSha, force: true }),
+            body: JSON.stringify({
+              message: commitMessage,
+              tree: newTreeSha,
+              parents: [currentHeadSha],
+            }),
           });
-        }
-
-        if (onProgress) {
-          onProgress({ current: totalFiles, total: totalFiles, filePath: 'Verifying repository root contents...', status: 'done' });
-        }
-
-        // Step F: Post-push Verification
-        let verifiedRootFiles: string[] = [];
-        try {
-          const contentsRes = await fetch(`${baseApiUrl}/contents?ref=${branch}`, { method: 'GET', headers });
-          if (contentsRes.ok) {
-            const contentsData = await contentsRes.json();
-            if (Array.isArray(contentsData)) {
-              verifiedRootFiles = contentsData.map((item: any) => item.name);
-            }
+          if (retryCommitRes.ok) {
+            const retryCommitData = await retryCommitRes.json();
+            updateRefRes = await fetch(`${baseApiUrl}/git/refs/heads/${branch}`, {
+              method: 'PATCH',
+              headers,
+              body: JSON.stringify({ sha: retryCommitData.sha, force: false }),
+            });
           }
-        } catch (e) {}
-
-        const commitUrl = `https://github.com/${owner}/${repoName}/commit/${newCommitSha}`;
-
-        return {
-          success: true,
-          totalPushed: treeItems.length,
-          totalFiles: treeItems.length,
-          failedFiles: [],
-          commitSha: newCommitSha,
-          commitUrl,
-          verifiedRootFiles,
-          message: `Successfully synchronized complete AstroPress project (${treeItems.length} files) to GitHub in a single commit!`,
-        };
+        }
       }
+    } catch (retryErr) {
+      console.warn('[Deploy] Fast-forward retry failed:', retryErr);
     }
-  } catch (treeErr: any) {
-    console.warn('Git Tree API error, falling back to sequential push:', treeErr);
   }
 
-  // Fallback: Push files individually if Tree API fails
-  let totalPushed = 0;
-  const failedFiles: { path: string; error: string }[] = [];
-  let lastCommitSha: string | undefined = undefined;
+  if (!updateRefRes.ok) {
+    const err = await updateRefRes.json().catch(() => ({}));
+    return {
+      success: false,
+      totalPushed: 0,
+      totalFiles: totalCandidateFiles,
+      failedFiles: [{ path: 'git/refs', error: err.message || updateRefRes.statusText }],
+      message: `Failed to update branch "${branch}": ${err.message || updateRefRes.statusText}`,
+    };
+  }
 
-  for (let i = 0; i < allFilePaths.length; i++) {
-    const filePath = allFilePaths[i];
-    const content = fullFilesMap[filePath];
-
-    if (onProgress) {
-      onProgress({ current: i + 1, total: allFilePaths.length, filePath, status: 'pushing' });
+  // 11. Sync modified files to local container disk in background so Preview is identical
+  try {
+    const syncPayload = modifiedFilePaths
+      .filter((p) => !p.startsWith('public/uploads/'))
+      .map((p) => ({ path: p, content: fullFilesMap[p] }));
+    if (syncPayload.length > 0) {
+      await fetch('/api/content/sync-disk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: syncPayload }),
+      });
     }
+  } catch {}
 
-    const res = await pushSingleFileToGitHub({
-      filePath,
-      content,
-      commitMessage: `sync: update ${filePath}`,
-      deploymentSettings,
-      sessionToken: token,
+  const shortSha = newCommitSha.substring(0, 7);
+  const commitUrl = `https://github.com/${owner}/${repoName}/commit/${newCommitSha}`;
+
+  if (onProgress) {
+    onProgress({
+      current: totalCandidateFiles,
+      total: totalCandidateFiles,
+      filePath: `Deployment complete! Single commit ${shortSha} created.`,
+      status: 'done',
     });
-
-    if (res.success) {
-      totalPushed++;
-      if (res.commitSha) lastCommitSha = res.commitSha;
-      if (onProgress) {
-        onProgress({ current: i + 1, total: allFilePaths.length, filePath, status: 'done' });
-      }
-    } else {
-      failedFiles.push({ path: filePath, error: res.error || 'Push failed' });
-      if (onProgress) {
-        onProgress({ current: i + 1, total: allFilePaths.length, filePath, status: 'error' });
-      }
-    }
   }
 
-  const isSuccess = failedFiles.length === 0 && totalPushed > 0;
   return {
-    success: isSuccess,
-    totalPushed,
-    totalFiles: allFilePaths.length,
-    failedFiles,
-    commitSha: lastCommitSha,
-    commitUrl: lastCommitSha ? `https://github.com/${owner}/${repoName}/commit/${lastCommitSha}` : undefined,
-    message: isSuccess
-      ? `Successfully synchronized all ${totalPushed} project files to GitHub!`
-      : `Pushed ${totalPushed}/${allFilePaths.length} files. ${failedFiles.length} file(s) failed.`,
+    success: true,
+    totalPushed: modifiedTreeItems.length,
+    totalFiles: totalCandidateFiles,
+    modifiedFiles: modifiedFilePaths,
+    failedFiles: [],
+    commitSha: newCommitSha,
+    commitUrl,
+    message: `Successfully published all ${modifiedTreeItems.length} accumulated changes to GitHub in 1 atomic commit (${shortSha}) and 1 push! Exactly 1 Cloudflare Pages build triggered.`,
   };
 }
 
 /**
- * Helper to upload image assets referenced in a post to GitHub and local public/uploads directory
+ * Backward-compatible wrapper for full repository push
+ */
+export async function executeFullRepositoryPush(payload: FullPushPayload): Promise<{
+  success: boolean;
+  totalPushed: number;
+  totalFiles: number;
+  modifiedFiles?: string[];
+  failedFiles: { path: string; error: string }[];
+  commitSha?: string;
+  commitUrl?: string;
+  verifiedRootFiles?: string[];
+  message: string;
+  noChanges?: boolean;
+}> {
+  return executeAtomicBulkDeploy(payload);
+}
+
+/**
+ * Executes a real atomic publish operation.
+ * Stages the content file locally, then bundles ALL accumulated pending changes
+ * into ONE single atomic Git commit & ONE push ONLY IF autoDeployOnPublish is true.
+ * Otherwise, changes remain local in Preview for batch deployment.
+ */
+export async function executeRealGitHubPublish(
+  item: Post | Page,
+  isPage: boolean,
+  markdownWithFrontmatter: string,
+  deploymentSettings: DeploymentSettings,
+  sessionToken?: string
+): Promise<PublishResult> {
+  const branch = deploymentSettings.githubBranch || 'main';
+  const repoString = deploymentSettings.githubRepo || 'ipritamsingh/astropress';
+  const [owner, repoName] = repoString.split('/');
+  const token = (sessionToken || deploymentSettings.githubToken || '').trim();
+  const siteUrl = deploymentSettings.productionUrl || '';
+
+  if (!item.title || !item.title.trim()) {
+    return {
+      success: false,
+      buildTriggered: false,
+      status: 'failed',
+      message: 'Title is required before publishing.',
+      error: 'Missing title',
+    };
+  }
+
+  if (!item.slug || !item.slug.trim()) {
+    return {
+      success: false,
+      buildTriggered: false,
+      status: 'failed',
+      message: 'Permalink slug is required.',
+      error: 'Missing slug',
+    };
+  }
+
+  // 1. Stage content file locally so Astro collections & Preview render it immediately
+  try {
+    await fetch('/api/content/publish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        slug: item.slug,
+        isPage,
+        content: markdownWithFrontmatter,
+      }),
+    });
+  } catch {}
+
+  // 2. Stage referenced image assets locally (without individual GitHub pushes)
+  try {
+    await syncReferencedImageAssets(item, markdownWithFrontmatter, token, owner, repoName, branch, deploymentSettings);
+  } catch {}
+
+  // 3. ONLY push immediately if user explicitly enabled autoDeployOnPublish
+  if (deploymentSettings.autoDeployOnPublish && token && owner && repoName) {
+    const deployResult = await executeAtomicBulkDeploy({
+      deploymentSettings,
+      sessionToken: token,
+      customCommitMessage: `feat(content): publish ${isPage ? 'page' : 'post'} "${item.title.trim()}"`,
+    });
+
+    if (deployResult.success) {
+      const realSha = deployResult.commitSha || 'c-' + Date.now().toString(36);
+      const shortSha = realSha.substring(0, 7);
+      const newRecord: GitCommitRecord = {
+        id: shortSha,
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
+        message: `feat(content): publish ${isPage ? 'page' : 'post'} "${item.title.trim()}" [atomic push]`,
+        author: 'AstroPress Admin',
+        branch,
+        status: 'synced',
+      };
+      const finalUrl = isPage ? `${siteUrl}/${item.slug}` : `${siteUrl}/posts/${item.slug}`;
+
+      return {
+        success: true,
+        commit: newRecord,
+        commitSha: realSha,
+        commitUrl: deployResult.commitUrl,
+        publishedUrl: finalUrl,
+        buildTriggered: !deployResult.noChanges,
+        status: 'published',
+        message: deployResult.noChanges
+          ? `Changes saved locally. All files are already in sync with GitHub.`
+          : `Published to GitHub in 1 atomic commit (${shortSha})!`,
+      };
+    } else {
+      return {
+        success: false,
+        buildTriggered: false,
+        status: 'failed',
+        message: deployResult.message || 'GitHub Publication failed.',
+        error: deployResult.message,
+      };
+    }
+  }
+
+  // 4. Default: Staged locally in Preview (0 Git pushes, 0 Cloudflare builds).
+  // All accumulated changes will be deployed together in 1 atomic commit when user clicks Update & Deploy.
+  const commitId = 'c-' + Math.random().toString(36).substring(2, 9);
+  const newRecord: GitCommitRecord = {
+    id: commitId,
+    timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
+    message: `feat(content): stage ${isPage ? 'page' : 'post'} "${item.title.trim()}" in Preview`,
+    author: 'AstroPress Admin',
+    branch,
+    status: 'synced',
+  };
+  const finalUrl = isPage ? `${siteUrl}/${item.slug}` : `${siteUrl}/posts/${item.slug}`;
+
+  return {
+    success: true,
+    commit: newRecord,
+    commitSha: commitId,
+    publishedUrl: finalUrl,
+    buildTriggered: false,
+    status: 'local_saved',
+    message: `Saved & published in Preview! Changes are staged. To push all accumulated updates in 1 atomic commit, use 'Update & Deploy' in GitHub & Deployment.`,
+  };
+}
+
+/**
+ * Universal content publisher for Posts, Pages, and Hero Section configurations
+ */
+export async function executePublishContent(payload: PublishContentPayload): Promise<PublishResult> {
+  const { type, item, isPage = false, markdownWithFrontmatter = '', heroConfig, settings, sessionToken } = payload;
+
+  if (type === 'post' || type === 'page') {
+    if (!item) {
+      return {
+        success: false,
+        buildTriggered: false,
+        status: 'failed',
+        message: 'No item provided to publish',
+      };
+    }
+    return executeRealGitHubPublish(item, isPage, markdownWithFrontmatter, settings, sessionToken);
+  }
+
+  if (type === 'hero' && heroConfig) {
+    const token = (sessionToken || settings.githubToken || '').trim();
+    const siteUrl = settings.productionUrl || '';
+    const branch = settings.githubBranch || 'main';
+
+    if (settings.autoDeployOnPublish && token && settings.githubRepo) {
+      const deployResult = await executeAtomicBulkDeploy({
+        heroConfig,
+        deploymentSettings: settings,
+        sessionToken: token,
+        customCommitMessage: 'feat(hero): update homepage hero section visual settings',
+      });
+
+      if (deployResult.success) {
+        const realSha = deployResult.commitSha || 'c-' + Date.now().toString(36);
+        const shortSha = realSha.substring(0, 7);
+        const commitRecord: GitCommitRecord = {
+          id: shortSha,
+          timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
+          message: 'feat(hero): update homepage hero section visual settings',
+          author: 'AstroPress Admin',
+          branch,
+          status: 'synced',
+        };
+        return {
+          success: true,
+          commit: commitRecord,
+          commitSha: realSha,
+          commitUrl: deployResult.commitUrl,
+          publishedUrl: siteUrl || undefined,
+          buildTriggered: !deployResult.noChanges,
+          status: 'published',
+          message: deployResult.noChanges
+            ? 'Hero settings saved locally. All files are already in sync with GitHub.'
+            : `Hero section published to GitHub in 1 atomic commit (${shortSha})!`,
+        };
+      } else {
+        return {
+          success: false,
+          buildTriggered: false,
+          status: 'failed',
+          message: deployResult.message || 'Failed to deploy hero section to GitHub.',
+        };
+      }
+    }
+
+    const commitId = 'c-' + Math.random().toString(36).substring(2, 9);
+    return {
+      success: true,
+      commit: {
+        id: commitId,
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
+        message: 'feat(hero): update homepage hero section visual settings (staged in Preview)',
+        author: 'AstroPress Admin',
+        branch,
+        status: 'synced',
+      },
+      commitSha: commitId,
+      publishedUrl: siteUrl || undefined,
+      buildTriggered: false,
+      status: 'local_saved',
+      message: 'Hero Section settings saved in Preview. Staged for atomic deployment.',
+    };
+  }
+
+  return {
+    success: false,
+    buildTriggered: false,
+    status: 'failed',
+    message: 'Unknown publish payload type',
+  };
+}
+
+export interface PushFilePayload {
+  filePath: string;
+  content: string;
+  commitMessage: string;
+  deploymentSettings: DeploymentSettings;
+  sessionToken?: string;
+}
+
+export async function pushSingleFileToGitHub(
+  payload: PushFilePayload
+): Promise<{ success: boolean; error?: string; commitSha?: string }> {
+  // Only push if explicitly requested via autoDeployOnPublish
+  if (payload.deploymentSettings.autoDeployOnPublish) {
+    const res = await executeAtomicBulkDeploy({
+      deploymentSettings: payload.deploymentSettings,
+      sessionToken: payload.sessionToken,
+      customCommitMessage: payload.commitMessage,
+    });
+    return {
+      success: res.success,
+      error: res.failedFiles[0]?.error,
+      commitSha: res.commitSha,
+    };
+  }
+
+  return {
+    success: true,
+    commitSha: undefined,
+  };
+}
+
+/**
+ * Helper to stage referenced image assets locally (IndexedDB and /api/media/upload)
+ * Does NOT push individual images to GitHub - all images are included in the single atomic commit.
  */
 export async function syncReferencedImageAssets(
   item: any,
   markdownText: string,
-  token?: string,
-  owner?: string,
-  repoName?: string,
-  branch: string = 'main',
-  deploymentSettings?: DeploymentSettings
+  _token?: string,
+  _owner?: string,
+  _repoName?: string,
+  _branch: string = 'main',
+  _deploymentSettings?: DeploymentSettings
 ): Promise<void> {
   const referencedUrls = new Set<string>();
 
-  // Extract from item featuredImage and blocks
   if (item.featuredImage) referencedUrls.add(item.featuredImage);
   if (Array.isArray(item.blocks)) {
     item.blocks.forEach((b: any) => {
@@ -1226,7 +1241,6 @@ export async function syncReferencedImageAssets(
     });
   }
 
-  // Extract /uploads/... paths and data: URLs from markdown text
   const mdMatches = markdownText.match(/\/uploads\/[A-Za-z0-9_.-]+/g);
   if (mdMatches) {
     mdMatches.forEach((m) => referencedUrls.add(m));
@@ -1236,13 +1250,10 @@ export async function syncReferencedImageAssets(
     dataMatches.forEach((m) => referencedUrls.add(m));
   }
 
-  // Get persisted media blobs from IndexedDB
   const storedBlobs = await getAllPersistedMediaBlobs().catch(() => []);
-
-  // Retrieve CMS media library from localStorage if available
   let cmsMedia: MediaItem[] = [];
   try {
-    const raw = localStorage.getItem('astropress_cms_state_v3');
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('astropress_cms_state_v3') : null;
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed.media)) cmsMedia = parsed.media;
@@ -1264,7 +1275,6 @@ export async function syncReferencedImageAssets(
 
     if (!filename) continue;
 
-    // 1. Check if binary data is in storedBlobs by filename or id
     if (!dataUrl) {
       const foundStored = storedBlobs.find(
         (b) =>
@@ -1277,7 +1287,6 @@ export async function syncReferencedImageAssets(
       }
     }
 
-    // 2. Check if binary data is in cmsMedia matching filename
     if (!dataUrl) {
       const foundMedia = cmsMedia.find(
         (m) =>
@@ -1299,8 +1308,7 @@ export async function syncReferencedImageAssets(
       }
     }
 
-    // 3. Try fetching from local /uploads/{filename}
-    if (!dataUrl) {
+    if (!dataUrl && typeof window !== 'undefined') {
       try {
         const res = await fetch(`/uploads/${filename}`);
         if (res.ok) {
@@ -1316,7 +1324,7 @@ export async function syncReferencedImageAssets(
 
     if (!dataUrl) continue;
 
-    // A. Always write asset locally to public/uploads/
+    // Stage image locally to container /public/uploads/
     try {
       await fetch('/api/media/upload', {
         method: 'POST',
@@ -1324,57 +1332,5 @@ export async function syncReferencedImageAssets(
         body: JSON.stringify({ filename, dataUrl }),
       });
     } catch (e) {}
-
-    // B. Push image file to public/uploads/{filename} in GitHub repository
-    if (token && token.trim() && owner && repoName) {
-      try {
-        const cleanToken = token.trim();
-        const assetPath = `public/uploads/${filename}`;
-        const useProxy =
-          deploymentSettings?.cloudflareWorkerUrl?.trim() &&
-          !isAuthenticatorWorkerUrl(deploymentSettings.cloudflareWorkerUrl);
-
-        const apiUrl = useProxy
-          ? `${deploymentSettings!.cloudflareWorkerUrl!.trim()}/repos/${owner}/${repoName}/contents/${assetPath}`
-          : `https://api.github.com/repos/${owner}/${repoName}/contents/${assetPath}`;
-
-        let existingSha: string | undefined = undefined;
-        try {
-          const checkRes = await fetch(`${apiUrl}?ref=${branch}`, {
-            method: 'GET',
-            headers: {
-              Authorization: `Bearer ${cleanToken}`,
-              Accept: 'application/vnd.github.v3+json',
-            },
-          });
-          if (checkRes.status === 200) {
-            const json = await checkRes.json();
-            existingSha = json.sha;
-          }
-        } catch (e) {}
-
-        const base64Content = dataUrl.replace(/^data:[^;]+;base64,/, '').trim();
-        if (base64Content) {
-          const putBody: any = {
-            message: `chore(media): sync asset public/uploads/${filename}`,
-            content: base64Content,
-            branch,
-          };
-          if (existingSha) putBody.sha = existingSha;
-
-          await fetch(apiUrl, {
-            method: 'PUT',
-            headers: {
-              Authorization: `Bearer ${cleanToken}`,
-              Accept: 'application/vnd.github.v3+json',
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(putBody),
-          });
-        }
-      } catch (err) {
-        console.warn('Failed to publish asset to GitHub:', filename, err);
-      }
-    }
   }
 }
