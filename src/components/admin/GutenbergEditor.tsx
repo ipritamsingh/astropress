@@ -587,20 +587,6 @@ export const GutenbergEditor: React.FC<Props> = ({
     const activeStatus = targetStatus || status || 'draft';
     const cleanSlug = slug || 'new-post';
     const cleanDate = (initialItem as Post).pubDate || new Date().toISOString();
-
-    if (isPage) {
-      return `---
-title: "${title.replace(/"/g, '\\"')}"
-slug: "${cleanSlug}"
-pubDate: ${cleanDate}
-template: "${(initialItem as Page).template || 'default'}"
-draft: ${activeStatus === 'draft'}
-blocks: ${JSON.stringify(blocks || [])}
----
-
-${compileBlocksToMarkdown()}`;
-    }
-
     return `---
 title: "${title.replace(/"/g, '\\"')}"
 slug: "${cleanSlug}"
@@ -614,7 +600,6 @@ featuredImage: "${featuredImage}"
 excerpt: "${excerpt.replace(/"/g, '\\"')}"
 readingTime: ${Math.max(1, Math.ceil(blocks.length * 0.8))}
 template: "${template}"
-blocks: ${JSON.stringify(blocks || [])}
 seo:
   metaTitle: "${seo.metaTitle.replace(/"/g, '\\"')}"
   metaDescription: "${seo.metaDescription.replace(/"/g, '\\"')}"

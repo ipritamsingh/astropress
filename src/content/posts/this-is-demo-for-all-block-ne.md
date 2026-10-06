@@ -1,6 +1,6 @@
 ---
-title: "This is Demo for all block new"
-slug: "this-is-demo-for-all-block"
+title: "Deploy change 1 build"
+slug: "this-is-demo-for-all-block-ne"
 pubDate: 2026-10-06T10:21:08.037Z
 status: "published"
 draft: false
