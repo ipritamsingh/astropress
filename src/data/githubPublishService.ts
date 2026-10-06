@@ -491,9 +491,9 @@ async function performAtomicBulkDeploy(payload: FullPushPayload) {
     console.warn('[Deploy] Warning fetching remote tree:', err);
   }
 
-  // 3. Retrieve local CMS state from props or fallback to localStorage
-  let localPosts = payload.posts;
-  let localPages = payload.pages;
+  // 3. Retrieve local CMS state: Always merge localStorage with any passed payload
+  let localPosts: Post[] = [];
+  let localPages: Page[] = [];
   let localHeroConfig = payload.heroConfig;
   let localThemeSettings = payload.themeSettings;
   let localCategories = payload.categories;
@@ -506,17 +506,65 @@ async function performAtomicBulkDeploy(payload: FullPushPayload) {
     const raw = typeof window !== 'undefined' ? localStorage.getItem('astropress_cms_state_v3') : null;
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (!localPosts || localPosts.length === 0) localPosts = parsed.posts || [];
-      if (!localPages || localPages.length === 0) localPages = parsed.pages || [];
-      if (!localHeroConfig) localHeroConfig = parsed.heroConfig;
-      if (!localThemeSettings) localThemeSettings = parsed.themeSettings;
-      if (!localCategories || localCategories.length === 0) localCategories = parsed.categories || [];
-      if (!localTags || localTags.length === 0) localTags = parsed.tags || [];
-      if (!localAuthors || localAuthors.length === 0) localAuthors = parsed.authors || [];
-      if (!localMedia || localMedia.length === 0) localMedia = parsed.media || [];
-      if (!localMenus || localMenus.length === 0) localMenus = parsed.menus || [];
+      if (Array.isArray(parsed.posts)) localPosts = parsed.posts;
+      if (Array.isArray(parsed.pages)) localPages = parsed.pages;
+      if (!localHeroConfig && parsed.heroConfig) localHeroConfig = parsed.heroConfig;
+      if (!localThemeSettings && parsed.themeSettings) localThemeSettings = parsed.themeSettings;
+      if (!localCategories && Array.isArray(parsed.categories)) localCategories = parsed.categories;
+      if (!localTags && Array.isArray(parsed.tags)) localTags = parsed.tags;
+      if (!localAuthors && Array.isArray(parsed.authors)) localAuthors = parsed.authors;
+      if (!localMedia && Array.isArray(parsed.media)) localMedia = parsed.media;
+      if (!localMenus && Array.isArray(parsed.menus)) localMenus = parsed.menus;
     }
   } catch {}
+
+  // If specific payload posts/pages passed, merge them on top of localPosts/localPages
+  if (payload.posts && payload.posts.length > 0) {
+    const postMap = new Map<string, Post>();
+    localPosts.forEach((p) => {
+      postMap.set(p.slug, p);
+    });
+    payload.posts.forEach((p) => {
+      const match = Array.from(postMap.entries()).find(
+        ([key, post]) =>
+          key === p.slug ||
+          post.slug === p.slug ||
+          (p.id && (post.id === p.id || post.id === `post-${p.slug}`)) ||
+          (p.originalSlug && (post.slug === p.originalSlug || key === p.originalSlug))
+      );
+      if (match) {
+        postMap.delete(match[0]);
+        if (match[1].slug !== p.slug) postMap.delete(match[1].slug);
+      }
+      postMap.set(p.slug, p);
+    });
+    const uniqueBySlug = new Map<string, Post>();
+    Array.from(postMap.values()).forEach((p) => uniqueBySlug.set(p.slug, p));
+    localPosts = Array.from(uniqueBySlug.values());
+  }
+  if (payload.pages && payload.pages.length > 0) {
+    const pageMap = new Map<string, Page>();
+    localPages.forEach((p) => {
+      pageMap.set(p.slug, p);
+    });
+    payload.pages.forEach((p) => {
+      const match = Array.from(pageMap.entries()).find(
+        ([key, page]) =>
+          key === p.slug ||
+          page.slug === p.slug ||
+          (p.id && (page.id === p.id || page.id === `page-${p.slug}`)) ||
+          (p.originalSlug && (page.slug === p.originalSlug || key === p.originalSlug))
+      );
+      if (match) {
+        pageMap.delete(match[0]);
+        if (match[1].slug !== p.slug) pageMap.delete(match[1].slug);
+      }
+      pageMap.set(p.slug, p);
+    });
+    const uniqueBySlug = new Map<string, Page>();
+    Array.from(pageMap.values()).forEach((p) => uniqueBySlug.set(p.slug, p));
+    localPages = Array.from(uniqueBySlug.values());
+  }
 
   // 4. Safe remote state merge (never overwrite newer Live Admin / remote content)
   let activePosts = [...(localPosts || [])];
@@ -586,12 +634,12 @@ async function performAtomicBulkDeploy(payload: FullPushPayload) {
         const diskData = await diskRes.json();
         if (diskData.success) {
           (diskData.posts || []).forEach((p: any) => {
-            if (p.slug && p.content) {
+            if (p.slug && p.content && activePosts.some((ap) => ap.slug === p.slug)) {
               fullFilesMap[`src/content/posts/${p.slug}.md`] = p.content;
             }
           });
           (diskData.pages || []).forEach((p: any) => {
-            if (p.slug && p.content) {
+            if (p.slug && p.content && activePages.some((ap) => ap.slug === p.slug)) {
               fullFilesMap[`src/content/pages/${p.slug}.md`] = p.content;
             }
           });
@@ -679,7 +727,7 @@ async function performAtomicBulkDeploy(payload: FullPushPayload) {
   // 6. Diff candidate files against remote tree to find modified/new files
   const allCandidatePaths = Object.keys(fullFilesMap);
   const totalCandidateFiles = allCandidatePaths.length;
-  const modifiedTreeItems: Array<{ path: string; mode: string; type: string; sha?: string; content?: string }> = [];
+  const modifiedTreeItems: Array<{ path: string; mode: string; type: string; sha?: string | null; content?: string }> = [];
   const modifiedFilePaths: string[] = [];
 
   if (onProgress) {
@@ -740,6 +788,23 @@ async function performAtomicBulkDeploy(payload: FullPushPayload) {
     });
     modifiedFilePaths.push(path);
   }
+
+  // Explicitly mark remote files for deletion if they are no longer in activePosts or activePages
+  remoteTreeMap.forEach((_entry, remotePath) => {
+    if (remotePath.startsWith('src/content/posts/') && remotePath.endsWith('.md')) {
+      const slug = remotePath.replace('src/content/posts/', '').replace(/\.md$/, '');
+      if (!activePosts.some((p) => p.slug === slug)) {
+        modifiedTreeItems.push({ path: remotePath, mode: '100644', type: 'blob', sha: null });
+        modifiedFilePaths.push(`[deleted] ${remotePath}`);
+      }
+    } else if (remotePath.startsWith('src/content/pages/') && remotePath.endsWith('.md')) {
+      const slug = remotePath.replace('src/content/pages/', '').replace(/\.md$/, '');
+      if (!activePages.some((p) => p.slug === slug)) {
+        modifiedTreeItems.push({ path: remotePath, mode: '100644', type: 'blob', sha: null });
+        modifiedFilePaths.push(`[deleted] ${remotePath}`);
+      }
+    }
+  });
 
   // 7. Check if there are pending changes (Requirement 13)
   if (modifiedTreeItems.length === 0) {
@@ -1013,6 +1078,7 @@ export async function executeRealGitHubPublish(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         slug: item.slug,
+        previousSlug: item.originalSlug,
         isPage,
         content: markdownWithFrontmatter,
       }),

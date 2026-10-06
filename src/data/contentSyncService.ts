@@ -337,6 +337,15 @@ export async function fetchRemoteCMSDataFromGitHub(
   }
 }
 
+function normalizePostTitleKey(title: string): string {
+  if (!title) return '';
+  return title
+    .toLowerCase()
+    .replace(/\b(update|check|new|draft|copy|vheck)\b/gi, '')
+    .replace(/[^a-z0-9]+/g, '')
+    .trim();
+}
+
 /**
  * Merges local CMS data state with authoritative remote/disk CMS state
  * Ensures remote changes made on LIVE Admin or GitHub are NEVER overwritten by stale local snapshots
@@ -349,29 +358,55 @@ export function mergeCMSStates(localState: CMSDataState, remoteState: Partial<CM
   if (remoteState.posts && remoteState.posts.length > 0) {
     const postMap = new Map<string, Post>();
 
-    // Start with remote authoritative posts
+    // Start with remote authoritative posts, deduplicating any duplicate remote files by normalized title
     remoteState.posts.forEach((rp) => {
-      postMap.set(rp.slug, rp);
+      const rpNormKey = normalizePostTitleKey(rp.title);
+      const existingRemoteKey = Array.from(postMap.entries()).find(([k, p]) => {
+        if (k === rp.slug || p.slug === rp.slug) return true;
+        if (rpNormKey && rpNormKey.length >= 8) {
+          return normalizePostTitleKey(p.title) === rpNormKey;
+        }
+        return false;
+      });
+
+      if (existingRemoteKey) {
+        // Keep the more recent or preferred entry and consolidate duplicate slug
+        const existing = existingRemoteKey[1];
+        const isRpNewer = new Date(rp.pubDate || 0).getTime() >= new Date(existing.pubDate || 0).getTime();
+        const preferred = isRpNewer ? { ...existing, ...rp } : { ...rp, ...existing };
+        postMap.delete(existingRemoteKey[0]);
+        if (existing.slug !== preferred.slug) postMap.delete(existing.slug);
+        postMap.set(preferred.slug, preferred);
+      } else {
+        postMap.set(rp.slug, rp);
+      }
     });
 
     // Merge local posts
     localState.posts.forEach((lp) => {
-      const existing = postMap.get(lp.slug);
-      if (!existing) {
+      const lpNormKey = normalizePostTitleKey(lp.title);
+      const existingKey = Array.from(postMap.entries()).find(
+        ([key, post]) =>
+          key === lp.slug ||
+          post.slug === lp.slug ||
+          (lp.id && (post.id === lp.id || post.id === `post-${lp.slug}` || lp.id === `post-${post.slug}`)) ||
+          (lp.originalSlug && (post.slug === lp.originalSlug || key === lp.originalSlug || post.id === `post-${lp.originalSlug}`)) ||
+          (lpNormKey && lpNormKey.length >= 8 && normalizePostTitleKey(post.title) === lpNormKey)
+      );
+
+      if (!existingKey) {
         // Local newly drafted or created post that hasn't been published to remote yet
         postMap.set(lp.slug, lp);
       } else {
-        // If remote is published, preserve remote content unless local has an active draft edit with newer timestamp
-        const remoteUpdated = new Date(existing.updatedDate || existing.pubDate || 0).getTime();
-        const localUpdated = new Date(lp.updatedDate || lp.pubDate || 0).getTime();
-
-        if (localUpdated > remoteUpdated) {
-          // Keep local updated content
-          postMap.set(lp.slug, { ...existing, ...lp });
-        } else {
-          // Remote is authoritative
-          postMap.set(lp.slug, existing);
+        // If slug was renamed, delete old slug entry to prevent duplicate posts
+        if (existingKey[0] !== lp.slug) {
+          postMap.delete(existingKey[0]);
         }
+        if (existingKey[1].slug !== lp.slug) {
+          postMap.delete(existingKey[1].slug);
+        }
+        // Local updated content takes priority during active editing session
+        postMap.set(lp.slug, { ...existingKey[1], ...lp, id: existingKey[1].id || lp.id });
       }
     });
 
@@ -384,12 +419,24 @@ export function mergeCMSStates(localState: CMSDataState, remoteState: Partial<CM
     const pageMap = new Map<string, Page>();
     remoteState.pages.forEach((rp) => pageMap.set(rp.slug, rp));
     localState.pages.forEach((lp) => {
-      const existing = pageMap.get(lp.slug);
-      if (!existing) {
+      const existingKey = Array.from(pageMap.entries()).find(
+        ([key, page]) =>
+          key === lp.slug ||
+          page.slug === lp.slug ||
+          (lp.id && (page.id === lp.id || page.id === `page-${lp.slug}` || lp.id === `page-${page.slug}`)) ||
+          (lp.originalSlug && (page.slug === lp.originalSlug || key === lp.originalSlug || page.id === `page-${lp.originalSlug}`))
+      );
+
+      if (!existingKey) {
         pageMap.set(lp.slug, lp);
       } else {
-        // Preserve local modifications during active editing session
-        pageMap.set(lp.slug, { ...existing, ...lp });
+        if (existingKey[0] !== lp.slug) {
+          pageMap.delete(existingKey[0]);
+        }
+        if (existingKey[1].slug !== lp.slug) {
+          pageMap.delete(existingKey[1].slug);
+        }
+        pageMap.set(lp.slug, { ...existingKey[1], ...lp, id: existingKey[1].id || lp.id });
       }
     });
     mergedPages = Array.from(pageMap.values());
