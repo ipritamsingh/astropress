@@ -92,7 +92,7 @@ export async function getAuthPublicState(): Promise<AuthPublicState> {
       remainingRecoveryCodesCount: data.remainingRecoveryCodesCount || 0,
     };
   } catch (err) {
-    console.error('[AuthService] Failed to fetch auth status from D1:', err);
+    console.warn('[AuthService] Failed to fetch auth status from D1:', err);
     return {
       isInitialized: false,
       isAuthenticated: false,
