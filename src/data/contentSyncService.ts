@@ -147,6 +147,7 @@ export async function fetchRemoteCMSDataFromGitHub(
 ): Promise<{
   success: boolean;
   data?: Partial<CMSDataState>;
+  rawFiles?: Array<{ path: string; content: string }>;
   remoteTreeSha?: string;
   headSha?: string;
   error?: string;
@@ -199,6 +200,7 @@ export async function fetchRemoteCMSDataFromGitHub(
 
     const fetchedPosts: Post[] = [];
     const fetchedPages: Page[] = [];
+    const rawFiles: Array<{ path: string; content: string }> = [];
     let fetchedCategories: Category[] | undefined = undefined;
     let fetchedTags: Tag[] | undefined = undefined;
     let fetchedAuthors: Author[] | undefined = undefined;
@@ -208,7 +210,14 @@ export async function fetchRemoteCMSDataFromGitHub(
     let fetchedThemeSettings: ThemeSettings | undefined = undefined;
 
     // Helper to fetch blob content
-    const fetchBlobText = async (blobSha: string): Promise<string> => {
+    const fetchBlobText = async (itemPath: string, blobSha: string): Promise<string> => {
+      try {
+        const rawRes = await fetch(`https://raw.githubusercontent.com/${owner}/${repoName}/${headSha}/${itemPath}`);
+        if (rawRes.ok) {
+          return await rawRes.text();
+        }
+      } catch (e) {}
+
       const blobRes = await fetch(`${baseApiUrl}/git/blobs/${blobSha}`, { headers });
       if (!blobRes.ok) return '';
       const bData = await blobRes.json();
@@ -228,24 +237,27 @@ export async function fetchRemoteCMSDataFromGitHub(
       if (item.type !== 'blob') continue;
 
       if (item.path.startsWith('src/content/posts/') && item.path.endsWith('.md')) {
-        const text = await fetchBlobText(item.sha);
+        const text = await fetchBlobText(item.path, item.sha);
         if (text) {
+          rawFiles.push({ path: item.path, content: text });
           const filename = item.path.replace('src/content/posts/', '');
           const slug = filename.replace(/\.md$/, '');
           const post = parseFrontmatterAndMarkdown(text, slug, false) as Post;
           fetchedPosts.push(post);
         }
       } else if (item.path.startsWith('src/content/pages/') && item.path.endsWith('.md')) {
-        const text = await fetchBlobText(item.sha);
+        const text = await fetchBlobText(item.path, item.sha);
         if (text) {
+          rawFiles.push({ path: item.path, content: text });
           const filename = item.path.replace('src/content/pages/', '');
           const slug = filename.replace(/\.md$/, '');
           const page = parseFrontmatterAndMarkdown(text, slug, true) as Page;
           fetchedPages.push(page);
         }
       } else if (item.path === 'src/data/categories.json') {
-        const text = await fetchBlobText(item.sha);
+        const text = await fetchBlobText(item.path, item.sha);
         if (text) {
+          rawFiles.push({ path: item.path, content: text });
           try {
             const parsed = JSON.parse(text);
             if (Array.isArray(parsed.categories)) fetchedCategories = parsed.categories;
@@ -253,38 +265,43 @@ export async function fetchRemoteCMSDataFromGitHub(
           } catch (e) {}
         }
       } else if (item.path === 'src/data/authors.json') {
-        const text = await fetchBlobText(item.sha);
+        const text = await fetchBlobText(item.path, item.sha);
         if (text) {
+          rawFiles.push({ path: item.path, content: text });
           try {
             const parsed = JSON.parse(text);
             if (Array.isArray(parsed)) fetchedAuthors = parsed;
           } catch (e) {}
         }
       } else if (item.path === 'src/data/menus.json') {
-        const text = await fetchBlobText(item.sha);
+        const text = await fetchBlobText(item.path, item.sha);
         if (text) {
+          rawFiles.push({ path: item.path, content: text });
           try {
             const parsed = JSON.parse(text);
             if (Array.isArray(parsed)) fetchedMenus = parsed;
           } catch (e) {}
         }
       } else if (item.path === 'src/data/heroConfig.json') {
-        const text = await fetchBlobText(item.sha);
+        const text = await fetchBlobText(item.path, item.sha);
         if (text) {
+          rawFiles.push({ path: item.path, content: text });
           try {
             fetchedHeroConfig = JSON.parse(text);
           } catch (e) {}
         }
       } else if (item.path === 'src/data/themeSettings.json') {
-        const text = await fetchBlobText(item.sha);
+        const text = await fetchBlobText(item.path, item.sha);
         if (text) {
+          rawFiles.push({ path: item.path, content: text });
           try {
             fetchedThemeSettings = JSON.parse(text);
           } catch (e) {}
         }
       } else if (item.path === 'src/data/media.json') {
-        const text = await fetchBlobText(item.sha);
+        const text = await fetchBlobText(item.path, item.sha);
         if (text) {
+          rawFiles.push({ path: item.path, content: text });
           try {
             const parsed = JSON.parse(text);
             if (Array.isArray(parsed)) fetchedMedia = parsed;
@@ -297,6 +314,7 @@ export async function fetchRemoteCMSDataFromGitHub(
       success: true,
       headSha,
       remoteTreeSha: treeData.sha,
+      rawFiles,
       data: {
         posts: fetchedPosts.length > 0 ? fetchedPosts : undefined,
         pages: fetchedPages.length > 0 ? fetchedPages : undefined,

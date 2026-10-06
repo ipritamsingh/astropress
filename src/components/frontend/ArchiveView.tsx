@@ -1,5 +1,6 @@
 import React from 'react';
 import { Post, Category, Tag } from '../../types/cms';
+import { PostCardImage } from '../common/PostCardImage';
 import { ArrowLeft, Clock, ArrowRight, FolderTree, Tag as TagIcon } from 'lucide-react';
 
 interface Props {
@@ -78,18 +79,12 @@ export const ArchiveView: React.FC<Props> = ({
             >
               <div className="space-y-3">
                 <div className="aspect-16/10 w-full rounded-xl overflow-hidden bg-slate-100 relative shrink-0">
-                  {post.featuredImage ? (
-                    <img
-                      src={post.featuredImage}
-                      alt={post.title}
-                      className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-slate-400 p-4 text-center">
-                      <span className="text-[11px] font-bold text-slate-500">{post.category}</span>
-                    </div>
-                  )}
+                  <PostCardImage
+                    src={post.featuredImage}
+                    alt={post.title}
+                    className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                    fallbackCategory={post.category}
+                  />
                   <span className="absolute top-2.5 left-2.5 bg-white/95 backdrop-blur-xs text-slate-900 text-[10px] font-bold px-2 py-0.5 rounded shadow-2xs">
                     {post.category}
                   </span>

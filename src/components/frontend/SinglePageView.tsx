@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Page } from '../../types/cms';
 import { GutenbergBlockRenderer } from '../common/GutenbergBlockRenderer';
+import { PostCardImage } from '../common/PostCardImage';
 import { ArrowLeft, Edit3, Send, CheckCircle2, Mail, MapPin, Phone } from 'lucide-react';
 
 interface Props {
@@ -45,7 +46,7 @@ export const SinglePageView: React.FC<Props> = ({ page, onBack, onEditPage }) =>
 
       {page.featuredImage && (
         <div className="my-8 rounded-2xl overflow-hidden bg-slate-100 shadow-md border border-slate-200">
-          <img src={page.featuredImage} alt={page.title} className="w-full h-auto object-cover max-h-[400px]" />
+          <PostCardImage src={page.featuredImage} alt={page.title} className="w-full h-auto object-cover max-h-[400px]" />
         </div>
       )}
 

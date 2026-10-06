@@ -246,6 +246,8 @@ export function saveStoredData(data: CMSDataState) {
   }
 }
 
+let globalLastSyncedSha: string | null = null;
+
 export function useCMS() {
   const [data, setData] = useState<CMSDataState>(loadStoredData);
 
@@ -254,7 +256,43 @@ export function useCMS() {
     const token = (customToken || settings.githubToken || '').trim();
     let remoteMerged = false;
 
-    // 1. Try syncing with local dev server disk content (/api/content/all)
+    // 1. Try syncing with authoritative remote GitHub repository FIRST
+    if (settings.githubRepo) {
+      try {
+        const remoteResult = await fetchRemoteCMSDataFromGitHub(settings, token);
+        if (remoteResult.success && remoteResult.data) {
+          // If HEAD commit SHA is identical to last sync, remote has not changed
+          if (remoteResult.headSha && globalLastSyncedSha === remoteResult.headSha) {
+            return true;
+          }
+
+          if (remoteResult.headSha) {
+            globalLastSyncedSha = remoteResult.headSha;
+          }
+
+          setData((prev) => {
+            const merged = mergeCMSStates(prev, remoteResult.data!);
+            saveStoredData(merged);
+            return merged;
+          });
+          remoteMerged = true;
+
+          // Also update local container disk files in background (localD1Server only writes if content differs)
+          if (remoteResult.rawFiles && remoteResult.rawFiles.length > 0) {
+            fetch('/api/content/sync-disk', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ files: remoteResult.rawFiles }),
+            }).catch(() => {});
+          }
+          return true;
+        }
+      } catch (err) {
+        console.warn('Remote GitHub CMS background sync warning:', err);
+      }
+    }
+
+    // 2. Fallback: Syncing with local dev server disk content (/api/content/all)
     try {
       const res = await fetch('/api/content/all');
       if (res.ok) {
@@ -286,23 +324,6 @@ export function useCMS() {
       }
     } catch (e) {
       // Non-blocking
-    }
-
-    // 2. Try syncing with authoritative remote GitHub repository
-    if (settings.githubRepo) {
-      try {
-        const remoteResult = await fetchRemoteCMSDataFromGitHub(settings, token);
-        if (remoteResult.success && remoteResult.data) {
-          setData((prev) => {
-            const merged = mergeCMSStates(prev, remoteResult.data!);
-            saveStoredData(merged);
-            return merged;
-          });
-          remoteMerged = true;
-        }
-      } catch (err) {
-        console.warn('Remote GitHub CMS background sync warning:', err);
-      }
     }
 
     return remoteMerged;

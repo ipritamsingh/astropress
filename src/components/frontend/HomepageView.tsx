@@ -1,6 +1,7 @@
 import React from 'react';
 import { Post, Category, HomepageSection, ThemeSettings, HeroSectionConfig } from '../../types/cms';
 import { HeroSection } from './HeroSection';
+import { PostCardImage } from '../common/PostCardImage';
 import {
   Clock,
   User,
@@ -77,7 +78,7 @@ export const HomepageView: React.FC<Props> = ({
                 <div className="relative overflow-hidden rounded-3xl bg-slate-950 text-white shadow-xl">
                   {/* Background cover image with gradient overlay */}
                   <div className="absolute inset-0 z-0">
-                    <img
+                    <PostCardImage
                       src={
                         heroPost.featuredImage ||
                         'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1600&q=80'
@@ -215,19 +216,13 @@ export const HomepageView: React.FC<Props> = ({
                       className="group cursor-pointer rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs hover:shadow-lg transition-all flex flex-col h-full"
                     >
                       <div className="aspect-16/10 w-full overflow-hidden bg-slate-100 relative shrink-0">
-                        {post.featuredImage ? (
-                          <img
-                            src={post.featuredImage}
-                            alt={post.title}
-                            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-slate-400 p-4 text-center">
-                            <Sparkles className="h-8 w-8 mb-1 opacity-40 text-blue-500" />
-                            <span className="text-[11px] font-bold text-slate-500">{post.category}</span>
-                          </div>
-                        )}
+                        <PostCardImage
+                          src={post.featuredImage}
+                          alt={post.title}
+                          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                          fallbackCategory={post.category}
+                          fallbackIcon={<Sparkles className="h-8 w-8 mb-1 opacity-40 text-blue-500" />}
+                        />
                         <span className="absolute top-3 left-3 bg-white/95 backdrop-blur-xs text-slate-900 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-xs">
                           {post.category}
                         </span>
@@ -283,19 +278,13 @@ export const HomepageView: React.FC<Props> = ({
                       className="group cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 hover:border-blue-400 hover:shadow-md transition-all flex flex-col sm:flex-row gap-4 items-start sm:items-center"
                     >
                       <div className="w-full sm:w-44 aspect-16/10 sm:aspect-square sm:h-32 rounded-xl overflow-hidden bg-slate-100 shrink-0 relative">
-                        {post.featuredImage ? (
-                          <img
-                            src={post.featuredImage}
-                            alt={post.title}
-                            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-slate-400 p-2 text-center">
-                            <Sparkles className="h-6 w-6 mb-1 opacity-40 text-blue-500" />
-                            <span className="text-[10px] font-bold text-slate-500">{post.category}</span>
-                          </div>
-                        )}
+                        <PostCardImage
+                          src={post.featuredImage}
+                          alt={post.title}
+                          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                          fallbackCategory={post.category}
+                          fallbackIcon={<Sparkles className="h-6 w-6 mb-1 opacity-40 text-blue-500" />}
+                        />
                       </div>
 
                       <div className="flex-1 flex flex-col justify-between space-y-2 w-full">

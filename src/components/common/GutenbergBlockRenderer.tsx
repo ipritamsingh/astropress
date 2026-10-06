@@ -249,6 +249,12 @@ export const GutenbergBlockRenderer: React.FC<Props> = ({ blocks, rawMarkdown, p
 
           case 'image': {
             const imageUrl = settings.imageUrl || content;
+            const captionText = (settings.imageCaption &&
+              !settings.imageCaption.toLowerCase().includes('webp optimized') &&
+              !settings.imageCaption.toLowerCase().includes('saved '))
+              ? settings.imageCaption
+              : undefined;
+
             return (
               <figure key={id} className="my-8 text-center">
                 <div className="overflow-hidden rounded-xl bg-slate-100 shadow-sm border border-slate-200/60 max-w-4xl mx-auto">
@@ -258,9 +264,9 @@ export const GutenbergBlockRenderer: React.FC<Props> = ({ blocks, rawMarkdown, p
                     className="w-full h-auto object-cover max-h-[550px] transition-transform duration-300 hover:scale-[1.01]"
                   />
                 </div>
-                {(settings.imageCaption || settings.imageAlt) && (
+                {captionText && (
                   <figcaption className="mt-2.5 text-xs md:text-sm text-slate-500 italic">
-                    {settings.imageCaption || settings.imageAlt}
+                    {captionText}
                   </figcaption>
                 )}
               </figure>

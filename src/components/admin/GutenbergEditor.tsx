@@ -1,7 +1,42 @@
 import React, { useState } from 'react';
 import { Post, Page, GutenbergBlock, BlockType, PostSEO, MediaItem } from '../../types/cms';
 import { GutenbergBlockRenderer } from '../common/GutenbergBlockRenderer';
-import { processUploadedFile } from '../../data/mediaStorage';
+import { processUploadedFile, getPersistedMediaBlob } from '../../data/mediaStorage';
+
+const EditorImagePreview: React.FC<{ src: string; alt?: string; className?: string; style?: React.CSSProperties }> = ({
+  src,
+  alt = '',
+  className,
+  style,
+}) => {
+  const [displaySrc, setDisplaySrc] = useState(src);
+
+  React.useEffect(() => {
+    setDisplaySrc(src);
+    if (src && (src.startsWith('/uploads/') || src.startsWith('uploads/') || src.startsWith('/public/uploads/'))) {
+      getPersistedMediaBlob(src)
+        .then((blob) => {
+          if (blob) setDisplaySrc(blob);
+        })
+        .catch(() => {});
+    }
+  }, [src]);
+
+  return (
+    <img
+      src={displaySrc || src}
+      alt={alt}
+      className={className}
+      style={style}
+      onError={async () => {
+        if (src) {
+          const fallback = await getPersistedMediaBlob(src);
+          if (fallback) setDisplaySrc(fallback);
+        }
+      }}
+    />
+  );
+};
 import { executeRealGitHubPublish, generateSlug, validateSlug } from '../../data/githubPublishService';
 import { DeploymentSettings } from '../../types/cms';
 import { MediaLibrary } from './MediaLibrary';
@@ -853,7 +888,7 @@ ${compileBlocksToMarkdown()}`;
                 {featuredImage ? (
                   <div className="space-y-2">
                     <div className="overflow-hidden rounded-xl border border-slate-200 max-h-36 bg-slate-100 flex items-center justify-center">
-                      <img src={featuredImage} alt="Featured" className="w-full h-auto object-cover max-h-36" />
+                      <EditorImagePreview src={featuredImage} alt="Featured" className="w-full h-auto object-cover max-h-36" />
                     </div>
                     <div className="flex items-center justify-between text-xs pt-1">
                       <button
@@ -1071,7 +1106,7 @@ ${compileBlocksToMarkdown()}`;
 
                     {selectedBlock.settings.imageUrl && (
                       <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100 max-h-36 flex items-center justify-center p-1">
-                        <img
+                        <EditorImagePreview
                           src={selectedBlock.settings.imageUrl}
                           alt={selectedBlock.settings.imageAlt || ''}
                           className="max-h-32 object-contain rounded"
@@ -2049,7 +2084,7 @@ ${compileBlocksToMarkdown()}`;
                                       : '100%',
                                 }}
                               >
-                                <img
+                                <EditorImagePreview
                                   src={block.settings.imageUrl || block.content}
                                   alt={block.settings.imageAlt || ''}
                                   className="w-full h-auto object-cover max-h-[500px]"

@@ -312,6 +312,53 @@ export async function handleLocalApiRequest(req: any, res: any) {
     }
   }
 
+  // Write synced remote content back to local disk (ONLY if changed)
+  if (url.startsWith('/api/content/sync-disk') && req.method === 'POST') {
+    try {
+      const chunks: Buffer[] = [];
+      for await (const chunk of req) {
+        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+      }
+      const rawBody = Buffer.concat(chunks).toString('utf8');
+      const body = JSON.parse(rawBody);
+      const files: Array<{ path: string; content: string }> = body.files || [];
+
+      let updatedCount = 0;
+      for (const file of files) {
+        if (!file.path || typeof file.content !== 'string') continue;
+        const targetPath = path.join(rootDir, file.path);
+        const targetDir = path.dirname(targetPath);
+
+        let existingContent = '';
+        if (fs.existsSync(targetPath)) {
+          try {
+            existingContent = fs.readFileSync(targetPath, 'utf8');
+          } catch (e) {}
+        }
+
+        // Only write if content actually changed on disk!
+        if (existingContent !== file.content) {
+          if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+          }
+          fs.writeFileSync(targetPath, file.content, 'utf8');
+          updatedCount++;
+        }
+      }
+
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: true, count: files.length, updated: updatedCount }));
+      return;
+    } catch (err: any) {
+      console.error('[Content Sync Disk Error]', err);
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: err.message || 'Failed to sync content to disk' }));
+      return;
+    }
+  }
+
   res.statusCode = 404;
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify({ error: 'Not found' }));

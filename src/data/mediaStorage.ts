@@ -97,7 +97,7 @@ export async function getAllPersistedMediaBlobs(): Promise<Array<{ id: string; f
  */
 export async function getPersistedMediaBlob(idOrPath: string): Promise<string | null> {
   if (!idOrPath) return null;
-  const cleanKey = idOrPath.replace(/^\/?uploads\//, '');
+  const cleanKey = idOrPath.replace(/^\/?(public\/)?uploads\//, '');
   try {
     const db = await openDatabase();
     return new Promise((resolve) => {
@@ -316,9 +316,7 @@ export async function processUploadedFile(
     dimensions: `${optimization.width}x${optimization.height}`,
     uploadDate: new Date().toISOString().split('T')[0],
     altText: baseNameToAlt(safeName),
-    caption: optimization.isWebpConverted
-      ? `WebP optimized asset (Saved ${optimization.savingsPercentage}%)`
-      : `Uploaded asset: ${safeName}`,
+    caption: '',
   };
 
   return mediaItem;

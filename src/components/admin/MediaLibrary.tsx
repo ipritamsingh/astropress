@@ -145,6 +145,9 @@ export const MediaLibrary: React.FC<Props> = ({
       setUploadStatusMsg(`Successfully uploaded ${files.length} asset(s) to persistent storage!`);
       if (lastUploaded) {
         setSelectedItem(lastUploaded);
+        if (isModalPicker && onSelectMedia) {
+          onSelectMedia(lastUploaded);
+        }
       }
       setTimeout(() => {
         setIsUploading(false);
