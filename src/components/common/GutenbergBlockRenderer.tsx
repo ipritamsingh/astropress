@@ -46,40 +46,357 @@ const BlockImage: React.FC<{
   );
 };
 
-function parseMarkdownToBlocks(markdown: string): GutenbergBlock[] {
+export function renderInlineMarkdown(text: string): React.ReactNode {
+  if (!text) return null;
+
+  // Handles standard markdown formatting: bold, italic, code, links, and line breaks
+  const regex = /(\[.*?\]\(.*?\)|\*\*.*?\*\*|__.*?__|`.*?`|\*.*?\*|_.*?_|\n)/g;
+  const parts = text.split(regex);
+
+  return parts.map((part, index) => {
+    if (!part) return null;
+
+    if (part === '\n') {
+      return <br key={index} />;
+    }
+
+    // Code: `code`
+    if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
+      return (
+        <code
+          key={index}
+          className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 font-mono text-[0.88em] border border-slate-200"
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+
+    // Bold: **text** or __text__
+    if (
+      (part.startsWith('**') && part.endsWith('**') && part.length > 4) ||
+      (part.startsWith('__') && part.endsWith('__') && part.length > 4)
+    ) {
+      return (
+        <strong key={index} className="font-bold text-slate-900">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+
+    // Italic: *text* or _text_
+    if (
+      (part.startsWith('*') && part.endsWith('*') && part.length > 2 && !part.startsWith('**')) ||
+      (part.startsWith('_') && part.endsWith('_') && part.length > 2 && !part.startsWith('__'))
+    ) {
+      return (
+        <em key={index} className="italic">
+          {part.slice(1, -1)}
+        </em>
+      );
+    }
+
+    // Link: [label](url)
+    const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
+    if (linkMatch) {
+      const isExt = linkMatch[2].startsWith('http');
+      return (
+        <a
+          key={index}
+          href={linkMatch[2]}
+          target={isExt ? '_blank' : undefined}
+          rel={isExt ? 'noopener noreferrer' : undefined}
+          className="text-blue-600 hover:text-blue-800 underline underline-offset-2 transition-colors font-medium"
+        >
+          {linkMatch[1]}
+        </a>
+      );
+    }
+
+    return part;
+  });
+}
+
+export function parseMarkdownToBlocks(markdown: string): GutenbergBlock[] {
   if (!markdown) return [];
   const blocks: GutenbergBlock[] = [];
   const sections = markdown.split(/\n\n+/);
-  sections.forEach((sec, idx) => {
-    const trimmed = sec.trim();
-    if (!trimmed) return;
-    if (trimmed.startsWith('# ')) {
-      blocks.push({ id: `md-h1-${idx}`, type: 'heading', content: trimmed.replace(/^#\s+/, ''), settings: { level: 1 } });
-    } else if (trimmed.startsWith('## ')) {
-      blocks.push({ id: `md-h2-${idx}`, type: 'heading', content: trimmed.replace(/^##\s+/, ''), settings: { level: 2 } });
-    } else if (trimmed.startsWith('### ')) {
-      blocks.push({ id: `md-h3-${idx}`, type: 'heading', content: trimmed.replace(/^###\s+/, ''), settings: { level: 3 } });
-    } else if (trimmed.startsWith('>')) {
-      blocks.push({ id: `md-q-${idx}`, type: 'quote', content: trimmed.replace(/^>\s*/gm, '').trim(), settings: {} });
-    } else if (trimmed.startsWith('```')) {
-      const lines = trimmed.split('\n');
+  let i = 0;
+
+  while (i < sections.length) {
+    const sec = sections[i].trim();
+    if (!sec) {
+      i++;
+      continue;
+    }
+
+    // 1. Divider Block: --- or *** or ___
+    if (sec === '---' || sec === '***' || sec === '___') {
+      blocks.push({
+        id: `md-div-${blocks.length}`,
+        type: 'divider',
+        content: '',
+        settings: {},
+      });
+      i++;
+      continue;
+    }
+
+    // 2. Alert / Notice Block:
+    // e.g. > **Notice**: Helpful contextual notice for your readers.
+    // or > **Warning**: ... or > [!NOTE] ... or **Notice**: ...
+    const alertMatch =
+      sec.match(/^(?:>\s*)?\*\*(Notice|Note|Warning|Alert|Attention|Success|Danger)\*\*:\s*([\s\S]*)$/i) ||
+      sec.match(/^(?:>\s*)?\[!(NOTE|WARNING|INFO|TIP|CAUTION)\]\s*([\s\S]*)$/i);
+    if (alertMatch) {
+      const alertWord = alertMatch[1].toLowerCase();
+      const alertType =
+        alertWord === 'warning' || alertWord === 'attention' || alertWord === 'caution'
+          ? 'warning'
+          : alertWord === 'success'
+          ? 'success'
+          : alertWord === 'danger'
+          ? 'danger'
+          : 'info';
+      const cleanContent = alertMatch[2].replace(/^>\s*/gm, '').trim();
+      blocks.push({
+        id: `md-alert-${blocks.length}`,
+        type: 'alert',
+        content: cleanContent,
+        settings: { alertType },
+      });
+      i++;
+      continue;
+    }
+
+    // 3. Author Box:
+    // e.g. **Author:** Amit Singh or **Author**: Amit Singh or Author: Amit Singh
+    const authorMatch =
+      sec.match(/^\*\*(?:Author|Written By):?\*\*:?\s*(.+)$/i) ||
+      sec.match(/^(?:Author|Written By):\s*(.+)$/i);
+    if (authorMatch) {
+      blocks.push({
+        id: `md-author-${blocks.length}`,
+        type: 'author-box',
+        content: authorMatch[1].trim(),
+        settings: {},
+      });
+      i++;
+      continue;
+    }
+
+    // 4. Button / Link Block:
+    // Standalone link: [Read Full Documentation](#)
+    const btnMatch = sec.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (btnMatch) {
+      blocks.push({
+        id: `md-btn-${blocks.length}`,
+        type: 'button',
+        content: btnMatch[1].trim(),
+        settings: {
+          buttonUrl: btnMatch[2].trim(),
+          buttonStyle: 'primary',
+          align: 'left',
+        },
+      });
+      i++;
+      continue;
+    }
+
+    // 5. Code Block: ```lang\ncode\n```
+    if (sec.startsWith('```')) {
+      const lines = sec.split('\n');
       const lang = lines[0].replace('```', '').trim() || 'typescript';
       const code = lines.slice(1, -1).join('\n');
-      blocks.push({ id: `md-code-${idx}`, type: 'code', content: code, settings: { codeLanguage: lang } });
-    } else {
-      const imgMatch = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/);
-      if (imgMatch) {
+      blocks.push({
+        id: `md-code-${blocks.length}`,
+        type: 'code',
+        content: code,
+        settings: { codeLanguage: lang },
+      });
+      i++;
+      continue;
+    }
+
+    // 6. Image Block: ![alt](url)
+    const imgMatch = sec.match(/^!\[(.*?)\]\((.*?)\)$/);
+    if (imgMatch) {
+      blocks.push({
+        id: `md-img-${blocks.length}`,
+        type: 'image',
+        content: imgMatch[2].trim(),
+        settings: {
+          imageUrl: imgMatch[2].trim(),
+          imageAlt: imgMatch[1].trim(),
+        },
+      });
+      i++;
+      continue;
+    }
+
+    // 7. Multi-column Block:
+    // Section 1: Left Column Content: ...
+    // Section 2: Right Column Content: ...
+    // Or single section containing both Left Column and Right Column
+    const isCol1 = /^(\*\*|\b)?(Left Column|Column 1)(\s+Content)?(\*\*|:|\b)/i.test(sec);
+    const nextSec = i + 1 < sections.length ? sections[i + 1].trim() : '';
+    const isCol2 = /^(\*\*|\b)?(Right Column|Column 2)(\s+Content)?(\*\*|:|\b)/i.test(nextSec);
+    if (isCol1 && isCol2) {
+      blocks.push({
+        id: `md-cols-${blocks.length}`,
+        type: 'columns',
+        content: '',
+        settings: {
+          columnLayout: '50-50',
+          columns: [
+            { id: 'c1', content: sec },
+            { id: 'c2', content: nextSec },
+          ],
+        },
+      });
+      i += 2;
+      continue;
+    }
+    if (/Left Column/i.test(sec) && /Right Column/i.test(sec)) {
+      const parts = sec.split(/(?=Right Column)/i);
+      if (parts.length === 2) {
         blocks.push({
-          id: `md-img-${idx}`,
-          type: 'image',
-          content: imgMatch[2],
-          settings: { imageUrl: imgMatch[2], imageAlt: imgMatch[1] },
+          id: `md-cols-${blocks.length}`,
+          type: 'columns',
+          content: '',
+          settings: {
+            columnLayout: '50-50',
+            columns: [
+              { id: 'c1', content: parts[0].trim() },
+              { id: 'c2', content: parts[1].trim() },
+            ],
+          },
         });
-      } else {
-        blocks.push({ id: `md-p-${idx}`, type: 'paragraph', content: trimmed, settings: {} });
+        i++;
+        continue;
       }
     }
-  });
+
+    // 8. FAQ / Accordion Block:
+    // Serialized as ### Question\nAnswer
+    const faqMatch = sec.match(/^###\s+([^\n]+)\n([\s\S]+)$/);
+    if (faqMatch) {
+      const title = faqMatch[1].trim();
+      const content = faqMatch[2].trim();
+      const isQuestion = title.endsWith('?') || /^(Question|\d+\.|\bFAQ\b)/i.test(title);
+      const nextIsFaq = i + 1 < sections.length && /^###\s+[^\n]+\n[\s\S]+$/.test(sections[i + 1].trim());
+
+      if (isQuestion || nextIsFaq) {
+        const accordionItems = [{ title, content }];
+        i++;
+        while (i < sections.length) {
+          const s = sections[i].trim();
+          const nextMatch = s.match(/^###\s+([^\n]+)\n([\s\S]+)$/);
+          if (nextMatch) {
+            accordionItems.push({
+              title: nextMatch[1].trim(),
+              content: nextMatch[2].trim(),
+            });
+            i++;
+          } else {
+            break;
+          }
+        }
+        blocks.push({
+          id: `md-acc-${blocks.length}`,
+          type: 'accordion',
+          content: 'Frequently Asked Questions',
+          settings: { accordionItems },
+        });
+        continue;
+      }
+    }
+
+    // 9. Quote Block: > quote text with optional — Author caption
+    if (sec.startsWith('>')) {
+      let quoteBody = sec.replace(/^>\s*/gm, '').trim();
+      let caption = '';
+      const captionMatch = quoteBody.match(/\n+—\s*(.+)$/);
+      if (captionMatch) {
+        caption = captionMatch[1].trim();
+        quoteBody = quoteBody.replace(/\n+—\s*(.+)$/, '').trim();
+      }
+      blocks.push({
+        id: `md-q-${blocks.length}`,
+        type: 'quote',
+        content: quoteBody,
+        settings: { imageCaption: caption || undefined },
+      });
+      i++;
+      continue;
+    }
+
+    // 10. Headings:
+    if (sec.startsWith('# ')) {
+      blocks.push({
+        id: `md-h1-${blocks.length}`,
+        type: 'heading',
+        content: sec.replace(/^#\s+/, ''),
+        settings: { level: 1 },
+      });
+      i++;
+      continue;
+    }
+    if (sec.startsWith('## ')) {
+      blocks.push({
+        id: `md-h2-${blocks.length}`,
+        type: 'heading',
+        content: sec.replace(/^##\s+/, ''),
+        settings: { level: 2 },
+      });
+      i++;
+      continue;
+    }
+    if (sec.startsWith('### ')) {
+      blocks.push({
+        id: `md-h3-${blocks.length}`,
+        type: 'heading',
+        content: sec.replace(/^###\s+/, ''),
+        settings: { level: 3 },
+      });
+      i++;
+      continue;
+    }
+    if (sec.startsWith('#### ')) {
+      blocks.push({
+        id: `md-h4-${blocks.length}`,
+        type: 'heading',
+        content: sec.replace(/^####\s+/, ''),
+        settings: { level: 4 },
+      });
+      i++;
+      continue;
+    }
+
+    // 11. Lists:
+    const listLines = sec.split('\n').map((l) => l.trim()).filter(Boolean);
+    const isAllList = listLines.every((l) => /^[-*]\s+/.test(l) || /^\d+\.\s+/.test(l));
+    if (isAllList && listLines.length > 0) {
+      blocks.push({
+        id: `md-list-${blocks.length}`,
+        type: 'list',
+        content: sec,
+        settings: {},
+      });
+      i++;
+      continue;
+    }
+
+    // 12. Standard Paragraph:
+    blocks.push({
+      id: `md-p-${blocks.length}`,
+      type: 'paragraph',
+      content: sec,
+      settings: {},
+    });
+    i++;
+  }
+
   return blocks;
 }
 
@@ -184,7 +501,7 @@ export const GutenbergBlockRenderer: React.FC<Props> = ({ blocks, rawMarkdown, p
                 }}
                 className={`${sizeClass} ${alignClass} text-slate-700 font-normal ${settings.customClasses || ''}`}
               >
-                {content}
+                {renderInlineMarkdown(content)}
               </p>
             );
           }
@@ -203,7 +520,7 @@ export const GutenbergBlockRenderer: React.FC<Props> = ({ blocks, rawMarkdown, p
                   <Quote className="h-6 w-6 text-blue-600 shrink-0 opacity-70" />
                   <div>
                     <blockquote className="text-lg md:text-xl italic font-serif-custom text-slate-800 leading-snug">
-                      {content}
+                      {renderInlineMarkdown(content)}
                     </blockquote>
                     {settings.imageCaption && (
                       <figcaption className="mt-3 text-xs uppercase tracking-wider font-semibold text-slate-500">
@@ -298,7 +615,7 @@ export const GutenbergBlockRenderer: React.FC<Props> = ({ blocks, rawMarkdown, p
                       className={`rounded-xl border border-slate-200/80 bg-white p-5 shadow-xs ${colSpan}`}
                     >
                       <div className="prose prose-slate max-w-none text-slate-700 leading-relaxed text-sm md:text-base whitespace-pre-line">
-                        {col.content}
+                        {renderInlineMarkdown(col.content)}
                       </div>
                     </div>
                   );
@@ -331,7 +648,7 @@ export const GutenbergBlockRenderer: React.FC<Props> = ({ blocks, rawMarkdown, p
                 title: 'Warning',
               },
             };
-            const current = alertConfigs[alertType];
+            const current = alertConfigs[alertType] || alertConfigs.info;
 
             return (
               <div
@@ -341,7 +658,7 @@ export const GutenbergBlockRenderer: React.FC<Props> = ({ blocks, rawMarkdown, p
                 {current.icon}
                 <div className="text-sm md:text-base font-normal leading-relaxed">
                   <span className="font-semibold block mb-0.5">{current.title}</span>
-                  {content}
+                  {renderInlineMarkdown(content)}
                 </div>
               </div>
             );
@@ -376,13 +693,37 @@ export const GutenbergBlockRenderer: React.FC<Props> = ({ blocks, rawMarkdown, p
                       </button>
                       {isOpen && (
                         <div className="border-t border-slate-100 px-5 py-4 text-sm md:text-base text-slate-600 leading-relaxed bg-slate-50/50">
-                          {item.content}
+                          {renderInlineMarkdown(item.content)}
                         </div>
                       )}
                     </div>
                   );
                 })}
               </div>
+            );
+          }
+
+          case 'list': {
+            const rawLines = (content || '').split('\n').map((l) => l.trim()).filter(Boolean);
+            const isOrdered = rawLines.length > 0 && /^\d+\.\s+/.test(rawLines[0]);
+            const listLines = rawLines.map((l) => l.replace(/^[-*]\s+|\d+\.\s+/, ''));
+
+            if (isOrdered) {
+              return (
+                <ol key={id} className="list-decimal pl-6 my-4 space-y-1.5 text-slate-700 text-base md:text-lg">
+                  {listLines.map((item, idx) => (
+                    <li key={idx}>{renderInlineMarkdown(item)}</li>
+                  ))}
+                </ol>
+              );
+            }
+
+            return (
+              <ul key={id} className="list-disc pl-6 my-4 space-y-1.5 text-slate-700 text-base md:text-lg">
+                {listLines.map((item, idx) => (
+                  <li key={idx}>{renderInlineMarkdown(item)}</li>
+                ))}
+              </ul>
             );
           }
 
@@ -464,7 +805,7 @@ export const GutenbergBlockRenderer: React.FC<Props> = ({ blocks, rawMarkdown, p
           default:
             return (
               <div key={id} className="my-4 text-slate-700 text-base leading-relaxed">
-                {content}
+                {renderInlineMarkdown(content)}
               </div>
             );
         }

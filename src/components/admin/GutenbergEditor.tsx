@@ -779,7 +779,7 @@ ${compileBlocksToMarkdown()}`;
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-6 text-sm overscroll-y-contain">
+      <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-6 text-sm overscroll-y-contain pb-24 lg:pb-12">
         {/* DOCUMENT SETTINGS TAB */}
         {activeSidebarTab === 'document' && (
           <div className="space-y-6">
@@ -1694,9 +1694,9 @@ ${compileBlocksToMarkdown()}`;
       {/* ========================================================================= */}
       <div className="flex-1 flex flex-row overflow-hidden min-h-0 relative h-full w-full">
         {/* EDITING / PREVIEW CANVAS — Single Continuous Canvas that Naturally Expands */}
-        <main className="flex-1 min-h-0 h-full w-full overflow-y-auto overflow-x-hidden p-3 sm:p-6 md:p-8 flex flex-col items-center bg-slate-100/70 pb-36 lg:pb-16 scroll-smooth overscroll-y-contain">
+        <main className="flex-1 min-h-0 h-full w-full overflow-y-auto overflow-x-hidden p-3 sm:p-6 md:p-8 flex flex-col items-center bg-slate-100/70 pb-52 lg:pb-36 scroll-smooth overscroll-y-contain">
           <div
-            className={`transition-all duration-200 bg-white rounded-2xl shadow-sm border border-slate-200 min-h-full h-auto flex flex-col p-4 sm:p-8 md:p-12 box-border shrink-0 ${
+            className={`transition-all duration-200 bg-white rounded-2xl shadow-sm border border-slate-200 min-h-full h-auto flex flex-col p-4 sm:p-8 md:p-12 pb-16 sm:pb-24 box-border shrink-0 ${
               previewDevice === 'mobile'
                 ? 'w-full max-w-[390px]'
                 : previewDevice === 'tablet'

@@ -11,6 +11,7 @@ import {
   DeploymentSettings,
 } from '../types/cms';
 import { CMSDataState } from './cmsStore';
+import { parseMarkdownToBlocks } from '../components/common/GutenbergBlockRenderer';
 
 /**
  * Robust parser for Markdown files with YAML frontmatter
@@ -92,7 +93,8 @@ export function parseFrontmatterAndMarkdown(
   const template = getFmField('template') || 'standard';
   const readingTime = parseInt(getFmField('readingTime'), 10) || Math.max(1, Math.ceil(body.split(/\s+/).length / 200));
 
-  const blocks = getFmJson<any[]>('blocks', []);
+  const rawBlocks = getFmJson<any[]>('blocks', []);
+  const blocks = rawBlocks.length > 0 ? rawBlocks : parseMarkdownToBlocks(body);
   const seo = {
     metaTitle: getFmField('metaTitle') || title,
     metaDescription: getFmField('metaDescription') || excerpt,

@@ -2,6 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import App from '../App';
 import { getCollection } from 'astro:content';
+import { parseMarkdownToBlocks } from '../components/common/GutenbergBlockRenderer';
 
 export async function getStaticPaths() {
   const posts = await getCollection('posts');
@@ -45,7 +46,7 @@ const pageOgImage = isPage ? '' : (post?.data?.featuredImage || '');
       slug: page.data.slug || page.id.replace(/\.md$/, ''),
       status: page.data.draft ? 'draft' : 'published',
       template: page.data.template || 'default',
-      blocks: page.data.blocks || [],
+      blocks: (page.data.blocks && page.data.blocks.length > 0) ? page.data.blocks : parseMarkdownToBlocks(page.body || ''),
       body: page.body || '',
     } }}>
       window.__ASTROPRESS_INITIAL_PAGE__ = initialPage;
@@ -64,7 +65,7 @@ const pageOgImage = isPage ? '' : (post?.data?.featuredImage || '');
       excerpt: post.data.excerpt || '',
       readingTime: post.data.readingTime || 5,
       template: post.data.template || 'standard',
-      blocks: post.data.blocks || [],
+      blocks: (post.data.blocks && post.data.blocks.length > 0) ? post.data.blocks : parseMarkdownToBlocks(post.body || ''),
       body: post.body || '',
       seo: post.data.seo || {},
     } }}>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Post, Comment, Author, Category } from '../../types/cms';
-import { GutenbergBlockRenderer } from '../common/GutenbergBlockRenderer';
+import { GutenbergBlockRenderer, parseMarkdownToBlocks } from '../common/GutenbergBlockRenderer';
 import { getPersistedMediaBlob } from '../../data/mediaStorage';
 import {
   Clock,
@@ -83,7 +83,8 @@ export const SinglePostView: React.FC<Props> = ({
   };
 
   // Automatic FAQPage JSON-LD Schema Generator
-  const faqBlocks = (post.blocks || []).filter(
+  const activeBlocks = (post.blocks && post.blocks.length > 0) ? post.blocks : parseMarkdownToBlocks(post.body || '');
+  const faqBlocks = activeBlocks.filter(
     (b) => b.type === 'accordion' && b.settings?.accordionItems && b.settings.accordionItems.length > 0
   );
   const faqEntities: Array<{

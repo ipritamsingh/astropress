@@ -50,16 +50,10 @@ export const SinglePageView: React.FC<Props> = ({ page, onBack, onEditPage }) =>
         </div>
       )}
 
-      {/* Render Gutenberg Blocks if present, or fallback text */}
-      {page.blocks && page.blocks.length > 0 ? (
-        <div className="py-4">
-          <GutenbergBlockRenderer blocks={page.blocks} />
-        </div>
-      ) : (
-        <div className="prose prose-slate max-w-none text-slate-700 leading-relaxed text-base py-4">
-          <p>{page.body}</p>
-        </div>
-      )}
+      {/* Render Gutenberg Blocks if present, or parse rawMarkdown */}
+      <div className="py-4">
+        <GutenbergBlockRenderer blocks={page.blocks} rawMarkdown={page.body} />
+      </div>
 
       {/* Interactive Contact Form if Contact Page */}
       {page.slug === 'contact' && (

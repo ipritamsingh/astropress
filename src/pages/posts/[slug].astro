@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import App from '../../App';
 import { getCollection } from 'astro:content';
+import { parseMarkdownToBlocks } from '../../components/common/GutenbergBlockRenderer';
 
 export async function getStaticPaths() {
   const posts = await getCollection('posts');
@@ -28,7 +29,7 @@ const { post } = Astro.props;
     excerpt: post.data.excerpt || '',
     readingTime: post.data.readingTime || 5,
     template: post.data.template || 'standard',
-    blocks: post.data.blocks || [],
+    blocks: (post.data.blocks && post.data.blocks.length > 0) ? post.data.blocks : parseMarkdownToBlocks(post.body || ''),
     body: post.body || '',
     seo: post.data.seo || {},
   } }}>
