@@ -133,15 +133,11 @@ export const GutenbergEditor: React.FC<Props> = ({
   onSave,
   onClose,
 }) => {
-  const [originalSlug] = useState<string>(initialItem.slug || '');
-  const [originalId] = useState<string>(initialItem.id || '');
-  const isExistingItem = Boolean(originalSlug || (initialItem.title && initialItem.title.trim()));
   const [itemId, setItemId] = useState<string>(
     initialItem.id || (isPage ? 'page-' : 'post-') + Date.now()
   );
   const [title, setTitle] = useState(initialItem.title || '');
   const [slug, setSlug] = useState(initialItem.slug || '');
-  const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
   const [status, setStatus] = useState<Post['status']>(initialItem.status || 'draft');
   const [blocks, setBlocks] = useState<GutenbergBlock[]>(
     initialItem.blocks && initialItem.blocks.length > 0
@@ -589,22 +585,8 @@ export const GutenbergEditor: React.FC<Props> = ({
 
   const generateYamlFrontmatter = (targetStatus?: Post['status']): string => {
     const activeStatus = targetStatus || status || 'draft';
-    const cleanSlug = slug || originalSlug || generateSlug(title);
+    const cleanSlug = slug || 'new-post';
     const cleanDate = (initialItem as Post).pubDate || new Date().toISOString();
-
-    if (isPage) {
-      return `---
-title: "${title.replace(/"/g, '\\"')}"
-slug: "${cleanSlug}"
-pubDate: ${cleanDate}
-template: "${(initialItem as Page).template || 'default'}"
-draft: ${activeStatus === 'draft'}
-blocks: ${JSON.stringify(blocks || [])}
----
-
-${compileBlocksToMarkdown()}`;
-    }
-
     return `---
 title: "${title.replace(/"/g, '\\"')}"
 slug: "${cleanSlug}"
@@ -618,7 +600,6 @@ featuredImage: "${featuredImage}"
 excerpt: "${excerpt.replace(/"/g, '\\"')}"
 readingTime: ${Math.max(1, Math.ceil(blocks.length * 0.8))}
 template: "${template}"
-blocks: ${JSON.stringify(blocks || [])}
 seo:
   metaTitle: "${seo.metaTitle.replace(/"/g, '\\"')}"
   metaDescription: "${seo.metaDescription.replace(/"/g, '\\"')}"
@@ -633,15 +614,14 @@ ${compileBlocksToMarkdown()}`;
   const handleSaveDraft = () => {
     setIsSavingDraft(true);
     setPublishError(null);
-    const finalSlug = slug || originalSlug || generateSlug(title);
+    const finalSlug = slug || generateSlug(title);
     const markdownBody = compileBlocksToMarkdown();
 
     if (isPage) {
       const pageToSave: Page = {
-        id: originalId || itemId,
+        id: itemId,
         title: title || 'Untitled Page',
         slug: finalSlug,
-        originalSlug: originalSlug || undefined,
         status: status || 'draft',
         template: (initialItem as Page).template || 'default',
         featuredImage,
@@ -652,10 +632,9 @@ ${compileBlocksToMarkdown()}`;
       onSave(pageToSave, false);
     } else {
       const postToSave: Post = {
-        id: originalId || itemId,
+        id: itemId,
         title: title || 'Untitled Post',
         slug: finalSlug,
-        originalSlug: originalSlug || undefined,
         pubDate: (initialItem as Post).pubDate || new Date().toISOString(),
         updatedDate: new Date().toISOString(),
         status: status || 'draft',
@@ -686,8 +665,8 @@ ${compileBlocksToMarkdown()}`;
       return;
     }
 
-    const finalSlug = slug || originalSlug || generateSlug(title);
-    const otherSlugs = existingSlugs.filter((s) => s !== originalSlug && s !== initialItem.slug);
+    const finalSlug = slug || generateSlug(title);
+    const otherSlugs = existingSlugs.filter((s) => s !== initialItem.slug);
     const slugValidation = validateSlug(finalSlug, otherSlugs);
     if (!slugValidation.valid) {
       setPublishError(slugValidation.error || 'Invalid URL slug.');
@@ -707,16 +686,15 @@ ${compileBlocksToMarkdown()}`;
     setDeployProgressText('Preparing content for deployment...');
     setStatus('published');
 
-    const finalSlug = slug || originalSlug || generateSlug(title);
+    const finalSlug = slug || generateSlug(title);
     const fullYamlMarkdown = generateYamlFrontmatter('published');
     const markdownBody = compileBlocksToMarkdown();
 
     const itemToPublish: any = isPage
       ? {
-          id: originalId || itemId,
+          id: itemId,
           title: title.trim(),
           slug: finalSlug,
-          originalSlug: originalSlug || undefined,
           status: 'published',
           template: (initialItem as Page).template || 'default',
           featuredImage,
@@ -725,10 +703,9 @@ ${compileBlocksToMarkdown()}`;
           seo,
         }
       : {
-          id: originalId || itemId,
+          id: itemId,
           title: title.trim(),
           slug: finalSlug,
-          originalSlug: originalSlug || undefined,
           pubDate: (initialItem as Post).pubDate || new Date().toISOString(),
           updatedDate: new Date().toISOString(),
           status: 'published',
@@ -1746,17 +1723,9 @@ ${compileBlocksToMarkdown()}`;
                   type="text"
                   value={title}
                   onChange={(e) => {
-                    const newTitle = e.target.value;
-                    setTitle(newTitle);
-                    // For brand-new posts only (not existing posts), auto-derive slug while user types title,
-                    // unless user has explicitly customized the slug.
-                    if (!originalSlug && !isExistingItem && !isSlugManuallyEdited) {
-                      setSlug(
-                        newTitle
-                          .toLowerCase()
-                          .replace(/[^a-z0-9-]+/g, '-')
-                          .replace(/(^-|-$)/g, '')
-                      );
+                    setTitle(e.target.value);
+                    if (!slug || slug === initialItem.slug) {
+                      setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
                     }
                   }}
                   placeholder="Add Title..."
@@ -1764,18 +1733,11 @@ ${compileBlocksToMarkdown()}`;
                 />
                 <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 font-mono-custom bg-slate-50 p-2 rounded-lg border border-slate-100">
                   <span className="font-semibold text-slate-400">Permalink:</span>
-                  <span className="text-slate-400">{isPage ? '/' : '/posts/'}</span>
+                  <span className="text-slate-400">/posts/</span>
                   <input
                     type="text"
                     value={slug}
-                    onChange={(e) => {
-                      setIsSlugManuallyEdited(true);
-                      setSlug(
-                        e.target.value
-                          .toLowerCase()
-                          .replace(/[^a-z0-9-]+/g, '-')
-                      );
-                    }}
+                    onChange={(e) => setSlug(e.target.value)}
                     className="bg-transparent border-b border-slate-300 focus:border-blue-600 outline-none px-1 text-blue-600 font-medium flex-1 min-w-[120px]"
                   />
                 </div>

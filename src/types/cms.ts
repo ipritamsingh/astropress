@@ -58,8 +58,6 @@ export interface Post {
   id: string;
   title: string;
   slug: string;
-  originalSlug?: string;
-  filePath?: string;
   pubDate: string; // ISO string
   updatedDate?: string;
   status: PostStatus;
@@ -80,8 +78,6 @@ export interface Page {
   id: string;
   title: string;
   slug: string;
-  originalSlug?: string;
-  filePath?: string;
   status: PostStatus;
   template: 'default' | 'full-width' | 'contact' | 'about' | 'landing';
   parent?: string;

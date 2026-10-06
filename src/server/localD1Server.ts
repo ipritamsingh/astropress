@@ -206,7 +206,6 @@ export async function handleLocalApiRequest(req: any, res: any) {
       const body = JSON.parse(rawBody);
 
       const slug = body.slug;
-      const previousSlug = body.previousSlug;
       const isPage = Boolean(body.isPage);
       const content = body.content || '';
 
@@ -223,16 +222,6 @@ export async function handleLocalApiRequest(req: any, res: any) {
 
       if (!fs.existsSync(targetDir)) {
         fs.mkdirSync(targetDir, { recursive: true });
-      }
-
-      // If slug was renamed, clean up previous file on disk
-      if (previousSlug && previousSlug !== slug) {
-        const oldPath = path.join(targetDir, `${previousSlug}.md`);
-        if (fs.existsSync(oldPath)) {
-          try {
-            fs.unlinkSync(oldPath);
-          } catch (e) {}
-        }
       }
 
       const filePath = path.join(targetDir, `${slug}.md`);
@@ -252,42 +241,6 @@ export async function handleLocalApiRequest(req: any, res: any) {
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ error: err.message || 'Failed to write content file' }));
-      return;
-    }
-  }
-
-  // Content delete endpoint
-  if (url.startsWith('/api/content/delete') && req.method === 'POST') {
-    try {
-      const chunks: Buffer[] = [];
-      for await (const chunk of req) {
-        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
-      }
-      const rawBody = Buffer.concat(chunks).toString('utf8');
-      const body = JSON.parse(rawBody);
-
-      const slug = body.slug;
-      const isPage = Boolean(body.isPage);
-
-      if (slug) {
-        const targetDir = isPage
-          ? path.join(rootDir, 'src', 'content', 'pages')
-          : path.join(rootDir, 'src', 'content', 'posts');
-        const filePath = path.join(targetDir, `${slug}.md`);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-      }
-
-      res.statusCode = 200;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ success: true }));
-      return;
-    } catch (err: any) {
-      console.error('[Content Delete Error]', err);
-      res.statusCode = 500;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: err.message || 'Failed to delete content file' }));
       return;
     }
   }

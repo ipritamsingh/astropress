@@ -363,22 +363,10 @@ export function useCMS() {
 
   // POSTS
   const savePost = (post: Post, isPublishAction = false) => {
-    const existingIndex = data.posts.findIndex(
-      (p) =>
-        (post.id && p.id === post.id) ||
-        (post.slug && p.slug === post.slug) ||
-        (post.originalSlug && (p.slug === post.originalSlug || p.id === `post-${post.originalSlug}`)) ||
-        (p.id && post.slug && p.id === `post-${post.slug}`)
-    );
+    const exists = data.posts.some((p) => p.id === post.id);
     let newPosts: Post[];
-    if (existingIndex >= 0) {
-      newPosts = [...data.posts];
-      const existing = newPosts[existingIndex];
-      newPosts[existingIndex] = {
-        ...existing,
-        ...post,
-        id: existing.id || post.id,
-      };
+    if (exists) {
+      newPosts = data.posts.map((p) => (p.id === post.id ? post : p));
     } else {
       newPosts = [post, ...data.posts];
     }
@@ -400,13 +388,6 @@ export function useCMS() {
     };
     saveStoredData(updated);
     setData(updated);
-    if (target && target.slug && typeof window !== 'undefined') {
-      fetch('/api/content/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: target.slug, isPage: false }),
-      }).catch(() => {});
-    }
     if (target && target.status === 'published') {
       recordCommit(`chore(post): remove article "${target.title}"`, updated);
     }
@@ -431,22 +412,10 @@ export function useCMS() {
 
   // PAGES
   const savePage = (page: Page, isPublishAction = false) => {
-    const existingIndex = data.pages.findIndex(
-      (p) =>
-        (page.id && p.id === page.id) ||
-        (page.slug && p.slug === page.slug) ||
-        (page.originalSlug && (p.slug === page.originalSlug || p.id === `page-${page.originalSlug}`)) ||
-        (p.id && page.slug && p.id === `page-${page.slug}`)
-    );
+    const exists = data.pages.some((p) => p.id === page.id);
     let newPages: Page[];
-    if (existingIndex >= 0) {
-      newPages = [...data.pages];
-      const existing = newPages[existingIndex];
-      newPages[existingIndex] = {
-        ...existing,
-        ...page,
-        id: existing.id || page.id,
-      };
+    if (exists) {
+      newPages = data.pages.map((p) => (p.id === page.id ? page : p));
     } else {
       newPages = [...data.pages, page];
     }
@@ -467,13 +436,6 @@ export function useCMS() {
     };
     saveStoredData(updated);
     setData(updated);
-    if (target && target.slug && typeof window !== 'undefined') {
-      fetch('/api/content/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: target.slug, isPage: true }),
-      }).catch(() => {});
-    }
     if (target && target.status === 'published') {
       recordCommit(`chore(page): remove static page "${target.title}"`, updated);
     }
