@@ -934,6 +934,15 @@ export const initialSiteSettings: SiteSettings = {
   postsPerPage: 6,
   commentsAutoApprove: true,
   customGlobalCss: '/* Custom CSS added by Admin */\n.post-card-hover { transition: transform 0.2s ease; }',
+  indexingSettings: {
+    globalIndexing: true,
+    postsIndexing: true,
+    pagesIndexing: true,
+    categoriesIndexing: false,
+    tagsIndexing: false,
+    paginationPagesIndexing: false,
+    searchResultsIndexing: false,
+  },
 };
 
 export const initialCommitHistory: GitCommitRecord[] = [

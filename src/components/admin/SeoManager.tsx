@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Post, Page, ThemeSettings } from '../../types/cms';
+import { Post, Page, ThemeSettings, SiteSettings, IndexingSettings } from '../../types/cms';
 import {
   Search,
   Globe,
@@ -12,22 +12,28 @@ import {
   FileCode,
   ExternalLink,
   Twitter,
+  Sliders,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface Props {
   posts: Post[];
   pages: Page[];
   themeSettings: ThemeSettings;
+  siteSettings?: SiteSettings;
   onSaveSeoSettings: (settings: any) => void;
+  onUpdateSiteSettings?: (s: SiteSettings) => void;
 }
 
 export const SeoManager: React.FC<Props> = ({
   posts,
   pages,
   themeSettings,
+  siteSettings,
   onSaveSeoSettings,
+  onUpdateSiteSettings,
 }) => {
-  const [activeTab, setActiveTab] = useState<'general' | 'social' | 'sitemap' | 'robots' | 'checklist'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'social' | 'indexing' | 'sitemap' | 'robots' | 'checklist'>('general');
   const [metaTitle, setMetaTitle] = useState('AstroPress — Modern Astro & Sveltia CMS Platform');
   const [metaDescription, setMetaDescription] = useState(
     'High performance headless publishing platform powered by Astro, Sveltia CMS, Cloudflare Pages, and GitHub content storage.'
@@ -38,8 +44,43 @@ export const SeoManager: React.FC<Props> = ({
   const [twitterHandle, setTwitterHandle] = useState('@astropress');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Central Indexing Controls State
+  const [globalIndexing, setGlobalIndexing] = useState(siteSettings?.indexingSettings?.globalIndexing ?? true);
+  const [postsIndexing, setPostsIndexing] = useState(siteSettings?.indexingSettings?.postsIndexing ?? true);
+  const [pagesIndexing, setPagesIndexing] = useState(siteSettings?.indexingSettings?.pagesIndexing ?? true);
+  const [categoriesIndexing, setCategoriesIndexing] = useState(siteSettings?.indexingSettings?.categoriesIndexing ?? false);
+  const [tagsIndexing, setTagsIndexing] = useState(siteSettings?.indexingSettings?.tagsIndexing ?? false);
+  const [paginationPagesIndexing, setPaginationPagesIndexing] = useState(
+    siteSettings?.indexingSettings?.paginationPagesIndexing ?? siteSettings?.indexingSettings?.paginationIndexing ?? false
+  );
+  const [searchResultsIndexing, setSearchResultsIndexing] = useState(siteSettings?.indexingSettings?.searchResultsIndexing ?? false);
+
   const handleSave = () => {
-    onSaveSeoSettings({ metaTitle, metaDescription, focusKeyword, robotsIndex, robotsFollow, twitterHandle });
+    const indexingSettings: IndexingSettings = {
+      globalIndexing,
+      postsIndexing,
+      pagesIndexing,
+      categoriesIndexing,
+      tagsIndexing,
+      paginationPagesIndexing,
+      paginationIndexing: paginationPagesIndexing,
+      searchResultsIndexing,
+    };
+    if (onUpdateSiteSettings && siteSettings) {
+      onUpdateSiteSettings({
+        ...siteSettings,
+        indexingSettings,
+      });
+    }
+    onSaveSeoSettings({
+      metaTitle,
+      metaDescription,
+      focusKeyword,
+      robotsIndex: globalIndexing,
+      robotsFollow,
+      twitterHandle,
+      indexingSettings,
+    });
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2000);
   };
@@ -136,6 +177,15 @@ Sitemap: https://astropress.pages.dev/sitemap.xml`;
           }`}
         >
           Social Cards (OG & Twitter)
+        </button>
+        <button
+          onClick={() => setActiveTab('indexing')}
+          className={`transition-colors flex items-center gap-1.5 ${
+            activeTab === 'indexing' ? 'text-blue-600 font-bold border-b-2 border-blue-600 pb-2 -mb-2' : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <Sliders className="h-3.5 w-3.5 text-blue-600" />
+          <span>Indexing Controls</span>
         </button>
         <button
           onClick={() => setActiveTab('sitemap')}
@@ -289,7 +339,142 @@ Sitemap: https://astropress.pages.dev/sitemap.xml`;
         </div>
       )}
 
-      {/* TAB 3: XML SITEMAP */}
+      {/* TAB 3: INDEXING CONTROLS */}
+      {activeTab === 'indexing' && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-6 space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-blue-600" />
+                <span>Central Search Indexing Controls</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Control search engine crawlability and indexability across different content types and archive templates.
+              </p>
+            </div>
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+              Robots Meta Enforcement
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+            {/* 1. Global Search Indexing */}
+            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2 flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <span className="font-bold text-slate-900 text-sm block">Global Search Indexing</span>
+                <p className="text-slate-500 leading-relaxed">
+                  Master switch for entire site. When disabled, outputs <code className="bg-slate-200 px-1 py-0.5 rounded text-slate-800">noindex, nofollow</code> meta tag site-wide.
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={globalIndexing}
+                onChange={(e) => setGlobalIndexing(e.target.checked)}
+                className="mt-1 rounded h-5 w-5 text-blue-600 shrink-0 cursor-pointer"
+              />
+            </div>
+
+            {/* 2. Posts Indexing */}
+            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2 flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <span className="font-bold text-slate-900 text-sm block">Posts Indexing</span>
+                <p className="text-slate-500 leading-relaxed">
+                  Allow search engines to index individual published post articles (<code className="bg-slate-200 px-1 py-0.5 rounded text-slate-800">/posts/*</code>).
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={postsIndexing}
+                onChange={(e) => setPostsIndexing(e.target.checked)}
+                className="mt-1 rounded h-5 w-5 text-blue-600 shrink-0 cursor-pointer"
+              />
+            </div>
+
+            {/* 3. Pages Indexing */}
+            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2 flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <span className="font-bold text-slate-900 text-sm block">Pages Indexing</span>
+                <p className="text-slate-500 leading-relaxed">
+                  Allow search engines to index standalone static pages (<code className="bg-slate-200 px-1 py-0.5 rounded text-slate-800">/about</code>, <code className="bg-slate-200 px-1 py-0.5 rounded text-slate-800">/contact</code>).
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={pagesIndexing}
+                onChange={(e) => setPagesIndexing(e.target.checked)}
+                className="mt-1 rounded h-5 w-5 text-blue-600 shrink-0 cursor-pointer"
+              />
+            </div>
+
+            {/* 4. Categories Indexing */}
+            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2 flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <span className="font-bold text-slate-900 text-sm block">Categories Indexing</span>
+                <p className="text-slate-500 leading-relaxed">
+                  Allow search engines to index category archive listing pages (<code className="bg-slate-200 px-1 py-0.5 rounded text-slate-800">/category/*</code>).
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={categoriesIndexing}
+                onChange={(e) => setCategoriesIndexing(e.target.checked)}
+                className="mt-1 rounded h-5 w-5 text-blue-600 shrink-0 cursor-pointer"
+              />
+            </div>
+
+            {/* 5. Tags Indexing */}
+            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2 flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <span className="font-bold text-slate-900 text-sm block">Tags Indexing</span>
+                <p className="text-slate-500 leading-relaxed">
+                  Allow search engines to index tag archive listing pages (<code className="bg-slate-200 px-1 py-0.5 rounded text-slate-800">/tag/*</code>).
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={tagsIndexing}
+                onChange={(e) => setTagsIndexing(e.target.checked)}
+                className="mt-1 rounded h-5 w-5 text-blue-600 shrink-0 cursor-pointer"
+              />
+            </div>
+
+            {/* 6. Pagination Pages Indexing */}
+            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2 flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <span className="font-bold text-slate-900 text-sm block">Pagination Pages Indexing</span>
+                <p className="text-slate-500 leading-relaxed">
+                  Allow search engines to index pagination archive pages such as <code className="bg-slate-200 px-1 py-0.5 rounded text-slate-800">/page2/</code>, <code className="bg-slate-200 px-1 py-0.5 rounded text-slate-800">/page3/</code>, <code className="bg-slate-200 px-1 py-0.5 rounded text-slate-800">/page4/</code>, etc.
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                aria-label="Pagination Pages Indexing"
+                checked={paginationPagesIndexing}
+                onChange={(e) => setPaginationPagesIndexing(e.target.checked)}
+                className="mt-1 rounded h-5 w-5 text-blue-600 shrink-0 cursor-pointer"
+              />
+            </div>
+
+            {/* 7. Search Results Indexing */}
+            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2 flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <span className="font-bold text-slate-900 text-sm block">Search Results Indexing</span>
+                <p className="text-slate-500 leading-relaxed">
+                  Allow indexing of dynamic internal search query pages. (Recommended OFF to prevent thin content indexing).
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={searchResultsIndexing}
+                onChange={(e) => setSearchResultsIndexing(e.target.checked)}
+                className="mt-1 rounded h-5 w-5 text-blue-600 shrink-0 cursor-pointer"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: XML SITEMAP */}
       {activeTab === 'sitemap' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-6 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">

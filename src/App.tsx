@@ -34,6 +34,7 @@ try {
 import React, { useState } from 'react';
 import { useCMS } from './data/cmsStore';
 import { Post, Page, Category, Tag, GutenbergBlock, HeroSectionConfig } from './types/cms';
+import { calculateRobotsDirective } from './utils/seoUtils';
 
 // Frontend Components
 import { WebsiteHeader } from './components/frontend/WebsiteHeader';
@@ -83,7 +84,7 @@ import {
 } from 'lucide-react';
 
 type FrontendRoute =
-  | { type: 'home' }
+  | { type: 'home'; pageNum?: number }
   | { type: 'post'; post: Post }
   | { type: 'page'; page: Page }
   | { type: 'archive'; archiveType: 'category' | 'tag'; item: Category | Tag };
@@ -168,6 +169,17 @@ export default function App() {
         setCurrentRoute({ type: 'home' });
         setMode('frontend');
         return;
+      }
+
+      // Check homepage pagination URL structure: e.g. /page2/, /page3/
+      const pageMatch = path.match(/^\/page(\d+)\/?$/);
+      if (pageMatch) {
+        const pageNum = parseInt(pageMatch[1], 10);
+        if (pageNum >= 1) {
+          setCurrentRoute(pageNum === 1 ? { type: 'home' } : { type: 'home', pageNum });
+          setMode('frontend');
+          return;
+        }
       }
 
       if (path.startsWith('/posts/')) {
@@ -291,6 +303,19 @@ export default function App() {
   const [currentRoute, setCurrentRoute] = useState<FrontendRoute>({ type: 'home' });
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
+  // Dynamically enforce <meta name="robots"> in head based on active route and indexing settings
+  React.useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const directive = calculateRobotsDirective(currentRoute, cms.siteSettings?.indexingSettings);
+    let metaRobots = document.querySelector('meta[name="robots"]');
+    if (!metaRobots) {
+      metaRobots = document.createElement('meta');
+      metaRobots.setAttribute('name', 'robots');
+      document.head.appendChild(metaRobots);
+    }
+    metaRobots.setAttribute('content', directive);
+  }, [currentRoute, cms.siteSettings?.indexingSettings]);
+
   // Count pending comments
   const pendingCommentsCount = cms.comments.filter((c) => c.status === 'pending').length;
 
@@ -372,6 +397,21 @@ export default function App() {
       }
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
+    }
+
+    // Check homepage pagination route e.g. /page2/, /page3/
+    const pageMatch = path.match(/^\/page(\d+)\/?$/);
+    if (pageMatch) {
+      const pageNum = parseInt(pageMatch[1], 10);
+      if (pageNum >= 1) {
+        setCurrentRoute(pageNum === 1 ? { type: 'home' } : { type: 'home', pageNum });
+        setMode('frontend');
+        if (typeof window !== 'undefined') {
+          window.history.pushState({}, '', pageNum === 1 ? '/' : `/page${pageNum}/`);
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
     }
 
     if (path === '/posts') {
@@ -564,6 +604,7 @@ export default function App() {
                 sections={cms.homepageSections}
                 heroConfig={cms.heroConfig}
                 themeSettings={cms.themeSettings}
+                currentPage={currentRoute.pageNum || 1}
                 onNavigate={handleNavigate}
                 onSelectPost={handleSelectPost}
                 onSelectCategory={handleSelectCategory}
@@ -942,8 +983,10 @@ export default function App() {
               posts={cms.posts}
               pages={cms.pages}
               themeSettings={cms.themeSettings}
+              siteSettings={cms.siteSettings}
+              onUpdateSiteSettings={(s) => cms.updateSiteSettings(s)}
               onSaveSeoSettings={(seoSettings) => {
-                cms.recordCommit('seo: update global search metadata and sitemap settings');
+                cms.recordCommit('seo: update global search metadata and indexing settings');
               }}
             />
           )}

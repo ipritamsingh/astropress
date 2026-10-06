@@ -302,6 +302,17 @@ export interface TemplateConfig {
   customCss?: string;
 }
 
+export interface IndexingSettings {
+  globalIndexing: boolean;
+  postsIndexing: boolean;
+  pagesIndexing: boolean;
+  categoriesIndexing: boolean;
+  tagsIndexing: boolean;
+  paginationPagesIndexing: boolean;
+  paginationIndexing?: boolean;
+  searchResultsIndexing: boolean;
+}
+
 export interface SiteSettings {
   siteTitle: string;
   siteTagline: string;
@@ -326,6 +337,7 @@ export interface SiteSettings {
   customHeadCode?: string;
   customFooterCode?: string;
   customGlobalCss?: string;
+  indexingSettings?: IndexingSettings;
 }
 
 export interface ThemeSettings {

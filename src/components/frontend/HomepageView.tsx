@@ -10,6 +10,7 @@ import {
   Bookmark,
   Share2,
   Sparkles,
+  ChevronLeft,
   ChevronRight,
   Send,
   CheckCircle,
@@ -21,6 +22,7 @@ interface Props {
   sections: HomepageSection[];
   heroConfig?: HeroSectionConfig;
   themeSettings: ThemeSettings;
+  currentPage?: number;
   onSelectPost: (post: Post) => void;
   onSelectCategory: (cat: Category) => void;
   onNavigate?: (path: string) => void;
@@ -32,6 +34,7 @@ export const HomepageView: React.FC<Props> = ({
   sections,
   heroConfig,
   themeSettings,
+  currentPage = 1,
   onSelectPost,
   onSelectCategory,
   onNavigate,
@@ -39,7 +42,19 @@ export const HomepageView: React.FC<Props> = ({
   const publishedPosts = posts.filter((p) => p.status === 'published');
   const heroPost = publishedPosts[0];
   const featuredPosts = publishedPosts.slice(1, 4);
-  const latestPosts = publishedPosts.slice(0, 6);
+
+  const currentPageNum = currentPage && currentPage > 0 ? currentPage : 1;
+  const totalPosts = publishedPosts.length;
+  const totalPages = totalPosts <= 6 ? 1 : 1 + Math.ceil((totalPosts - 6) / 10);
+
+  let displayPosts: Post[] = [];
+  if (currentPageNum === 1) {
+    displayPosts = publishedPosts.slice(0, 6);
+  } else {
+    const startIndex = 6 + (currentPageNum - 2) * 10;
+    const endIndex = 6 + (currentPageNum - 1) * 10;
+    displayPosts = publishedPosts.slice(startIndex, endIndex);
+  }
 
   const [newsletterEmail, setNewsletterEmail] = React.useState('');
   const [newsletterSubscribed, setNewsletterSubscribed] = React.useState(false);
@@ -57,6 +72,160 @@ export const HomepageView: React.FC<Props> = ({
 
   // Sort sections by order
   const sortedSections = [...sections].sort((a, b) => a.order - b.order);
+
+  // Paginated Pages Layout (/page2/, /page3/, etc.)
+  if (currentPageNum > 1) {
+    return (
+      <div className="space-y-12 pb-16 pt-6">
+        {/* Post Grid */}
+        <div className="space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {displayPosts.map((post) => (
+              <article
+                key={post.id}
+                onClick={() => onSelectPost(post)}
+                className="group cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 hover:border-blue-400 hover:shadow-md transition-all flex flex-col sm:flex-row gap-4 items-start sm:items-center"
+              >
+                <div className="w-full sm:w-44 aspect-16/10 sm:aspect-square sm:h-32 rounded-xl overflow-hidden bg-slate-100 shrink-0 relative">
+                  <PostCardImage
+                    src={post.featuredImage}
+                    alt={post.title}
+                    className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                    fallbackCategory={post.category}
+                    fallbackIcon={<Sparkles className="h-6 w-6 mb-1 opacity-40 text-blue-500" />}
+                  />
+                </div>
+
+                <div className="flex-1 flex flex-col justify-between space-y-2 w-full">
+                  <div>
+                    <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+                      <span className="font-bold text-blue-600">{post.category}</span>
+                      <span>•</span>
+                      <span>{post.readingTime} min read</span>
+                    </div>
+                    <h3 className="font-bold text-base text-slate-900 group-hover:text-blue-600 transition-colors leading-snug line-clamp-2">
+                      {post.title}
+                    </h3>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-100">
+                    <span>{post.author}</span>
+                    <span>{new Date(post.pubDate).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          {/* Homepage Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="pt-8 border-t border-slate-200 flex items-center justify-between gap-4">
+              {currentPageNum > 1 ? (
+                <a
+                  href={currentPageNum === 2 ? '/' : `/page${currentPageNum - 1}/`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const prevPath = currentPageNum === 2 ? '/' : `/page${currentPageNum - 1}/`;
+                    if (onNavigate) onNavigate(prevPath);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs shadow-2xs transition-colors cursor-pointer"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span>Previous Page</span>
+                </a>
+              ) : (
+                <div className="w-24" />
+              )}
+
+              <div className="flex items-center gap-1.5">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
+                  const isActive = p === currentPageNum;
+                  const pagePath = p === 1 ? '/' : `/page${p}/`;
+                  return (
+                    <a
+                      key={p}
+                      href={pagePath}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (onNavigate) onNavigate(pagePath);
+                      }}
+                      className={`w-9 h-9 flex items-center justify-center rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-blue-600 text-white shadow-xs scale-105'
+                          : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {p}
+                    </a>
+                  );
+                })}
+              </div>
+
+              {currentPageNum < totalPages ? (
+                <a
+                  href={`/page${currentPageNum + 1}/`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const nextPath = `/page${currentPageNum + 1}/`;
+                    if (onNavigate) onNavigate(nextPath);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs shadow-2xs transition-colors cursor-pointer"
+                >
+                  <span>Next Page</span>
+                  <ChevronRight className="h-4 w-4" />
+                </a>
+              ) : (
+                <div className="w-24" />
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Newsletter Section */}
+        <section className="relative overflow-hidden rounded-3xl bg-blue-600 text-white p-8 md:p-12 shadow-xl">
+          <div className="max-w-2xl mx-auto text-center space-y-4">
+            <span className="text-xs font-bold uppercase tracking-wider bg-white/20 px-3 py-1 rounded-full text-white">
+              Weekly Editorial Dispatch
+            </span>
+            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">
+              Stay Ahead of the Headless CMS Frontier
+            </h2>
+            <p className="text-sm md:text-base text-blue-100 leading-relaxed">
+              Get curations of Astro architecture, Sveltia CMS integrations, and Gutenberg patterns delivered directly to your inbox.
+            </p>
+
+            <form onSubmit={handleSubscribe} className="pt-2 flex flex-col sm:flex-row gap-2 max-w-md mx-auto">
+              <input
+                type="email"
+                required
+                value={newsletterEmail}
+                onChange={(e) => setNewsletterEmail(e.target.value)}
+                placeholder="Enter your work email address"
+                className="flex-1 px-4 py-3 rounded-xl bg-white text-slate-900 placeholder-slate-400 text-sm outline-none focus:ring-2 focus:ring-amber-400"
+              />
+              <button
+                type="submit"
+                className="px-6 py-3 rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-sm shadow-md transition-colors flex items-center justify-center gap-2"
+              >
+                {newsletterSubscribed ? (
+                  <>
+                    <CheckCircle className="h-4 w-4 text-emerald-400" />
+                    <span>Joined!</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Subscribe</span>
+                    <Send className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+            </form>
+            <p className="text-[11px] text-blue-200">Zero spam. Unsubscribe at any time with one click.</p>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-16 pb-16">
@@ -262,16 +431,21 @@ export const HomepageView: React.FC<Props> = ({
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
-                      {section.title || 'Latest Dispatches & Insights'}
+                      {section.title || 'Latest Dispatches & Insights'} {currentPageNum > 1 ? `(Page ${currentPageNum})` : ''}
                     </h2>
                     {section.subtitle && (
                       <p className="text-xs md:text-sm text-slate-500 mt-1">{section.subtitle}</p>
                     )}
                   </div>
+                  {totalPages > 1 && (
+                    <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                      Page {currentPageNum} of {totalPages}
+                    </span>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {latestPosts.map((post) => (
+                  {displayPosts.map((post) => (
                     <article
                       key={post.id}
                       onClick={() => onSelectPost(post)}
@@ -307,6 +481,69 @@ export const HomepageView: React.FC<Props> = ({
                     </article>
                   ))}
                 </div>
+
+                {/* Homepage Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="pt-8 border-t border-slate-200 flex items-center justify-between gap-4">
+                    {currentPageNum > 1 ? (
+                      <a
+                        href={currentPageNum === 2 ? '/' : `/page${currentPageNum - 1}/`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const prevPath = currentPageNum === 2 ? '/' : `/page${currentPageNum - 1}/`;
+                          if (onNavigate) onNavigate(prevPath);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs shadow-2xs transition-colors cursor-pointer"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        <span>Previous Page</span>
+                      </a>
+                    ) : (
+                      <div className="w-24" />
+                    )}
+
+                    <div className="flex items-center gap-1.5">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
+                        const isActive = p === currentPageNum;
+                        const pagePath = p === 1 ? '/' : `/page${p}/`;
+                        return (
+                          <a
+                            key={p}
+                            href={pagePath}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              if (onNavigate) onNavigate(pagePath);
+                            }}
+                            className={`w-9 h-9 flex items-center justify-center rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                              isActive
+                                ? 'bg-blue-600 text-white shadow-xs scale-105'
+                                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            {p}
+                          </a>
+                        );
+                      })}
+                    </div>
+
+                    {currentPageNum < totalPages ? (
+                      <a
+                        href={`/page${currentPageNum + 1}/`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const nextPath = `/page${currentPageNum + 1}/`;
+                          if (onNavigate) onNavigate(nextPath);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs shadow-2xs transition-colors cursor-pointer"
+                      >
+                        <span>Next Page</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </a>
+                    ) : (
+                      <div className="w-24" />
+                    )}
+                  </div>
+                )}
               </section>
             );
 

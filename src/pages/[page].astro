@@ -1,0 +1,26 @@
+---
+import Layout from '../layouts/Layout.astro';
+import App from '../App';
+import { getCollection } from 'astro:content';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('posts');
+  const publishedCount = posts.filter((p) => !p.data.draft && p.data.status !== 'draft').length;
+  const totalPages = publishedCount > 6 ? 1 + Math.ceil((publishedCount - 6) / 10) : 1;
+
+  const paths = [];
+  for (let i = 2; i <= Math.max(totalPages, 10); i++) {
+    paths.push({ params: { page: `page${i}` }, props: { pageNum: i } });
+  }
+  return paths;
+}
+
+const { pageNum } = Astro.props;
+---
+
+<Layout title={`Page ${pageNum} — AstroPress`} robotsDirective="noindex, follow">
+  <script is:inline define:vars={{ pageNum }}>
+    window.__ASTROPRESS_INITIAL_PAGE_NUM__ = pageNum;
+  </script>
+  <App client:only="react" />
+</Layout>
