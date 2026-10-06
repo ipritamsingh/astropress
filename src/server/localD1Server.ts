@@ -292,6 +292,125 @@ export async function handleLocalApiRequest(req: any, res: any) {
     }
   }
 
+  // Newsletter Subscribe Endpoint
+  if (url.startsWith('/api/newsletter/subscribe') && req.method === 'POST') {
+    try {
+      const chunks: Buffer[] = [];
+      for await (const chunk of req) {
+        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+      }
+      const rawBody = Buffer.concat(chunks).toString('utf8');
+      const body = JSON.parse(rawBody);
+
+      const email = (body.email || '').trim().toLowerCase();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      if (!email || !emailRegex.test(email)) {
+        res.statusCode = 400;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'Please enter a valid email address.' }));
+        return;
+      }
+
+      const db = getLocalD1Database();
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+          id TEXT PRIMARY KEY,
+          email TEXT UNIQUE NOT NULL,
+          status TEXT NOT NULL DEFAULT 'active',
+          subscribed_at TEXT NOT NULL
+        )
+      `);
+
+      const existing = await db.prepare('SELECT * FROM newsletter_subscribers WHERE email = ?').bind(email).first();
+      if (existing) {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ success: true, message: 'You are already subscribed to the newsletter!', duplicate: true }));
+        return;
+      }
+
+      const id = 'sub-' + Date.now();
+      const subscribedAt = new Date().toISOString();
+      await db.prepare('INSERT INTO newsletter_subscribers (id, email, status, subscribed_at) VALUES (?, ?, ?, ?)').bind(id, email, 'active', subscribedAt).run();
+
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: true, message: 'Thanks for subscribing to The Headless Dispatch!' }));
+      return;
+    } catch (err: any) {
+      console.error('[Newsletter Subscribe Error]', err);
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: err.message || 'Failed to process subscription' }));
+      return;
+    }
+  }
+
+  // Newsletter List Subscribers Endpoint
+  if (url.startsWith('/api/newsletter/subscribers') && req.method === 'GET') {
+    try {
+      const db = getLocalD1Database();
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+          id TEXT PRIMARY KEY,
+          email TEXT UNIQUE NOT NULL,
+          status TEXT NOT NULL DEFAULT 'active',
+          subscribed_at TEXT NOT NULL
+        )
+      `);
+
+      const { results } = await db.prepare('SELECT * FROM newsletter_subscribers ORDER BY subscribed_at DESC').all();
+      const subscribers = (results || []).map((row: any) => ({
+        id: row.id,
+        email: row.email,
+        status: row.status,
+        subscribedAt: row.subscribed_at,
+      }));
+
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: true, subscribers }));
+      return;
+    } catch (err: any) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: err.message || 'Failed to fetch subscribers' }));
+      return;
+    }
+  }
+
+  // Newsletter Delete / Unsubscribe Endpoint
+  if (url.startsWith('/api/newsletter/subscribers') && req.method === 'DELETE') {
+    try {
+      const chunks: Buffer[] = [];
+      for await (const chunk of req) {
+        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+      }
+      const rawBody = Buffer.concat(chunks).toString('utf8');
+      const body = JSON.parse(rawBody);
+      const id = body.id || '';
+      const email = body.email || '';
+
+      const db = getLocalD1Database();
+      if (id) {
+        await db.prepare('DELETE FROM newsletter_subscribers WHERE id = ?').bind(id).run();
+      } else if (email) {
+        await db.prepare('DELETE FROM newsletter_subscribers WHERE email = ?').bind(email).run();
+      }
+
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: true }));
+      return;
+    } catch (err: any) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: err.message || 'Failed to delete subscriber' }));
+      return;
+    }
+  }
+
   // Content sync/list endpoint: Reads all disk posts, pages, data files and uploads
   if (url.startsWith('/api/content/all') && req.method === 'GET') {
     try {

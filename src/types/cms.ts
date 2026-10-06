@@ -302,6 +302,31 @@ export interface TemplateConfig {
   customCss?: string;
 }
 
+export interface CommunityLink {
+  id: string;
+  platform: 'telegram' | 'whatsapp' | 'youtube' | 'twitter' | 'discord' | 'custom';
+  label: string;
+  url: string;
+  enabled: boolean;
+  order: number;
+}
+
+export interface NewsletterSettings {
+  enabled: boolean;
+  title: string;
+  subtitle: string;
+  placeholderText: string;
+  buttonText: string;
+  successMessage: string;
+}
+
+export interface NewsletterSubscriber {
+  id: string;
+  email: string;
+  status: 'active' | 'unsubscribed';
+  subscribedAt: string;
+}
+
 export interface IndexingSettings {
   globalIndexing: boolean;
   postsIndexing: boolean;
@@ -338,6 +363,11 @@ export interface SiteSettings {
   customFooterCode?: string;
   customGlobalCss?: string;
   indexingSettings?: IndexingSettings;
+  communityCtaEnabled?: boolean;
+  communityCtaTitle?: string;
+  communityCtaSubtitle?: string;
+  communityLinks?: CommunityLink[];
+  newsletterSettings?: NewsletterSettings;
 }
 
 export interface ThemeSettings {

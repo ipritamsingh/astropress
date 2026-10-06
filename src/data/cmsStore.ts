@@ -126,6 +126,32 @@ function loadStoredData(): CMSDataState {
       loadedPosts = Array.from(postMap.values());
     }
 
+    const rawSiteSettings = parsed.siteSettings || {};
+    const loadedSiteSettings: SiteSettings = {
+      ...initialSiteSettings,
+      ...rawSiteSettings,
+      indexingSettings: {
+        ...initialSiteSettings.indexingSettings,
+        ...(rawSiteSettings.indexingSettings || {}),
+      },
+      newsletterSettings: {
+        ...initialSiteSettings.newsletterSettings,
+        ...(rawSiteSettings.newsletterSettings || {}),
+      },
+      communityCtaEnabled:
+        rawSiteSettings.communityCtaEnabled !== undefined
+          ? rawSiteSettings.communityCtaEnabled
+          : initialSiteSettings.communityCtaEnabled,
+      communityCtaTitle:
+        rawSiteSettings.communityCtaTitle || initialSiteSettings.communityCtaTitle,
+      communityCtaSubtitle:
+        rawSiteSettings.communityCtaSubtitle || initialSiteSettings.communityCtaSubtitle,
+      communityLinks:
+        Array.isArray(rawSiteSettings.communityLinks)
+          ? rawSiteSettings.communityLinks
+          : initialSiteSettings.communityLinks,
+    };
+
     return {
       posts: loadedPosts,
       pages: parsed.pages || initialPages,
@@ -139,7 +165,7 @@ function loadStoredData(): CMSDataState {
       heroConfig: parsed.heroConfig || initialHeroConfig,
       themeSettings: parsed.themeSettings || initialThemeSettings,
       templates: parsed.templates || initialTemplates,
-      siteSettings: parsed.siteSettings || initialSiteSettings,
+      siteSettings: loadedSiteSettings,
       deploymentSettings: parsed.deploymentSettings || initialDeploymentSettings,
       commitHistory: parsed.commitHistory || initialCommitHistory,
     };

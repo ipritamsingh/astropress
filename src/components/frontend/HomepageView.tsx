@@ -548,50 +548,8 @@ export const HomepageView: React.FC<Props> = ({
             );
 
           case 'newsletter':
-            return (
-              <section key={section.id} className="relative overflow-hidden rounded-3xl bg-blue-600 text-white p-8 md:p-12 shadow-xl">
-                <div className="max-w-2xl mx-auto text-center space-y-4">
-                  <span className="text-xs font-bold uppercase tracking-wider bg-white/20 px-3 py-1 rounded-full text-white">
-                    Weekly Editorial Dispatch
-                  </span>
-                  <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-                    {section.title || 'Stay Ahead of the Headless Frontier'}
-                  </h2>
-                  <p className="text-sm md:text-base text-blue-100 leading-relaxed">
-                    {section.subtitle ||
-                      'Get curations of Astro architecture, Sveltia CMS integrations, and Gutenberg patterns delivered directly to your inbox.'}
-                  </p>
-
-                  <form onSubmit={handleSubscribe} className="pt-2 flex flex-col sm:flex-row gap-2 max-w-md mx-auto">
-                    <input
-                      type="email"
-                      required
-                      value={newsletterEmail}
-                      onChange={(e) => setNewsletterEmail(e.target.value)}
-                      placeholder="Enter your work email address"
-                      className="flex-1 px-4 py-3 rounded-xl bg-white text-slate-900 placeholder-slate-400 text-sm outline-none focus:ring-2 focus:ring-amber-400"
-                    />
-                    <button
-                      type="submit"
-                      className="px-6 py-3 rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-sm shadow-md transition-colors flex items-center justify-center gap-2"
-                    >
-                      {newsletterSubscribed ? (
-                        <>
-                          <CheckCircle className="h-4 w-4 text-emerald-400" />
-                          <span>Joined!</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Subscribe</span>
-                          <Send className="h-4 w-4" />
-                        </>
-                      )}
-                    </button>
-                  </form>
-                  <p className="text-[11px] text-blue-200">Zero spam. Unsubscribe at any time with one click.</p>
-                </div>
-              </section>
-            );
+          case 'cta':
+            return null;
 
           default:
             return null;

@@ -943,6 +943,44 @@ export const initialSiteSettings: SiteSettings = {
     paginationPagesIndexing: false,
     searchResultsIndexing: false,
   },
+  communityCtaEnabled: true,
+  communityCtaTitle: 'Join Our Community',
+  communityCtaSubtitle:
+    'Get the latest updates, resources, new articles and exclusive content directly through our social channels.',
+  communityLinks: [
+    {
+      id: 'comm-1',
+      platform: 'telegram',
+      label: 'Join Telegram',
+      url: 'https://t.me/astropress',
+      enabled: true,
+      order: 1,
+    },
+    {
+      id: 'comm-2',
+      platform: 'whatsapp',
+      label: 'Join WhatsApp',
+      url: 'https://chat.whatsapp.com/astropress',
+      enabled: true,
+      order: 2,
+    },
+    {
+      id: 'comm-3',
+      platform: 'youtube',
+      label: 'Subscribe on YouTube',
+      url: 'https://youtube.com/@astropress',
+      enabled: true,
+      order: 3,
+    },
+  ],
+  newsletterSettings: {
+    enabled: true,
+    title: 'The Headless Dispatch',
+    subtitle: 'Get the latest articles, tutorials and updates directly in your inbox.',
+    placeholderText: 'Enter your email...',
+    buttonText: 'Subscribe',
+    successMessage: 'Thanks for subscribing to The Headless Dispatch!',
+  },
 };
 
 export const initialCommitHistory: GitCommitRecord[] = [

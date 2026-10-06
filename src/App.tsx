@@ -43,6 +43,7 @@ import { HomepageView } from './components/frontend/HomepageView';
 import { SinglePostView } from './components/frontend/SinglePostView';
 import { SinglePageView } from './components/frontend/SinglePageView';
 import { ArchiveView } from './components/frontend/ArchiveView';
+import { SocialCommunityCta } from './components/frontend/SocialCommunityCta';
 import { SearchModal } from './components/frontend/SearchModal';
 
 // Admin Components
@@ -663,8 +664,16 @@ export default function App() {
             )}
           </main>
 
+          <SocialCommunityCta
+            enabled={cms.siteSettings?.communityCtaEnabled !== false}
+            title={cms.siteSettings?.communityCtaTitle}
+            subtitle={cms.siteSettings?.communityCtaSubtitle}
+            communityLinks={cms.siteSettings?.communityLinks}
+          />
+
           <WebsiteFooter
             themeSettings={cms.themeSettings}
+            siteSettings={cms.siteSettings}
             menus={cms.menus}
             categories={cms.categories}
             onNavigate={handleNavigate}

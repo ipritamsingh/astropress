@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { ThemeSettings, Menu, Category } from '../../types/cms';
-import { Github, Twitter, Globe, ArrowUp, Send, Heart, Check } from 'lucide-react';
+import { ThemeSettings, SiteSettings, Menu, Category } from '../../types/cms';
+import { Github, Twitter, Globe, ArrowUp, Send, Heart, Check, Loader2, AlertCircle } from 'lucide-react';
 
 interface Props {
   themeSettings: ThemeSettings;
+  siteSettings?: SiteSettings;
   menus: Menu[];
   categories: Category[];
   onNavigate: (path: string) => void;
@@ -12,25 +13,67 @@ interface Props {
 
 export const WebsiteFooter: React.FC<Props> = ({
   themeSettings,
+  siteSettings,
   menus,
   categories,
   onNavigate,
 }) => {
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [subscriptionMessage, setSubscriptionMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const footerMenu = menus.find((m) => m.location === 'footer') || menus[0];
   const { footer } = themeSettings;
+  const newsletterConf = siteSettings?.newsletterSettings;
+
+  const title = newsletterConf?.title || footer.newsletterTitle || 'The Headless Dispatch';
+  const subtitle =
+    newsletterConf?.subtitle ||
+    footer.newsletterSubtitle ||
+    'Subscribe to get notified whenever new architectural tutorials or theme updates drop.';
+  const placeholder = newsletterConf?.placeholderText || 'Enter your email...';
+  const buttonText = newsletterConf?.buttonText || 'Subscribe';
+  const successMsg = newsletterConf?.successMessage || 'Thank you for subscribing!';
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleNewsletterSubmit = (e: React.FormEvent) => {
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newsletterEmail.trim()) {
+    setErrorMessage('');
+    const email = newsletterEmail.trim();
+    if (!email) return;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setErrorMessage('Please enter a valid email address.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setIsSubscribed(true);
+        setSubscriptionMessage(data.message || successMsg);
+        setNewsletterEmail('');
+      } else {
+        setErrorMessage(data.error || 'Subscription failed. Please try again.');
+      }
+    } catch (err) {
       setIsSubscribed(true);
+      setSubscriptionMessage(successMsg);
       setNewsletterEmail('');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -130,37 +173,50 @@ export const WebsiteFooter: React.FC<Props> = ({
           {/* Column 4: Newsletter Subscription */}
           <div className="space-y-3">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-100">
-              {footer.newsletterTitle || 'The Headless Dispatch'}
+              {title}
             </h4>
             <p className="text-xs text-slate-400 leading-relaxed">
-              {footer.newsletterSubtitle ||
-                'Subscribe to get notified whenever new architectural tutorials or theme updates drop.'}
+              {subtitle}
             </p>
             <div className="pt-2">
               {isSubscribed ? (
                 <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-800/80 text-emerald-300 text-xs font-medium">
                   <Check className="h-4 w-4 text-emerald-400 shrink-0" />
-                  <span>Thank you for subscribing!</span>
+                  <span>{subscriptionMessage || successMsg}</span>
                 </div>
               ) : (
-                <form onSubmit={handleNewsletterSubmit} className="flex gap-2">
-                  <input
-                    type="email"
-                    required
-                    placeholder="Enter your email..."
-                    value={newsletterEmail}
-                    onChange={(e) => setNewsletterEmail(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-blue-500 transition-colors"
-                  />
-                  <button
-                    type="submit"
-                    style={{ backgroundColor: themeSettings.primaryColor }}
-                    className="px-3.5 py-2 rounded-xl text-white text-xs font-bold shadow-xs hover:opacity-95 transition-opacity flex items-center justify-center shrink-0"
-                    title="Subscribe to Dispatch"
-                  >
-                    <Send className="h-3.5 w-3.5" />
-                  </button>
-                </form>
+                <div className="space-y-2">
+                  <form onSubmit={handleNewsletterSubmit} className="flex gap-2">
+                    <input
+                      type="email"
+                      required
+                      placeholder={placeholder}
+                      value={newsletterEmail}
+                      onChange={(e) => setNewsletterEmail(e.target.value)}
+                      disabled={isSubmitting}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-blue-500 transition-colors disabled:opacity-50"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      style={{ backgroundColor: themeSettings.primaryColor }}
+                      className="px-3.5 py-2 rounded-xl text-white text-xs font-bold shadow-xs hover:opacity-95 transition-opacity flex items-center justify-center shrink-0 disabled:opacity-50"
+                      title={buttonText}
+                    >
+                      {isSubmitting ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Send className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </form>
+                  {errorMessage && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-rose-400">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      <span>{errorMessage}</span>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
