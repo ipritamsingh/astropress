@@ -8,22 +8,30 @@ author: "Amit Singh"
 category: "Technology"
 tags: ["Astro", "Sveltia CMS"]
 featuredImage: "/uploads/1000404269.webp"
-excerpt: ""
-readingTime: 8
+excerpt: " Title of your new story...
+
+Start writing your engaging article here. You can add columns, alerts, and quotes from the block inserter.
+
+> “A compelling quote"
+readingTime: 10
 template: "standard"
 seo:
-  metaTitle: "This is demo"
-  metaDescription: "Check for block"
+  metaTitle: "This is Demo for all block"
+  metaDescription: " Title of your new story...
+
+Start writing your engaging article here. You can add columns, alerts, and quotes from the block inserter.
+
+> “A compelling quote"
   focusKeyword: ""
   robotsIndex: true
   robotsFollow: true
 ---
 
-## Title of your new story...
+## Write your story headline...
 
-Start writing your engaging article here. You can add columns, alerts, and quotes from the block inserter.
+Start writing your engaging article or paste your thoughts here. You can format this block or add columns, quotes, and media blocks.
 
-> “A compelling quote captures reader imagination instantly.” check
+> “A compelling quote captures reader imagination instantly.”
 >
 > — Notable Authority
 
@@ -31,26 +39,32 @@ Start writing your engaging article here. You can add columns, alerts, and quote
 // Astro Island Component
 export default function AstroIsland() {
   return <div>Rendered via Astro</div>;
-} Hmjago
+}
 ```
 
 ![1000404269](/uploads/1000404269.webp)
 
 Left Column Content:
-Edit key highlights and benefits. Pro
+Edit key highlights and benefits.
 
 Right Column Content:
-Provide secondary context or data. Cons 
+Provide secondary context or data.
 
 ---
 
-> **Notice**: Helpful contextual notice for your readers. Notice
+---
 
-### What makes AstroPress different from classic WordPress? Faq
-AstroPress combines the best of WordPress-style editorial ergonomics (Gutenberg block visual builder, Media Library, Menus, SEO controls) with modern Astro static islands performance and Sveltia CMS Git persistence. Ans
+> **Notice**: Helpful contextual notice for your readers.
 
-### How does Sveltia CMS persist content to GitHub?faq
-Sveltia CMS works natively with GitHub API and OAuth, saving Markdown files with YAML frontmatter in src/content/posts/ and image assets in public/images/. Ans
+### What makes AstroPress different from classic WordPress?
+AstroPress combines the best of WordPress-style editorial ergonomics (Gutenberg block visual builder, Media Library, Menus, SEO controls) with modern Astro static islands performance and Sveltia CMS Git persistence.
 
-### Question #3 
-Add your clear, detailed answer explanation here. Done
+### How does Sveltia CMS persist content to GitHub?
+Sveltia CMS works natively with GitHub API and OAuth, saving Markdown files with YAML frontmatter in src/content/posts/ and image assets in public/images/.
+
+### Question #3
+Add your clear, detailed answer explanation here.
+
+[Read Full Documentation](#)
+
+**Author:** Amit Singh
