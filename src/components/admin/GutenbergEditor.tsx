@@ -133,11 +133,13 @@ export const GutenbergEditor: React.FC<Props> = ({
   onSave,
   onClose,
 }) => {
+  const isExistingItem = Boolean(initialItem.slug && initialItem.title);
   const [itemId, setItemId] = useState<string>(
     initialItem.id || (isPage ? 'page-' : 'post-') + Date.now()
   );
   const [title, setTitle] = useState(initialItem.title || '');
   const [slug, setSlug] = useState(initialItem.slug || '');
+  const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
   const [status, setStatus] = useState<Post['status']>(initialItem.status || 'draft');
   const [blocks, setBlocks] = useState<GutenbergBlock[]>(
     initialItem.blocks && initialItem.blocks.length > 0
@@ -587,6 +589,20 @@ export const GutenbergEditor: React.FC<Props> = ({
     const activeStatus = targetStatus || status || 'draft';
     const cleanSlug = slug || 'new-post';
     const cleanDate = (initialItem as Post).pubDate || new Date().toISOString();
+
+    if (isPage) {
+      return `---
+title: "${title.replace(/"/g, '\\"')}"
+slug: "${cleanSlug}"
+pubDate: ${cleanDate}
+template: "${(initialItem as Page).template || 'default'}"
+draft: ${activeStatus === 'draft'}
+blocks: ${JSON.stringify(blocks || [])}
+---
+
+${compileBlocksToMarkdown()}`;
+    }
+
     return `---
 title: "${title.replace(/"/g, '\\"')}"
 slug: "${cleanSlug}"
@@ -600,6 +616,7 @@ featuredImage: "${featuredImage}"
 excerpt: "${excerpt.replace(/"/g, '\\"')}"
 readingTime: ${Math.max(1, Math.ceil(blocks.length * 0.8))}
 template: "${template}"
+blocks: ${JSON.stringify(blocks || [])}
 seo:
   metaTitle: "${seo.metaTitle.replace(/"/g, '\\"')}"
   metaDescription: "${seo.metaDescription.replace(/"/g, '\\"')}"
@@ -1723,9 +1740,17 @@ ${compileBlocksToMarkdown()}`;
                   type="text"
                   value={title}
                   onChange={(e) => {
-                    setTitle(e.target.value);
-                    if (!slug || slug === initialItem.slug) {
-                      setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
+                    const newTitle = e.target.value;
+                    setTitle(newTitle);
+                    // For brand-new posts only (not existing posts), auto-derive slug while user types title,
+                    // unless user has explicitly customized the slug.
+                    if (!isExistingItem && !isSlugManuallyEdited) {
+                      setSlug(
+                        newTitle
+                          .toLowerCase()
+                          .replace(/[^a-z0-9-]+/g, '-')
+                          .replace(/(^-|-$)/g, '')
+                      );
                     }
                   }}
                   placeholder="Add Title..."
@@ -1733,11 +1758,18 @@ ${compileBlocksToMarkdown()}`;
                 />
                 <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 font-mono-custom bg-slate-50 p-2 rounded-lg border border-slate-100">
                   <span className="font-semibold text-slate-400">Permalink:</span>
-                  <span className="text-slate-400">/posts/</span>
+                  <span className="text-slate-400">{isPage ? '/' : '/posts/'}</span>
                   <input
                     type="text"
                     value={slug}
-                    onChange={(e) => setSlug(e.target.value)}
+                    onChange={(e) => {
+                      setIsSlugManuallyEdited(true);
+                      setSlug(
+                        e.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9-]+/g, '-')
+                      );
+                    }}
                     className="bg-transparent border-b border-slate-300 focus:border-blue-600 outline-none px-1 text-blue-600 font-medium flex-1 min-w-[120px]"
                   />
                 </div>
