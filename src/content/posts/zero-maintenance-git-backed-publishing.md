@@ -11,6 +11,7 @@ featuredImage: "/uploads/1000402916.webp"
 excerpt: "Draft article reviewing the long-term operational cost of maintaining traditional MySQL/PostgreSQL backends versus flat-file Git content repositories."
 readingTime: 3
 template: "standard"
+blocks: []
 seo:
   metaTitle: "Zero-Maintenance Git-Backed Publishing: No Database, No Downtime"
   metaDescription: "Draft article reviewing the long-term operational cost of maintaining traditional MySQL/PostgreSQL backends versus flat-file Git content repositories."

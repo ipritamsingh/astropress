@@ -1,7 +1,7 @@
 ---
 title: "Home"
 slug: "home"
-pubDate: 2026-10-06T04:50:16.049Z
+pubDate: 2026-10-06T05:56:27.752Z
 template: "default"
 draft: false
 blocks: []
