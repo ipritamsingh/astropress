@@ -25,7 +25,7 @@
   "primaryButtonStyle": "filled",
   "showSecondaryButton": true,
   "secondaryButtonText": "Launch Admin Studio",
-  "secondaryButtonUrl": "/admin",
+  "secondaryButtonUrl": "/wpadmin/",
   "secondaryButtonStyle": "outline",
   "showTrustBadges": true,
   "trustBadgesTitle": "Trusted by modern engineering teams",
