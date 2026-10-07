@@ -211,10 +211,18 @@ export const HeroSection: React.FC<Props> = ({
   };
 
   const handleButtonClick = (url: string) => {
-    if (onNavigate && url.startsWith('/')) {
-      onNavigate(url);
+    let target = url;
+    if (
+      (config.secondaryButtonText === 'Launch Admin Studio' &&
+        (target === '/admin' || target === '/admin/' || target === '/dashboard' || target === '/dashboard/')) ||
+      !target
+    ) {
+      target = '/wpadmin/';
+    }
+    if (onNavigate && target.startsWith('/')) {
+      onNavigate(target);
     } else if (typeof window !== 'undefined') {
-      window.location.href = url;
+      window.location.href = target;
     }
   };
 
@@ -320,7 +328,7 @@ export const HeroSection: React.FC<Props> = ({
                 {/* Modular Admin Launch Button (Can be removed or toggled via config.showSecondaryButton) */}
                 {config.showSecondaryButton && config.secondaryButtonText && (
                   <button
-                    onClick={() => handleButtonClick(config.secondaryButtonUrl || '/admin')}
+                    onClick={() => handleButtonClick(config.secondaryButtonUrl || '/wpadmin/')}
                     className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-bold text-sm transition-all ${
                       config.backgroundType === 'dark-slate'
                         ? 'border border-slate-700 bg-slate-800/80 text-white hover:bg-slate-700'

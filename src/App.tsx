@@ -98,15 +98,14 @@ export default function App() {
   const [authAction, setAuthAction] = useState<'login' | 'forgot' | 'reset'>('login');
   const [resetToken, setResetToken] = useState<string>('');
 
-  // Mode: 'frontend' website or 'admin' WordPress panel (accessible via /dashboard, /admin, #admin, ?admin=true)
+  // Mode: 'frontend' website or 'admin' WordPress panel (accessible via /wpadmin, #admin, ?admin=true)
   const [mode, setMode] = useState<'frontend' | 'admin'>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname;
       const search = window.location.search;
       const hash = window.location.hash;
       if (
-        path.startsWith('/dashboard') ||
-        path.startsWith('/admin') ||
+        path.startsWith('/wpadmin') ||
         search.includes('admin=true') ||
         search.includes('token=') ||
         hash === '#admin'
@@ -155,8 +154,7 @@ export default function App() {
       }
 
       if (
-        path.startsWith('/dashboard') ||
-        path.startsWith('/admin') ||
+        path.startsWith('/wpadmin') ||
         search.includes('admin=true') ||
         hash === '#admin'
       ) {
@@ -381,11 +379,18 @@ export default function App() {
   // Handle Frontend Navigation paths
   const handleNavigate = (path: string) => {
     // Admin route navigation
-    if (path === '/admin' || path === '/dashboard' || path.startsWith('/admin') || path.startsWith('/dashboard')) {
+    if (path === '/wpadmin' || path.startsWith('/wpadmin')) {
       setMode('admin');
       setAdminView('dashboard');
       if (typeof window !== 'undefined') {
-        window.history.pushState({}, '', '/admin/');
+        window.history.pushState({}, '', '/wpadmin/');
+      }
+      return;
+    }
+
+    if (path === '/admin' || path.startsWith('/admin')) {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/admin/';
       }
       return;
     }
@@ -726,13 +731,13 @@ export default function App() {
             await refreshAuth();
             setAuthAction('login');
             if (typeof window !== 'undefined') {
-              window.history.replaceState({}, '', '/admin/');
+              window.history.replaceState({}, '', '/wpadmin/');
             }
           }}
           onBackToLogin={() => {
             setAuthAction('login');
             if (typeof window !== 'undefined') {
-              window.history.replaceState({}, '', '/admin/');
+              window.history.replaceState({}, '', '/wpadmin/');
             }
           }}
         />
@@ -783,7 +788,13 @@ export default function App() {
           deploymentSettings={cms.deploymentSettings}
           githubSyncStatus={githubSyncStatus}
           currentUsername={authState.currentUser?.username}
-          onViewLiveSite={() => setMode('frontend')}
+          onViewLiveSite={() => {
+            setMode('frontend');
+            setCurrentRoute({ type: 'home' });
+            if (typeof window !== 'undefined') {
+              window.history.pushState({}, '', '/');
+            }
+          }}
           onLogout={async () => {
             await logout();
             await refreshAuth();

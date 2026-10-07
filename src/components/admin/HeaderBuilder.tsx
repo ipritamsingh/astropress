@@ -30,7 +30,7 @@ export const HeaderBuilder: React.FC<Props> = ({ themeSettings, menus, onSaveThe
       showSearch: true,
       showCta: true,
       ctaText: 'Visit Admin',
-      ctaUrl: '/admin',
+      ctaUrl: '/wpadmin',
       showSocialLinks: true,
     }
   );

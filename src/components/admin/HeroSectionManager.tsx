@@ -552,7 +552,7 @@ export const HeroSectionManager: React.FC<Props> = ({
                         type="text"
                         value={localConfig.secondaryButtonUrl}
                         onChange={(e) => updateConfig({ secondaryButtonUrl: e.target.value })}
-                        placeholder="URL (e.g. /admin)"
+                        placeholder="URL (e.g. /wpadmin)"
                         className="p-1.5 bg-white rounded-lg border border-slate-200 text-xs font-mono"
                       />
                     </div>

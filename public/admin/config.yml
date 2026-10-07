@@ -34,7 +34,7 @@ collections:
     slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
     format: "frontmatter"
     extension: "md"
-    summary: "{{title}} ({{pubDate | date('YYYY-MM-DD')}}) - [{{status}}]"
+    summary: "{{title}} ({{pubDate | date('YYYY-MM-DD')}})"
     sortable_fields: ["pubDate", "title", "updatedDate"]
     view_filters:
       - label: "Drafts"

@@ -7,7 +7,7 @@ import { parseMarkdownToBlocks } from '../components/common/GutenbergBlockRender
 export async function getStaticPaths() {
   const posts = await getCollection('posts');
   const pages = await getCollection('pages');
-  const reserved = new Set(['about', 'contact', 'dashboard', 'admin', 'posts', 'api', 'uploads']);
+  const reserved = new Set(['about', 'contact', 'dashboard', 'admin', 'wpadmin', 'posts', 'api', 'uploads']);
   
   const postPaths = posts
     .filter((post) => {

@@ -71,7 +71,7 @@ collections:
           </div>
 
           <a
-            href="/admin-native/index.html"
+            href="/admin/index.html"
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 transition-colors"
@@ -89,7 +89,7 @@ collections:
             <div className="space-y-1">
               <span className="font-bold block">Live Sveltia CMS Integration</span>
               <p className="text-blue-800 leading-relaxed">
-                Below is the native Sveltia CMS interface loaded from <code className="bg-blue-100 px-1 py-0.5 rounded font-mono text-[11px]">/public/admin-native/index.html</code>.
+                Below is the native Sveltia CMS interface loaded from <code className="bg-blue-100 px-1 py-0.5 rounded font-mono text-[11px]">/public/admin/index.html</code>.
                 When configured with your GitHub repository and Cloudflare Authenticator, Sveltia provides native Git authentication, pull request workflows, and media uploads.
               </p>
             </div>
@@ -98,7 +98,7 @@ collections:
           <div className="rounded-2xl border border-slate-300 overflow-hidden bg-white shadow-md h-[650px] relative">
             <iframe
               key={iframeKey}
-              src="/admin-native/index.html"
+              src="/admin/index.html"
               title="Native Sveltia CMS"
               className="w-full h-full border-0"
             />
@@ -109,7 +109,7 @@ collections:
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-blue-400" />
-              <span className="font-mono text-xs font-bold text-white">public/admin-native/config.yml</span>
+              <span className="font-mono text-xs font-bold text-white">public/admin/config.yml</span>
             </div>
             <button
               onClick={() => {

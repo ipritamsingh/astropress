@@ -120,6 +120,7 @@ ${urls
 User-agent: *
 Allow: /
 Disallow: /admin/
+Disallow: /wpadmin/
 Disallow: /api/
 
 Sitemap: https://astropress.pages.dev/sitemap.xml`;

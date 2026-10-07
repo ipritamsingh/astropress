@@ -637,7 +637,7 @@ export const initialMenus: Menu[] = [
       { id: 'fm-3', label: 'About AstroPress', url: '/about' },
       { id: 'fm-4', label: 'Privacy Policy', url: '/privacy-policy' },
       { id: 'fm-5', label: 'Contact Team', url: '/contact' },
-      { id: 'fm-6', label: 'Admin Dashboard', url: '/admin' },
+      { id: 'fm-6', label: 'Admin Dashboard', url: '/wpadmin/' },
     ],
   },
 ];
@@ -709,7 +709,7 @@ export const initialThemeSettings: ThemeSettings = {
     showSearch: true,
     showCta: true,
     ctaText: 'Visit Admin',
-    ctaUrl: '/admin',
+    ctaUrl: '/wpadmin/',
   },
   footer: {
     columns: 4,
@@ -753,7 +753,7 @@ export const initialHeroConfig: HeroSectionConfig = {
   
   showSecondaryButton: true,
   secondaryButtonText: 'Launch Admin Studio',
-  secondaryButtonUrl: '/admin',
+  secondaryButtonUrl: '/wpadmin/',
   secondaryButtonStyle: 'outline',
   
   showTrustBadges: true,

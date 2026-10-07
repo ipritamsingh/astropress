@@ -134,7 +134,7 @@ export const WebsiteFooter: React.FC<Props> = ({
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-100">Quick Links</h4>
             <ul className="space-y-2 text-xs">
               {footerMenu?.items
-                ?.filter((item) => item.url !== '/admin')
+                ?.filter((item) => item.url !== '/admin' && item.url !== '/wpadmin')
                 ?.map((item) => (
                   <li key={item.id}>
                     <button

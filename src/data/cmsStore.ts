@@ -152,6 +152,17 @@ function loadStoredData(): CMSDataState {
           : initialSiteSettings.communityLinks,
     };
 
+    let loadedHeroConfig = parsed.heroConfig || initialHeroConfig;
+    if (
+      loadedHeroConfig &&
+      (loadedHeroConfig.secondaryButtonUrl === '/admin' ||
+        loadedHeroConfig.secondaryButtonUrl === '/admin/' ||
+        loadedHeroConfig.secondaryButtonUrl === '/dashboard' ||
+        loadedHeroConfig.secondaryButtonUrl === '/dashboard/')
+    ) {
+      loadedHeroConfig = { ...loadedHeroConfig, secondaryButtonUrl: '/wpadmin/' };
+    }
+
     return {
       posts: loadedPosts,
       pages: parsed.pages || initialPages,
@@ -162,7 +173,7 @@ function loadStoredData(): CMSDataState {
       comments: parsed.comments || initialComments,
       menus: parsed.menus || initialMenus,
       homepageSections: parsed.homepageSections || initialHomepageSections,
-      heroConfig: parsed.heroConfig || initialHeroConfig,
+      heroConfig: loadedHeroConfig,
       themeSettings: parsed.themeSettings || initialThemeSettings,
       templates: parsed.templates || initialTemplates,
       siteSettings: loadedSiteSettings,
