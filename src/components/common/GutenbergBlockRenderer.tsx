@@ -12,7 +12,9 @@ import {
   ChevronDown,
   ArrowRight,
   ExternalLink,
+  Download,
 } from 'lucide-react';
+import { detectAndParseTable } from './tableParser';
 
 const BlockImage: React.FC<{
   src: string;
@@ -126,6 +128,43 @@ export function parseMarkdownToBlocks(markdown: string): GutenbergBlock[] {
   while (i < sections.length) {
     const sec = sections[i].trim();
     if (!sec) {
+      i++;
+      continue;
+    }
+
+    // 0. Table Block: Markdown or HTML table
+    const tableData = detectAndParseTable(sec);
+    if (tableData) {
+      blocks.push({
+        id: `md-tbl-${blocks.length}`,
+        type: 'table',
+        content: '',
+        settings: { tableData },
+      });
+      i++;
+      continue;
+    }
+
+    // 0.5 Download Button: [Download: Label](url) or download file link
+    const dlMatch =
+      sec.match(/^\[(?:Download(?::\s*|\s+))?([^\]]+)\]\(([^)]+\.(?:pdf|zip|docx?|xlsx?|pptx?|tar\.gz|csv|json|apk|dmg|exe)(?:\?[^)]*)?)\)$/i) ||
+      sec.match(/^\[Download:\s*([^\]]+)\]\(([^)]+)\)$/i);
+    if (dlMatch) {
+      const dlText = dlMatch[1].trim();
+      const dlUrl = dlMatch[2].trim();
+      const filename = dlUrl.split('/').pop()?.split('?')[0] || '';
+      blocks.push({
+        id: `md-dl-${blocks.length}`,
+        type: 'download-button',
+        content: dlText,
+        settings: {
+          downloadText: dlText,
+          downloadUrl: dlUrl,
+          downloadFileName: filename,
+          buttonStyle: 'primary',
+          align: 'left',
+        },
+      });
       i++;
       continue;
     }
@@ -790,6 +829,107 @@ export const GutenbergBlockRenderer: React.FC<Props> = ({ blocks, rawMarkdown, p
                     Software engineer and publishing architect specializing in Astro, headless CMS patterns, and edge deployment infrastructures.
                   </p>
                 </div>
+              </div>
+            );
+          }
+
+          case 'table': {
+            const tableData = settings.tableData || detectAndParseTable(content) || {
+              headers: ['Header 1', 'Header 2'],
+              rows: [['Cell 1', 'Cell 2']],
+              hasHeader: true,
+              alignments: ['left', 'left'],
+            };
+
+            const alignments = tableData.alignments || [];
+            const getAlignClass = (align?: 'left' | 'center' | 'right') => {
+              if (align === 'center') return 'text-center';
+              if (align === 'right') return 'text-right';
+              return 'text-left';
+            };
+
+            return (
+              <div key={id} className="my-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm text-slate-700 divide-y divide-slate-200 border-collapse">
+                    {tableData.caption && (
+                      <caption className="py-2.5 px-4 text-xs italic text-slate-500 text-left bg-slate-50/70 border-b border-slate-200">
+                        {tableData.caption}
+                      </caption>
+                    )}
+                    {tableData.hasHeader !== false && tableData.headers && tableData.headers.length > 0 && (
+                      <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-700">
+                        <tr className="divide-x divide-slate-200">
+                          {tableData.headers.map((h, hIdx) => (
+                            <th
+                              key={hIdx}
+                              className={`px-4 py-3 font-semibold ${getAlignClass(alignments[hIdx])}`}
+                            >
+                              {renderInlineMarkdown(h)}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                    )}
+                    <tbody className="divide-y divide-slate-200 bg-white">
+                      {tableData.rows.map((row, rIdx) => (
+                        <tr
+                          key={rIdx}
+                          className="divide-x divide-slate-200 hover:bg-slate-50/70 transition-colors odd:bg-white even:bg-slate-50/30"
+                        >
+                          {row.map((cell, cIdx) => (
+                            <td
+                              key={cIdx}
+                              className={`px-4 py-3 leading-relaxed ${getAlignClass(alignments[cIdx])}`}
+                            >
+                              {renderInlineMarkdown(cell)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          }
+
+          case 'download-button': {
+            const btnStyle = settings.buttonStyle || 'primary';
+            const url = settings.downloadUrl || settings.buttonUrl || '#';
+            const text = settings.downloadText || content || 'Download File';
+            const fileName = settings.downloadFileName || '';
+            const isExternal = url.startsWith('http://') || url.startsWith('https://');
+
+            const styleMap = {
+              primary: 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-500/20 active:scale-98',
+              secondary: 'bg-slate-800 hover:bg-slate-900 text-white shadow-xs active:scale-98',
+              outline: 'border-2 border-slate-300 hover:border-blue-600 text-slate-700 hover:text-blue-600 bg-white active:scale-98',
+            };
+
+            const alignment = settings.downloadAlignment || settings.align || 'left';
+            const alignClass =
+              alignment === 'center'
+                ? 'text-center'
+                : alignment === 'right'
+                ? 'text-right'
+                : 'text-left';
+
+            return (
+              <div key={id} className={`my-6 ${alignClass}`}>
+                <a
+                  href={url}
+                  download={fileName ? fileName : true}
+                  target={isExternal ? '_blank' : undefined}
+                  rel={isExternal ? 'noopener noreferrer' : undefined}
+                  className={`inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl font-bold text-sm md:text-base transition-all ${styleMap[btnStyle]}`}
+                >
+                  <Download className="h-4 w-4 shrink-0" />
+                  <span>{text}</span>
+                  {fileName && (
+                    <span className="text-[11px] font-normal opacity-75">({fileName})</span>
+                  )}
+                </a>
               </div>
             );
           }

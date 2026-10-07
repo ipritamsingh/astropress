@@ -91,7 +91,15 @@ import {
   Zap,
   Key,
   ShieldCheck,
+  Table as TableIcon,
+  Download as DownloadIcon,
+  FileDown,
 } from 'lucide-react';
+import {
+  detectAndParseTable,
+  tableDataToMarkdown,
+  TableBlockData,
+} from '../common/tableParser';
 
 interface Props {
   initialItem: Post | Page;
@@ -213,6 +221,9 @@ export const GutenbergEditor: React.FC<Props> = ({
   const [insertUrlInputs, setInsertUrlInputs] = useState<Record<string, string>>({});
   const [showUrlForm, setShowUrlForm] = useState<Record<string, boolean>>({});
   const [isUploadingImage, setIsUploadingImage] = useState<Record<string, boolean>>({});
+  const [tablePasteBlockId, setTablePasteBlockId] = useState<string | null>(null);
+  const [tablePasteRawText, setTablePasteRawText] = useState<string>('');
+  const [tablePasteFeedback, setTablePasteFeedback] = useState<{ id: string; msg: string; isError?: boolean } | null>(null);
 
   // Image Upload Handlers
   const handleBlockFileUpload = async (blockId: string, file: File) => {
@@ -282,6 +293,19 @@ export const GutenbergEditor: React.FC<Props> = ({
       setBlocks((prevBlocks) =>
         prevBlocks.map((b) => {
           if (b.id === targetBlockId) {
+            if (b.type === 'download-button') {
+              const fileName = item.name || mediaUrl.split('/').pop() || 'file';
+              return {
+                ...b,
+                content: b.content || item.name || 'Download File',
+                settings: {
+                  ...b.settings,
+                  downloadUrl: mediaUrl,
+                  downloadFileName: fileName,
+                  downloadText: b.settings.downloadText || item.name || 'Download File',
+                },
+              };
+            }
             return {
               ...b,
               content: mediaUrl,
@@ -424,6 +448,41 @@ export const GutenbergEditor: React.FC<Props> = ({
           settings: {},
         };
         break;
+      case 'table':
+        newBlock = {
+          id: newId,
+          type: 'table',
+          content: '',
+          settings: {
+            tableData: {
+              headers: ['Header 1', 'Header 2'],
+              rows: [
+                ['Cell 1', 'Cell 2'],
+                ['Cell 3', 'Cell 4'],
+              ],
+              alignments: ['left', 'left'],
+              hasHeader: true,
+              caption: '',
+            },
+          },
+        };
+        break;
+      case 'download-button':
+        newBlock = {
+          id: newId,
+          type: 'download-button',
+          content: 'Download File',
+          settings: {
+            downloadText: 'Download File',
+            downloadUrl: '',
+            downloadFileName: '',
+            downloadOpenInNewTab: false,
+            buttonStyle: 'primary',
+            align: 'left',
+            downloadAlignment: 'left',
+          },
+        };
+        break;
       default:
         newBlock = {
           id: newId,
@@ -549,6 +608,177 @@ export const GutenbergEditor: React.FC<Props> = ({
     });
   };
 
+  // Table Block Helpers
+  const getTableData = (block: GutenbergBlock): TableBlockData => {
+    return (
+      block.settings.tableData || {
+        headers: ['Header 1', 'Header 2'],
+        rows: [
+          ['Cell 1', 'Cell 2'],
+          ['Cell 3', 'Cell 4'],
+        ],
+        alignments: ['left', 'left'],
+        hasHeader: true,
+        caption: '',
+      }
+    );
+  };
+
+  const addTableRow = (blockId: string) => {
+    const block = blocks.find((b) => b.id === blockId);
+    if (!block) return;
+    const td = getTableData(block);
+    const colCount = Math.max(td.headers.length, td.rows[0]?.length || 2, 1);
+    const newRow = new Array(colCount).fill('');
+    updateBlock(blockId, {
+      settings: {
+        ...block.settings,
+        tableData: {
+          ...td,
+          rows: [...td.rows, newRow],
+        },
+      },
+    });
+  };
+
+  const deleteTableRow = (blockId: string, rowIndex: number) => {
+    const block = blocks.find((b) => b.id === blockId);
+    if (!block) return;
+    const td = getTableData(block);
+    if (td.rows.length <= 1) return;
+    const newRows = td.rows.filter((_, idx) => idx !== rowIndex);
+    updateBlock(blockId, {
+      settings: {
+        ...block.settings,
+        tableData: {
+          ...td,
+          rows: newRows,
+        },
+      },
+    });
+  };
+
+  const addTableColumn = (blockId: string) => {
+    const block = blocks.find((b) => b.id === blockId);
+    if (!block) return;
+    const td = getTableData(block);
+    const newHeaders = [...td.headers, `Header ${td.headers.length + 1}`];
+    const newRows = td.rows.map((row) => [...row, '']);
+    const newAlignments = [...(td.alignments || td.headers.map(() => 'left' as const)), 'left' as const];
+    updateBlock(blockId, {
+      settings: {
+        ...block.settings,
+        tableData: {
+          ...td,
+          headers: newHeaders,
+          rows: newRows,
+          alignments: newAlignments,
+        },
+      },
+    });
+  };
+
+  const deleteTableColumn = (blockId: string, colIndex: number) => {
+    const block = blocks.find((b) => b.id === blockId);
+    if (!block) return;
+    const td = getTableData(block);
+    if (td.headers.length <= 1) return;
+    const newHeaders = td.headers.filter((_, idx) => idx !== colIndex);
+    const newRows = td.rows.map((row) => row.filter((_, idx) => idx !== colIndex));
+    const newAlignments = (td.alignments || []).filter((_, idx) => idx !== colIndex);
+    updateBlock(blockId, {
+      settings: {
+        ...block.settings,
+        tableData: {
+          ...td,
+          headers: newHeaders,
+          rows: newRows,
+          alignments: newAlignments,
+        },
+      },
+    });
+  };
+
+  const updateTableHeader = (blockId: string, colIndex: number, value: string) => {
+    const block = blocks.find((b) => b.id === blockId);
+    if (!block) return;
+    const td = getTableData(block);
+    const newHeaders = [...td.headers];
+    newHeaders[colIndex] = value;
+    updateBlock(blockId, {
+      settings: {
+        ...block.settings,
+        tableData: {
+          ...td,
+          headers: newHeaders,
+        },
+      },
+    });
+  };
+
+  const updateTableCell = (blockId: string, rowIndex: number, colIndex: number, value: string) => {
+    const block = blocks.find((b) => b.id === blockId);
+    if (!block) return;
+    const td = getTableData(block);
+    const newRows = td.rows.map((row, rIdx) => {
+      if (rIdx !== rowIndex) return row;
+      const updatedRow = [...row];
+      updatedRow[colIndex] = value;
+      return updatedRow;
+    });
+    updateBlock(blockId, {
+      settings: {
+        ...block.settings,
+        tableData: {
+          ...td,
+          rows: newRows,
+        },
+      },
+    });
+  };
+
+  const updateTableColAlignment = (blockId: string, colIndex: number, align: 'left' | 'center' | 'right') => {
+    const block = blocks.find((b) => b.id === blockId);
+    if (!block) return;
+    const td = getTableData(block);
+    const newAlignments = [...(td.alignments || td.headers.map(() => 'left' as const))];
+    newAlignments[colIndex] = align;
+    updateBlock(blockId, {
+      settings: {
+        ...block.settings,
+        tableData: {
+          ...td,
+          alignments: newAlignments,
+        },
+      },
+    });
+  };
+
+  const handleApplyTablePaste = (blockId: string, rawText: string) => {
+    const parsed = detectAndParseTable(rawText);
+    if (parsed) {
+      updateBlock(blockId, {
+        settings: {
+          ...(blocks.find((b) => b.id === blockId)?.settings || {}),
+          tableData: parsed,
+        },
+      });
+      setTablePasteFeedback({ id: blockId, msg: 'Table imported successfully!' });
+      setTimeout(() => setTablePasteFeedback(null), 3000);
+      setTablePasteBlockId(null);
+      setTablePasteRawText('');
+      return true;
+    } else {
+      setTablePasteFeedback({
+        id: blockId,
+        msg: 'Could not detect a valid Markdown or HTML table. Please check syntax.',
+        isError: true,
+      });
+      setTimeout(() => setTablePasteFeedback(null), 4000);
+      return false;
+    }
+  };
+
   // Compile Markdown Body
   const compileBlocksToMarkdown = (): string => {
     return blocks
@@ -581,6 +811,16 @@ export const GutenbergEditor: React.FC<Props> = ({
         }
         if (b.type === 'author-box') return `**Author:** ${b.content}`;
         if (b.type === 'embed') return `[Embedded Resource](${b.content})`;
+        if (b.type === 'table') {
+          const td = b.settings?.tableData;
+          if (td) return tableDataToMarkdown(td);
+          return b.content || '';
+        }
+        if (b.type === 'download-button') {
+          const text = b.settings?.downloadText || b.content || 'Download File';
+          const url = b.settings?.downloadUrl || '#';
+          return `[Download: ${text}](${url})`;
+        }
         return b.content || '';
       })
       .filter(Boolean)
@@ -1286,6 +1526,166 @@ ${compileBlocksToMarkdown()}`;
                   </div>
                 )}
 
+                {/* Dedicated Table Block Settings in Inspector */}
+                {selectedBlock.type === 'table' && (() => {
+                  const td = getTableData(selectedBlock);
+                  return (
+                    <div className="space-y-4 pb-4 border-b border-slate-200">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
+                        Table Settings
+                      </span>
+                      <div className="flex items-center justify-between text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                        <span>Grid Dimensions</span>
+                        <span className="font-bold text-slate-800">{td.rows.length} Rows × {td.headers.length} Columns</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => addTableRow(selectedBlock.id)}
+                          className="flex-1 py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold border border-slate-200"
+                        >
+                          + Add Row
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => addTableColumn(selectedBlock.id)}
+                          className="flex-1 py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold border border-slate-200"
+                        >
+                          + Add Column
+                        </button>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-slate-700 block mb-1">Table Caption</label>
+                        <input
+                          type="text"
+                          value={td.caption || ''}
+                          onChange={(e) =>
+                            updateBlock(selectedBlock.id, {
+                              settings: {
+                                ...selectedBlock.settings,
+                                tableData: { ...td, caption: e.target.value },
+                              },
+                            })
+                          }
+                          placeholder="Table description / source..."
+                          className="w-full text-xs border border-slate-200 rounded-lg p-2 bg-slate-50"
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Dedicated Download Button Settings in Inspector */}
+                {selectedBlock.type === 'download-button' && (
+                  <div className="space-y-4 pb-4 border-b border-slate-200">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
+                      Download Settings
+                    </span>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">Button Label</label>
+                      <input
+                        type="text"
+                        value={selectedBlock.settings.downloadText || selectedBlock.content || ''}
+                        onChange={(e) =>
+                          updateBlock(selectedBlock.id, {
+                            content: e.target.value,
+                            settings: { ...selectedBlock.settings, downloadText: e.target.value },
+                          })
+                        }
+                        placeholder="Download Technical Specs (PDF)"
+                        className="w-full text-xs border border-slate-200 rounded-lg p-2 bg-slate-50"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">File URL / Download Link</label>
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          value={selectedBlock.settings.downloadUrl || ''}
+                          onChange={(e) =>
+                            updateBlock(selectedBlock.id, {
+                              settings: { ...selectedBlock.settings, downloadUrl: e.target.value },
+                            })
+                          }
+                          placeholder="https://... or /uploads/..."
+                          className="w-full text-xs border border-slate-200 rounded-lg p-2 bg-slate-50"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => openMediaPickerForBlock(selectedBlock.id)}
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold border border-slate-200 shrink-0"
+                        >
+                          Browse
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">Download Filename (Optional)</label>
+                      <input
+                        type="text"
+                        value={selectedBlock.settings.downloadFileName || ''}
+                        onChange={(e) =>
+                          updateBlock(selectedBlock.id, {
+                            settings: { ...selectedBlock.settings, downloadFileName: e.target.value },
+                          })
+                        }
+                        placeholder="report-2026.pdf"
+                        className="w-full text-xs border border-slate-200 rounded-lg p-2 bg-slate-50"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">Button Alignment</label>
+                      <div className="grid grid-cols-3 gap-1">
+                        {(['left', 'center', 'right'] as const).map((alignOpt) => (
+                          <button
+                            key={alignOpt}
+                            type="button"
+                            onClick={() =>
+                              updateBlock(selectedBlock.id, {
+                                settings: {
+                                  ...selectedBlock.settings,
+                                  align: alignOpt,
+                                  downloadAlignment: alignOpt,
+                                },
+                              })
+                            }
+                            className={`py-1 text-[11px] font-semibold rounded border uppercase ${
+                              (selectedBlock.settings.downloadAlignment || selectedBlock.settings.align || 'left') === alignOpt
+                                ? 'bg-blue-600 text-white border-blue-600 font-bold'
+                                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            {alignOpt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">Button Style Preset</label>
+                      <div className="grid grid-cols-3 gap-1">
+                        {(['primary', 'secondary', 'outline'] as const).map((style) => (
+                          <button
+                            key={style}
+                            type="button"
+                            onClick={() =>
+                              updateBlock(selectedBlock.id, {
+                                settings: { ...selectedBlock.settings, buttonStyle: style },
+                              })
+                            }
+                            className={`py-1 text-[11px] font-semibold rounded border uppercase ${
+                              (selectedBlock.settings.buttonStyle || 'primary') === style
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            {style}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Typography & Alignment Controls */}
                 <div className="space-y-3">
                   <span className="text-xs font-bold text-slate-700 block">Typography & Alignment</span>
@@ -1499,6 +1899,20 @@ ${compileBlocksToMarkdown()}`;
                       >
                         <ColumnsIcon className="h-4 w-4 text-emerald-600 shrink-0" />
                         <span>2-3 Columns</span>
+                      </button>
+                      <button
+                        onClick={() => addBlock('table')}
+                        className="flex items-center gap-2 p-2 rounded-xl border border-slate-100 bg-slate-50 hover:bg-blue-50 hover:border-blue-200 text-slate-700 hover:text-blue-700 text-xs font-medium text-left transition-colors"
+                      >
+                        <TableIcon className="h-4 w-4 text-emerald-600 shrink-0" />
+                        <span>Table</span>
+                      </button>
+                      <button
+                        onClick={() => addBlock('download-button')}
+                        className="flex items-center gap-2 p-2 rounded-xl border border-slate-100 bg-slate-50 hover:bg-blue-50 hover:border-blue-200 text-slate-700 hover:text-blue-700 text-xs font-medium text-left transition-colors"
+                      >
+                        <DownloadIcon className="h-4 w-4 text-sky-600 shrink-0" />
+                        <span>Download Button</span>
                       </button>
                       <button
                         onClick={() => addBlock('divider')}
@@ -2404,6 +2818,344 @@ ${compileBlocksToMarkdown()}`;
                           />
                         </div>
                       )}
+
+                      {block.type === 'download-button' && (
+                        <div className="p-4 border border-slate-200 rounded-xl bg-slate-50 space-y-3">
+                          <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                            <DownloadIcon className="h-4 w-4 text-sky-600" />
+                            <span>Download Button Block</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div>
+                              <label className="text-[11px] font-semibold text-slate-500 block mb-1">Button Label</label>
+                              <input
+                                type="text"
+                                value={block.settings.downloadText || block.content || ''}
+                                onChange={(e) =>
+                                  updateBlock(block.id, {
+                                    content: e.target.value,
+                                    settings: { ...block.settings, downloadText: e.target.value },
+                                  })
+                                }
+                                placeholder="e.g., Download Technical Report (PDF)"
+                                className="w-full text-xs font-semibold p-2 rounded-lg border border-slate-200 bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[11px] font-semibold text-slate-500 block mb-1">Download URL / File Link</label>
+                              <div className="flex gap-1.5">
+                                <input
+                                  type="text"
+                                  value={block.settings.downloadUrl || ''}
+                                  onChange={(e) =>
+                                    updateBlock(block.id, {
+                                      settings: { ...block.settings, downloadUrl: e.target.value },
+                                    })
+                                  }
+                                  placeholder="https://.../document.pdf or /uploads/..."
+                                  className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => openMediaPickerForBlock(block.id)}
+                                  className="px-2.5 py-1 text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg shrink-0"
+                                  title="Pick file from media library"
+                                >
+                                  Library
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                            <div>
+                              <label className="text-[11px] font-semibold text-slate-500 block mb-1">Custom Download Filename</label>
+                              <input
+                                type="text"
+                                value={block.settings.downloadFileName || ''}
+                                onChange={(e) =>
+                                  updateBlock(block.id, {
+                                    settings: { ...block.settings, downloadFileName: e.target.value },
+                                  })
+                                }
+                                placeholder="e.g. AstroPress-Guide-2026.pdf"
+                                className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[11px] font-semibold text-slate-500 block mb-1">Button Alignment</label>
+                              <div className="grid grid-cols-3 gap-1">
+                                {(['left', 'center', 'right'] as const).map((al) => (
+                                  <button
+                                    key={al}
+                                    type="button"
+                                    onClick={() =>
+                                      updateBlock(block.id, {
+                                        settings: {
+                                          ...block.settings,
+                                          align: al,
+                                          downloadAlignment: al,
+                                        },
+                                      })
+                                    }
+                                    className={`py-1.5 text-xs font-semibold rounded-lg border uppercase tracking-wider text-[10px] ${
+                                      (block.settings.downloadAlignment || block.settings.align || 'left') === al
+                                        ? 'bg-blue-600 text-white border-blue-600 font-bold'
+                                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    {al}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <label className="text-[11px] font-semibold text-slate-500 block mb-1">Button Style</label>
+                              <div className="grid grid-cols-3 gap-1">
+                                {(['primary', 'secondary', 'outline'] as const).map((st) => (
+                                  <button
+                                    key={st}
+                                    type="button"
+                                    onClick={() =>
+                                      updateBlock(block.id, {
+                                        settings: { ...block.settings, buttonStyle: st },
+                                      })
+                                    }
+                                    className={`py-1.5 text-xs font-semibold rounded-lg border uppercase tracking-wider text-[10px] ${
+                                      (block.settings.buttonStyle || 'primary') === st
+                                        ? 'bg-blue-600 text-white border-blue-600 font-bold'
+                                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    {st}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Live Visual Alignment Preview in Canvas */}
+                          <div className={`pt-2 border-t border-slate-200/60 ${
+                            (block.settings.downloadAlignment || block.settings.align || 'left') === 'center'
+                              ? 'text-center'
+                              : (block.settings.downloadAlignment || block.settings.align || 'left') === 'right'
+                              ? 'text-right'
+                              : 'text-left'
+                          }`}>
+                            <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs shadow-2xs pointer-events-none ${
+                              (block.settings.buttonStyle || 'primary') === 'secondary'
+                                ? 'bg-slate-800 text-white'
+                                : (block.settings.buttonStyle || 'primary') === 'outline'
+                                ? 'border-2 border-slate-300 text-slate-700 bg-white'
+                                : 'bg-blue-600 text-white'
+                            }`}>
+                              <DownloadIcon className="h-3.5 w-3.5" />
+                              <span>{block.settings.downloadText || block.content || 'Download File'}</span>
+                              {block.settings.downloadFileName && (
+                                <span className="text-[10px] opacity-75 font-normal">({block.settings.downloadFileName})</span>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {block.type === 'table' && (() => {
+                        const td = getTableData(block);
+                        const alignments = td.alignments || [];
+                        return (
+                          <div className="space-y-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-200">
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                                <TableIcon className="h-4 w-4 text-emerald-600" />
+                                <span>Interactive Table ({td.rows.length} rows × {td.headers.length} cols)</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={() => addTableRow(block.id)}
+                                  className="px-2.5 py-1 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors flex items-center gap-1"
+                                >
+                                  <Plus className="h-3 w-3 text-slate-500" />
+                                  <span>Add Row</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => addTableColumn(block.id)}
+                                  className="px-2.5 py-1 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors flex items-center gap-1"
+                                >
+                                  <Plus className="h-3 w-3 text-slate-500" />
+                                  <span>Add Column</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setTablePasteBlockId(block.id);
+                                    setTablePasteRawText('');
+                                  }}
+                                  className="px-2.5 py-1 text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg border border-blue-200 transition-colors flex items-center gap-1"
+                                >
+                                  <Sparkles className="h-3 w-3 text-blue-600" />
+                                  <span>Import / Paste</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Table Paste/Import Dialog */}
+                            {tablePasteBlockId === block.id && (
+                              <div className="p-3.5 bg-slate-900 text-slate-100 rounded-xl space-y-2.5 animate-in fade-in duration-150">
+                                <div className="flex items-center justify-between text-xs font-bold">
+                                  <span>Paste Markdown or HTML Table</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setTablePasteBlockId(null)}
+                                    className="text-slate-400 hover:text-white"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                                <textarea
+                                  value={tablePasteRawText}
+                                  onChange={(e) => setTablePasteRawText(e.target.value)}
+                                  rows={4}
+                                  placeholder="| Col 1 | Col 2 |\n|---|---|\n| Data 1 | Data 2 |"
+                                  className="w-full text-xs font-mono-custom p-2 rounded-lg bg-slate-800 text-slate-100 border border-slate-700 outline-none resize-none"
+                                />
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-[11px] text-slate-400">
+                                    Supports GitHub Markdown (|) and HTML &lt;table&gt;
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApplyTablePaste(block.id, tablePasteRawText)}
+                                    className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition-colors"
+                                  >
+                                    Apply Table Data
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {tablePasteFeedback?.id === block.id && (
+                              <div className={`text-xs px-3 py-1.5 rounded-lg font-medium ${
+                                tablePasteFeedback.isError
+                                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              }`}>
+                                {tablePasteFeedback.msg}
+                              </div>
+                            )}
+
+                            {/* Table Grid Canvas */}
+                            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                              <table className="w-full border-collapse text-xs">
+                                <thead>
+                                  <tr className="bg-slate-50 border-b border-slate-200">
+                                    {td.headers.map((h, cIdx) => (
+                                      <th key={cIdx} className="p-2 border-r border-slate-200 last:border-r-0">
+                                        <div className="space-y-1">
+                                          <input
+                                            type="text"
+                                            value={h}
+                                            onChange={(e) => updateTableHeader(block.id, cIdx, e.target.value)}
+                                            className="w-full font-bold text-slate-800 bg-transparent border-b border-slate-300 focus:border-blue-500 outline-none px-1 py-0.5"
+                                            placeholder={`Header ${cIdx + 1}`}
+                                          />
+                                          <div className="flex items-center justify-between gap-1">
+                                            <div className="flex items-center gap-0.5">
+                                              {(['left', 'center', 'right'] as const).map((a) => (
+                                                <button
+                                                  key={a}
+                                                  type="button"
+                                                  onClick={() => updateTableColAlignment(block.id, cIdx, a)}
+                                                  className={`p-0.5 rounded text-[10px] uppercase font-mono ${
+                                                    alignments[cIdx] === a || (!alignments[cIdx] && a === 'left')
+                                                      ? 'bg-blue-600 text-white font-bold'
+                                                      : 'text-slate-400 hover:text-slate-700'
+                                                  }`}
+                                                  title={`Align ${a}`}
+                                                >
+                                                  {a[0].toUpperCase()}
+                                                </button>
+                                              ))}
+                                            </div>
+                                            {td.headers.length > 1 && (
+                                              <button
+                                                type="button"
+                                                onClick={() => deleteTableColumn(block.id, cIdx)}
+                                                className="text-slate-300 hover:text-rose-600 p-0.5"
+                                                title="Delete Column"
+                                              >
+                                                <Trash2 className="h-3 w-3" />
+                                              </button>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </th>
+                                    ))}
+                                    <th className="w-8 p-2 bg-slate-50"></th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {td.rows.map((row, rIdx) => (
+                                    <tr key={rIdx} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/50">
+                                      {row.map((cell, cIdx) => (
+                                        <td key={cIdx} className="p-1.5 border-r border-slate-100 last:border-r-0">
+                                          <input
+                                            type="text"
+                                            value={cell}
+                                            onChange={(e) => updateTableCell(block.id, rIdx, cIdx, e.target.value)}
+                                            className={`w-full p-1 text-slate-700 bg-transparent rounded outline-none focus:bg-blue-50/50 ${
+                                              alignments[cIdx] === 'center'
+                                                ? 'text-center'
+                                                : alignments[cIdx] === 'right'
+                                                ? 'text-right'
+                                                : 'text-left'
+                                            }`}
+                                            placeholder="—"
+                                          />
+                                        </td>
+                                      ))}
+                                      <td className="w-8 p-1 text-center">
+                                        {td.rows.length > 1 && (
+                                          <button
+                                            type="button"
+                                            onClick={() => deleteTableRow(block.id, rIdx)}
+                                            className="text-slate-300 hover:text-rose-600 p-1"
+                                            title="Delete Row"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </button>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+
+                            {/* Caption */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-semibold text-slate-400">Caption:</span>
+                              <input
+                                type="text"
+                                value={td.caption || ''}
+                                onChange={(e) =>
+                                  updateBlock(block.id, {
+                                    settings: {
+                                      ...block.settings,
+                                      tableData: {
+                                        ...td,
+                                        caption: e.target.value,
+                                      },
+                                    },
+                                  })
+                                }
+                                placeholder="Optional table caption or source..."
+                                className="flex-1 text-xs italic text-slate-600 border-b border-slate-200 focus:border-blue-400 bg-transparent outline-none py-0.5"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {block.type === 'author-box' && (
                         <div className="p-4 border border-slate-200 rounded-xl bg-slate-50 flex items-center gap-3">

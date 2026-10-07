@@ -15,7 +15,9 @@ export type BlockType =
   | 'alert'
   | 'divider'
   | 'spacer'
-  | 'embed';
+  | 'embed'
+  | 'table'
+  | 'download-button';
 
 export interface GutenbergBlock {
   id: string;
@@ -41,6 +43,18 @@ export interface GutenbergBlock {
     codeLanguage?: string;
     accordionItems?: { title: string; content: string }[];
     customClasses?: string;
+    tableData?: {
+      headers: string[];
+      rows: string[][];
+      caption?: string;
+      alignments?: ('left' | 'center' | 'right')[];
+      hasHeader?: boolean;
+    };
+    downloadUrl?: string;
+    downloadText?: string;
+    downloadFileName?: string;
+    downloadOpenInNewTab?: boolean;
+    downloadAlignment?: 'left' | 'center' | 'right';
   };
 }
 

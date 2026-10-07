@@ -55,8 +55,14 @@ export const SearchModal: React.FC<Props> = ({
     : pages.slice(0, 3);
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-start justify-center pt-16 sm:pt-24 px-4 font-sans animate-in fade-in duration-150">
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-start justify-center pt-16 sm:pt-24 px-4 font-sans animate-in fade-in duration-150 cursor-pointer"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col cursor-default"
+      >
         {/* Search Input Bar */}
         <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-200">
           <Search className="h-5 w-5 text-slate-400 shrink-0" />
@@ -70,8 +76,11 @@ export const SearchModal: React.FC<Props> = ({
           />
           {query && (
             <button
+              type="button"
               onClick={() => setQuery('')}
-              className="text-slate-400 hover:text-slate-600 p-1"
+              className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+              title="Clear search text"
+              aria-label="Clear search input"
             >
               <X className="h-4 w-4" />
             </button>
@@ -79,6 +88,16 @@ export const SearchModal: React.FC<Props> = ({
           <kbd className="hidden sm:inline bg-slate-100 text-slate-500 text-[10px] px-2 py-1 rounded font-semibold border border-slate-200">
             ESC
           </kbd>
+          {/* Prominent Close Modal Button */}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close search modal"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0"
+            title="Close (Esc)"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         {/* Results Container */}
