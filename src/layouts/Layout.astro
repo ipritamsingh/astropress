@@ -1,19 +1,83 @@
 ---
 import '../index.css';
+import { initialSiteSettings } from '../data/initialData';
 
 interface Props {
   title?: string;
   description?: string;
   ogImage?: string;
+  canonicalUrl?: string;
   robotsDirective?: string;
+  schemaData?: any;
 }
 
+const siteTitle = initialSiteSettings.siteTitle;
+const siteUrl = initialSiteSettings.siteUrl || 'https://astropress.pages.dev';
+const twitterHandle = initialSiteSettings.seoSocialProfiles?.twitterHandle || '@astropress';
+
 const {
-  title = "AstroPress — WordPress-Style Sveltia CMS Platform",
-  description = "Production-ready WordPress-inspired headless CMS builder combining Sveltia CMS, Astro frontend architecture, Gutenberg-style block editor, theme customizer, GitHub backend, and Cloudflare Pages deployment.",
-  ogImage = "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=80",
+  title = `${siteTitle} — ${initialSiteSettings.siteTagline}`,
+  description = initialSiteSettings.siteDescription,
+  ogImage = initialSiteSettings.defaultOgImage,
+  canonicalUrl = Astro.url ? Astro.url.href : siteUrl,
   robotsDirective = "index, follow",
+  schemaData,
 } = Astro.props;
+
+const defaultProfiles = initialSiteSettings.seoSocialProfiles || {};
+const sameAsUrls = [
+  defaultProfiles.facebookUrl,
+  defaultProfiles.instagramUrl,
+  defaultProfiles.youtubeUrl,
+  defaultProfiles.linkedinUrl,
+  defaultProfiles.githubUrl,
+  defaultProfiles.twitterHandle ? `https://x.com/${defaultProfiles.twitterHandle.replace(/^@/, '')}` : undefined,
+].filter(Boolean);
+
+const siteLogoUrl = initialSiteSettings.logoUrl;
+const siteFaviconUrl = initialSiteSettings.faviconUrl || '/favicon.ico';
+
+const organizationSchema: any = {
+  '@type': 'Organization',
+  '@id': `${siteUrl}#organization`,
+  name: siteTitle,
+  url: siteUrl,
+  description: description,
+  sameAs: sameAsUrls.length > 0 ? sameAsUrls : undefined,
+};
+if (siteLogoUrl) {
+  organizationSchema.logo = {
+    '@type': 'ImageObject',
+    url: siteLogoUrl,
+  };
+}
+
+const defaultSchemaGraph = schemaData || {
+  '@context': 'https://schema.org',
+  '@graph': [
+    organizationSchema,
+    {
+      '@type': 'WebSite',
+      '@id': `${siteUrl}#website`,
+      url: siteUrl,
+      name: siteTitle,
+      description: description,
+      publisher: { '@id': `${siteUrl}#organization` },
+    },
+    {
+      '@type': 'BreadcrumbList',
+      '@id': `${siteUrl}#breadcrumb`,
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Home',
+          item: siteUrl,
+        },
+      ],
+    },
+  ],
+};
 ---
 
 <!doctype html>
@@ -24,17 +88,23 @@ const {
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="robots" content={robotsDirective} />
+    <link rel="canonical" href={canonicalUrl} />
+    <link rel="icon" href={siteFaviconUrl} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:image" content={ogImage} />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={siteTitle} />
+    <meta property="og:url" content={canonicalUrl} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImage} />
+    <meta name="twitter:site" content={twitterHandle} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <script type="application/ld+json" id="astropress-schema" set:html={JSON.stringify(defaultSchemaGraph, null, 2)} />
     
     <!-- Fetch & Sandbox compatibility guard -->
     <script is:inline>

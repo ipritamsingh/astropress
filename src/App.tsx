@@ -305,18 +305,254 @@ export default function App() {
   const [currentRoute, setCurrentRoute] = useState<FrontendRoute>({ type: 'home' });
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
-  // Dynamically enforce <meta name="robots"> in head based on active route and indexing settings
+  // Dynamically enforce SEO, Site Identity, OpenGraph, Twitter Cards, Robots & Schema.org JSON-LD in head
   React.useEffect(() => {
     if (typeof document === 'undefined') return;
-    const directive = calculateRobotsDirective(currentRoute, cms.siteSettings?.indexingSettings);
-    let metaRobots = document.querySelector('meta[name="robots"]');
-    if (!metaRobots) {
-      metaRobots = document.createElement('meta');
-      metaRobots.setAttribute('name', 'robots');
-      document.head.appendChild(metaRobots);
+
+    const siteTitle = cms.siteSettings?.siteTitle || cms.themeSettings.siteName || 'AstroPress';
+    const siteTagline = cms.siteSettings?.siteTagline || cms.themeSettings.tagline || '';
+    const siteDesc = cms.siteSettings?.siteDescription || siteTagline || 'AstroPress — Modern Astro & Sveltia CMS Platform';
+    const siteUrl = cms.siteSettings?.siteUrl || 'https://astropress.pages.dev';
+    const defaultOg = cms.siteSettings?.defaultOgImage || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=80';
+    const twitterHandle = cms.siteSettings?.seoSocialProfiles?.twitterHandle || '@astropress';
+
+    let pageTitle = `${siteTitle} — ${siteTagline}`;
+    let pageDesc = siteDesc;
+    let pageOgImage = defaultOg;
+
+    if (currentRoute.type === 'post' && currentRoute.post) {
+      pageTitle = `${currentRoute.post.title} — ${siteTitle}`;
+      if (currentRoute.post.excerpt) pageDesc = currentRoute.post.excerpt;
+      if (currentRoute.post.featuredImage) pageOgImage = currentRoute.post.featuredImage;
+    } else if (currentRoute.type === 'page' && currentRoute.page) {
+      pageTitle = `${currentRoute.page.title} — ${siteTitle}`;
+    } else if (currentRoute.type === 'archive' && currentRoute.item) {
+      pageTitle = `${currentRoute.item.name} — ${siteTitle}`;
     }
-    metaRobots.setAttribute('content', directive);
-  }, [currentRoute, cms.siteSettings?.indexingSettings]);
+
+    document.title = pageTitle;
+
+    const setMetaTag = (selector: string, attrName: string, attrVal: string, content: string) => {
+      let el = document.querySelector(selector);
+      if (!el) {
+        el = document.createElement(selector.startsWith('link') ? 'link' : 'meta');
+        el.setAttribute(attrName, attrVal);
+        document.head.appendChild(el);
+      }
+      if (selector.startsWith('link')) {
+        el.setAttribute('href', content);
+      } else {
+        el.setAttribute('content', content);
+      }
+    };
+
+    setMetaTag('meta[name="description"]', 'name', 'description', pageDesc);
+    setMetaTag('meta[property="og:title"]', 'property', 'og:title', pageTitle);
+    setMetaTag('meta[property="og:description"]', 'property', 'og:description', pageDesc);
+    setMetaTag('meta[property="og:site_name"]', 'property', 'og:site_name', siteTitle);
+    setMetaTag('meta[property="og:image"]', 'property', 'og:image', pageOgImage);
+    setMetaTag('meta[property="og:url"]', 'property', 'og:url', window.location.href);
+    setMetaTag('meta[name="twitter:title"]', 'name', 'twitter:title', pageTitle);
+    setMetaTag('meta[name="twitter:description"]', 'name', 'twitter:description', pageDesc);
+    setMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', pageOgImage);
+    setMetaTag('meta[name="twitter:site"]', 'name', 'twitter:site', twitterHandle);
+    setMetaTag('link[rel="canonical"]', 'rel', 'canonical', window.location.href);
+
+    const siteFavicon = cms.siteSettings?.faviconUrl || cms.themeSettings.faviconUrl;
+    if (siteFavicon) {
+      setMetaTag('link[rel="icon"]', 'rel', 'icon', siteFavicon);
+    }
+
+    // Robots directive
+    const directive = calculateRobotsDirective(currentRoute, cms.siteSettings?.indexingSettings);
+    setMetaTag('meta[name="robots"]', 'name', 'robots', directive);
+
+    // Schema.org Graph Construction
+    const profiles = cms.siteSettings?.seoSocialProfiles || {};
+    const sameAsUrls = [
+      profiles.facebookUrl,
+      profiles.instagramUrl,
+      profiles.youtubeUrl,
+      profiles.linkedinUrl,
+      profiles.githubUrl,
+      profiles.twitterHandle ? `https://x.com/${profiles.twitterHandle.replace(/^@/, '')}` : undefined,
+    ].filter(Boolean) as string[];
+
+    const orgLogoUrl = cms.siteSettings?.logoUrl || cms.themeSettings.logoUrl;
+
+    const organizationSchema: any = {
+      '@type': 'Organization',
+      '@id': `${siteUrl}#organization`,
+      name: siteTitle,
+      url: siteUrl,
+      description: siteDesc,
+    };
+    if (orgLogoUrl) {
+      organizationSchema.logo = {
+        '@type': 'ImageObject',
+        url: orgLogoUrl,
+      };
+    }
+    if (sameAsUrls.length > 0) {
+      organizationSchema.sameAs = sameAsUrls;
+    }
+
+    const websiteSchema = {
+      '@type': 'WebSite',
+      '@id': `${siteUrl}#website`,
+      url: siteUrl,
+      name: siteTitle,
+      description: siteDesc,
+      publisher: { '@id': `${siteUrl}#organization` },
+    };
+
+    const graphItems: any[] = [organizationSchema, websiteSchema];
+
+    // Route-Specific Schemas
+    if (currentRoute.type === 'home') {
+      graphItems.push({
+        '@type': 'BreadcrumbList',
+        '@id': `${siteUrl}#breadcrumb`,
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Home',
+            item: siteUrl,
+          },
+        ],
+      });
+    } else if (currentRoute.type === 'post' && currentRoute.post) {
+      const post = currentRoute.post;
+      const postUrl = `${siteUrl.replace(/\/+$/, '')}/posts/${post.slug}`;
+      const postDesc = post.excerpt || post.body?.substring(0, 160) || siteDesc;
+      const postImg = post.featuredImage || pageOgImage;
+
+      graphItems.push({
+        '@type': 'BlogPosting',
+        '@id': `${postUrl}#article`,
+        headline: post.title,
+        description: postDesc,
+        image: postImg,
+        datePublished: post.pubDate,
+        dateModified: post.pubDate,
+        mainEntityOfPage: postUrl,
+        author: {
+          '@type': 'Person',
+          name: post.author || 'Staff Writer',
+        },
+        publisher: {
+          '@id': `${siteUrl}#organization`,
+        },
+      });
+
+      graphItems.push({
+        '@type': 'BreadcrumbList',
+        '@id': `${postUrl}#breadcrumb`,
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Home',
+            item: siteUrl,
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: 'Articles',
+            item: `${siteUrl.replace(/\/+$/, '')}/posts`,
+          },
+          {
+            '@type': 'ListItem',
+            position: 3,
+            name: post.title,
+            item: postUrl,
+          },
+        ],
+      });
+    } else if (currentRoute.type === 'page' && currentRoute.page) {
+      const page = currentRoute.page;
+      const pageUrl = `${siteUrl.replace(/\/+$/, '')}/${page.slug}`;
+      const pageDesc = page.blocks?.[0]?.content?.substring(0, 160) || siteDesc;
+
+      graphItems.push({
+        '@type': 'WebPage',
+        '@id': `${pageUrl}#webpage`,
+        name: page.title,
+        url: pageUrl,
+        description: pageDesc,
+        publisher: {
+          '@id': `${siteUrl}#organization`,
+        },
+      });
+
+      graphItems.push({
+        '@type': 'BreadcrumbList',
+        '@id': `${pageUrl}#breadcrumb`,
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Home',
+            item: siteUrl,
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: page.title,
+            item: pageUrl,
+          },
+        ],
+      });
+    } else if (currentRoute.type === 'archive' && currentRoute.item) {
+      const item = currentRoute.item;
+      const archiveUrl = `${siteUrl.replace(/\/+$/, '')}/category/${item.slug}`;
+
+      graphItems.push({
+        '@type': 'CollectionPage',
+        '@id': `${archiveUrl}#collection`,
+        name: item.name,
+        url: archiveUrl,
+        description: `Articles and guides in ${item.name}`,
+        publisher: {
+          '@id': `${siteUrl}#organization`,
+        },
+      });
+
+      graphItems.push({
+        '@type': 'BreadcrumbList',
+        '@id': `${archiveUrl}#breadcrumb`,
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Home',
+            item: siteUrl,
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: item.name,
+            item: archiveUrl,
+          },
+        ],
+      });
+    }
+
+    const schemaOrgData = {
+      '@context': 'https://schema.org',
+      '@graph': graphItems,
+    };
+
+    let schemaScript = document.querySelector('script[type="application/ld+json"]#astropress-schema');
+    if (!schemaScript) {
+      schemaScript = document.createElement('script');
+      schemaScript.setAttribute('type', 'application/ld+json');
+      schemaScript.setAttribute('id', 'astropress-schema');
+      document.head.appendChild(schemaScript);
+    }
+    schemaScript.textContent = JSON.stringify(schemaOrgData, null, 2);
+  }, [currentRoute, cms.siteSettings, cms.themeSettings]);
 
   // Count pending comments
   const pendingCommentsCount = cms.comments.filter((c) => c.status === 'pending').length;
@@ -1029,6 +1265,10 @@ export default function App() {
               pages={cms.pages}
               themeSettings={cms.themeSettings}
               siteSettings={cms.siteSettings}
+              media={cms.media}
+              onAddMedia={cms.addMediaItem}
+              onUpdateMedia={cms.updateMediaItem}
+              onDeleteMedia={cms.deleteMediaItem}
               onUpdateSiteSettings={(s) => cms.updateSiteSettings(s)}
               onSaveSeoSettings={(seoSettings) => {
                 cms.recordCommit('seo: update global search metadata and indexing settings');

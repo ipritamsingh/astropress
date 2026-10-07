@@ -127,9 +127,30 @@ function loadStoredData(): CMSDataState {
     }
 
     const rawSiteSettings = parsed.siteSettings || {};
+    const rawThemeSettings = parsed.themeSettings || {};
+
+    const resolvedSiteTitle = rawSiteSettings.siteTitle || rawThemeSettings.siteName || initialSiteSettings.siteTitle;
+    const resolvedSiteTagline = rawSiteSettings.siteTagline || rawThemeSettings.tagline || initialSiteSettings.siteTagline;
+    const resolvedSiteDescription = rawSiteSettings.siteDescription || resolvedSiteTagline || initialSiteSettings.siteDescription;
+    const resolvedSiteUrl = rawSiteSettings.siteUrl || initialSiteSettings.siteUrl || 'https://astropress.pages.dev';
+    const resolvedLogoUrl = rawSiteSettings.logoUrl !== undefined ? rawSiteSettings.logoUrl : (rawThemeSettings.logoUrl || '');
+    const resolvedFaviconUrl = rawSiteSettings.faviconUrl !== undefined ? rawSiteSettings.faviconUrl : (rawThemeSettings.faviconUrl || '');
+    const resolvedDefaultOgImage = rawSiteSettings.defaultOgImage || initialSiteSettings.defaultOgImage;
+
     const loadedSiteSettings: SiteSettings = {
       ...initialSiteSettings,
       ...rawSiteSettings,
+      siteTitle: resolvedSiteTitle,
+      siteTagline: resolvedSiteTagline,
+      siteDescription: resolvedSiteDescription,
+      siteUrl: resolvedSiteUrl,
+      logoUrl: resolvedLogoUrl,
+      faviconUrl: resolvedFaviconUrl,
+      defaultOgImage: resolvedDefaultOgImage,
+      seoSocialProfiles: {
+        ...initialSiteSettings.seoSocialProfiles,
+        ...(rawSiteSettings.seoSocialProfiles || {}),
+      },
       indexingSettings: {
         ...initialSiteSettings.indexingSettings,
         ...(rawSiteSettings.indexingSettings || {}),
@@ -163,11 +184,14 @@ function loadStoredData(): CMSDataState {
       loadedHeroConfig = { ...loadedHeroConfig, secondaryButtonUrl: '/wpadmin/' };
     }
 
-    const rawThemeSettings = parsed.themeSettings || {};
     const rawFooter = rawThemeSettings.footer || {};
     const loadedThemeSettings: ThemeSettings = {
       ...initialThemeSettings,
       ...rawThemeSettings,
+      siteName: resolvedSiteTitle,
+      tagline: resolvedSiteTagline,
+      logoUrl: resolvedLogoUrl,
+      faviconUrl: resolvedFaviconUrl,
       header: {
         ...initialThemeSettings.header,
         ...(rawThemeSettings.header || {}),
@@ -714,7 +738,20 @@ export function useCMS() {
           }
         : data.themeSettings.footer,
     };
-    const updated = { ...data, themeSettings: updatedSettings };
+
+    const updatedSiteSettings: SiteSettings = {
+      ...data.siteSettings,
+      siteTitle: updatedSettings.siteName || data.siteSettings.siteTitle,
+      siteTagline: updatedSettings.tagline || data.siteSettings.siteTagline,
+      logoUrl: updatedSettings.logoUrl !== undefined ? updatedSettings.logoUrl : data.siteSettings.logoUrl,
+      faviconUrl: updatedSettings.faviconUrl !== undefined ? updatedSettings.faviconUrl : data.siteSettings.faviconUrl,
+    };
+
+    const updated = {
+      ...data,
+      themeSettings: updatedSettings,
+      siteSettings: updatedSiteSettings,
+    };
     saveStoredData(updated);
     setData(updated);
 
@@ -740,7 +777,19 @@ export function useCMS() {
   // SITE SETTINGS
   const updateSiteSettings = (newSettings: Partial<SiteSettings>) => {
     const updatedSiteSettings = { ...data.siteSettings, ...newSettings };
-    const updated = { ...data, siteSettings: updatedSiteSettings };
+    const updatedThemeSettings: ThemeSettings = {
+      ...data.themeSettings,
+      siteName: updatedSiteSettings.siteTitle || data.themeSettings.siteName,
+      tagline: updatedSiteSettings.siteTagline || data.themeSettings.tagline,
+      logoUrl: updatedSiteSettings.logoUrl !== undefined ? updatedSiteSettings.logoUrl : data.themeSettings.logoUrl,
+      faviconUrl: updatedSiteSettings.faviconUrl !== undefined ? updatedSiteSettings.faviconUrl : data.themeSettings.faviconUrl,
+    };
+
+    const updated = {
+      ...data,
+      siteSettings: updatedSiteSettings,
+      themeSettings: updatedThemeSettings,
+    };
     saveStoredData(updated);
     setData(updated);
     recordCommit('config(site): update global site metadata and permalink structure', updated);

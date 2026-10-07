@@ -352,6 +352,15 @@ export interface IndexingSettings {
   searchResultsIndexing: boolean;
 }
 
+export interface SeoSocialProfiles {
+  twitterHandle?: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
+  youtubeUrl?: string;
+  linkedinUrl?: string;
+  githubUrl?: string;
+}
+
 export interface SiteSettings {
   siteTitle: string;
   siteTagline: string;
@@ -360,6 +369,7 @@ export interface SiteSettings {
   logoUrl?: string;
   faviconUrl?: string;
   defaultOgImage?: string;
+  seoSocialProfiles?: SeoSocialProfiles;
   permalinkStructure:
     | '/%postname%/'
     | '/posts/%postname%/'

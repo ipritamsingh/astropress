@@ -971,11 +971,19 @@ export const initialSiteSettings: SiteSettings = {
   siteTagline: 'WordPress Editorial Ergonomics with Astro Performance',
   siteDescription:
     'Production-ready headless CMS builder combining Sveltia CMS, Astro frontend architecture, Gutenberg-style block editor, theme customizer, GitHub backend, and Cloudflare Pages deployment.',
-  siteUrl: '',
+  siteUrl: 'https://astropress.pages.dev',
   logoUrl: '',
   faviconUrl: '',
   defaultOgImage:
     'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=80',
+  seoSocialProfiles: {
+    twitterHandle: '@astropress',
+    facebookUrl: 'https://facebook.com/astropress',
+    instagramUrl: 'https://instagram.com/astropress',
+    youtubeUrl: 'https://youtube.com/@astropress',
+    linkedinUrl: 'https://linkedin.com/company/astropress',
+    githubUrl: 'https://github.com/astropress',
+  },
   permalinkStructure: '/%postname%/',
   pagePermalinkStructure: '/%pagename%/',
   postsPerPage: 6,
