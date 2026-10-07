@@ -163,6 +163,27 @@ function loadStoredData(): CMSDataState {
       loadedHeroConfig = { ...loadedHeroConfig, secondaryButtonUrl: '/wpadmin/' };
     }
 
+    const rawThemeSettings = parsed.themeSettings || {};
+    const rawFooter = rawThemeSettings.footer || {};
+    const loadedThemeSettings: ThemeSettings = {
+      ...initialThemeSettings,
+      ...rawThemeSettings,
+      header: {
+        ...initialThemeSettings.header,
+        ...(rawThemeSettings.header || {}),
+      },
+      footer: {
+        ...initialThemeSettings.footer,
+        ...rawFooter,
+        socialLinks: Array.isArray(rawFooter.socialLinks)
+          ? rawFooter.socialLinks
+          : initialThemeSettings.footer.socialLinks,
+        legalLinks: Array.isArray(rawFooter.legalLinks)
+          ? rawFooter.legalLinks
+          : initialThemeSettings.footer.legalLinks,
+      },
+    };
+
     return {
       posts: loadedPosts,
       pages: parsed.pages || initialPages,
@@ -174,7 +195,7 @@ function loadStoredData(): CMSDataState {
       menus: parsed.menus || initialMenus,
       homepageSections: parsed.homepageSections || initialHomepageSections,
       heroConfig: loadedHeroConfig,
-      themeSettings: parsed.themeSettings || initialThemeSettings,
+      themeSettings: loadedThemeSettings,
       templates: parsed.templates || initialTemplates,
       siteSettings: loadedSiteSettings,
       deploymentSettings: parsed.deploymentSettings || initialDeploymentSettings,
@@ -674,10 +695,45 @@ export function useCMS() {
 
   // THEME SETTINGS
   const updateThemeSettings = (newSettings: Partial<ThemeSettings>) => {
-    const updatedSettings = { ...data.themeSettings, ...newSettings };
+    const updatedSettings: ThemeSettings = {
+      ...data.themeSettings,
+      ...newSettings,
+      header: newSettings.header
+        ? { ...data.themeSettings.header, ...newSettings.header }
+        : data.themeSettings.header,
+      footer: newSettings.footer
+        ? {
+            ...data.themeSettings.footer,
+            ...newSettings.footer,
+            socialLinks: Array.isArray(newSettings.footer.socialLinks)
+              ? [...newSettings.footer.socialLinks]
+              : data.themeSettings.footer.socialLinks,
+            legalLinks: Array.isArray(newSettings.footer.legalLinks)
+              ? [...newSettings.footer.legalLinks]
+              : data.themeSettings.footer.legalLinks,
+          }
+        : data.themeSettings.footer,
+    };
     const updated = { ...data, themeSettings: updatedSettings };
     saveStoredData(updated);
     setData(updated);
+
+    // Sync themeSettings.json to local disk asynchronously so server endpoints read updated config
+    if (typeof window !== 'undefined') {
+      fetch('/api/content/sync-disk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          files: [
+            {
+              path: 'src/data/themeSettings.json',
+              content: JSON.stringify(updatedSettings, null, 2),
+            },
+          ],
+        }),
+      }).catch(() => {});
+    }
+
     recordCommit('style: update website theme and customizer preferences', updated);
   };
 

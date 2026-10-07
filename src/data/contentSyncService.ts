@@ -483,7 +483,35 @@ export function mergeCMSStates(localState: CMSDataState, remoteState: Partial<CM
 
   // 8. Merge HeroConfig and ThemeSettings
   const mergedHeroConfig = remoteState.heroConfig || localState.heroConfig;
-  const mergedThemeSettings = remoteState.themeSettings || localState.themeSettings;
+  const localSocialLinks = localState.themeSettings?.footer?.socialLinks;
+  const remoteSocialLinks = remoteState.themeSettings?.footer?.socialLinks;
+  const mergedSocialLinks =
+    Array.isArray(localSocialLinks) && localSocialLinks.length > 0
+      ? localSocialLinks
+      : Array.isArray(remoteSocialLinks)
+      ? remoteSocialLinks
+      : [];
+
+  const localLegalLinks = localState.themeSettings?.footer?.legalLinks;
+  const remoteLegalLinks = remoteState.themeSettings?.footer?.legalLinks;
+  const mergedLegalLinks =
+    Array.isArray(localLegalLinks) && localLegalLinks.length > 0
+      ? localLegalLinks
+      : Array.isArray(remoteLegalLinks)
+      ? remoteLegalLinks
+      : [];
+
+  const mergedThemeSettings = remoteState.themeSettings
+    ? {
+        ...remoteState.themeSettings,
+        footer: {
+          ...localState.themeSettings.footer,
+          ...(remoteState.themeSettings.footer || {}),
+          socialLinks: mergedSocialLinks,
+          legalLinks: mergedLegalLinks,
+        },
+      }
+    : localState.themeSettings;
 
   return {
     ...localState,

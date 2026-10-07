@@ -26,6 +26,73 @@
     "showNewsletter": true,
     "newsletterTitle": "The Headless Dispatch",
     "newsletterSubtitle": "Weekly updates on Astro, Gutenberg blocks, and edge hosting.",
-    "showSocialLinks": true
+    "showSocialLinks": true,
+    "socialLinks": [
+      {
+        "id": "soc-instagram",
+        "platform": "instagram",
+        "label": "Instagram",
+        "username": "astropress",
+        "url": "https://instagram.com/astropress",
+        "enabled": true,
+        "order": 1,
+        "useCustomUrl": false
+      },
+      {
+        "id": "soc-youtube",
+        "platform": "youtube",
+        "label": "YouTube",
+        "username": "@astropress",
+        "url": "https://youtube.com/@astropress",
+        "enabled": true,
+        "order": 2,
+        "useCustomUrl": false
+      },
+      {
+        "id": "soc-telegram",
+        "platform": "telegram",
+        "label": "Telegram",
+        "username": "astropress",
+        "url": "https://t.me/astropress",
+        "enabled": true,
+        "order": 3,
+        "useCustomUrl": false
+      },
+      {
+        "id": "soc-twitter",
+        "platform": "twitter",
+        "label": "Twitter / X",
+        "username": "astropress",
+        "url": "https://x.com/astropress",
+        "enabled": false,
+        "order": 4,
+        "useCustomUrl": false
+      }
+    ],
+    "legalLinks": [],
+    "layout": "standard",
+    "style": "dark",
+    "containerWidth": "normal",
+    "paddingY": "normal",
+    "showBrandCol": true,
+    "brandTitle": "AstroPress",
+    "brandDescription": "The Modern Astro + Sveltia Headless CMS",
+    "showBrandLogo": true,
+    "navTitle": "Quick Links",
+    "menuLocation": "footer",
+    "maxNavLinks": 5,
+    "categoriesTitle": "Editorial Topics",
+    "categoriesStyle": "badges",
+    "maxCategories": 6,
+    "showTechStackBadges": true,
+    "techStackBadgesText": "● 100% Git-Backed Markdown & YAML",
+    "newsletterPlaceholder": "Enter your email...",
+    "newsletterButtonText": "Subscribe",
+    "newsletterSuccessMsg": "Thanks for subscribing to The Headless Dispatch!",
+    "newsletterDisclaimer": "No spam, unsubscribe at any time.",
+    "customCredits": "Engineered with ❤️ for Astro & Sveltia",
+    "showBackToTop": true,
+    "showLegalLinks": true,
+    "bottomBarAlignment": "split"
   }
 }

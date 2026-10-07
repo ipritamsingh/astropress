@@ -384,6 +384,92 @@ export interface SiteSettings {
   newsletterSettings?: NewsletterSettings;
 }
 
+export interface FooterSocialLink {
+  id: string;
+  platform:
+    | 'instagram'
+    | 'facebook'
+    | 'youtube'
+    | 'telegram'
+    | 'whatsapp'
+    | 'twitter'
+    | 'x'
+    | 'linkedin'
+    | 'github'
+    | 'discord'
+    | 'pinterest'
+    | 'tiktok'
+    | 'threads'
+    | 'reddit'
+    | 'snapchat'
+    | 'medium'
+    | 'custom'
+    | 'globe'
+    | string;
+  url: string;
+  label: string;
+  username?: string;
+  enabled: boolean;
+  order?: number;
+  useCustomUrl?: boolean;
+}
+
+export interface FooterLegalLink {
+  id: string;
+  label: string;
+  url: string;
+  enabled?: boolean;
+}
+
+export interface FooterConfig {
+  columns: number;
+  layout?: 'standard' | 'stacked' | 'split' | 'minimal';
+  style?: 'dark' | 'midnight' | 'light' | 'subtle';
+  containerWidth?: 'narrow' | 'normal' | 'wide' | 'full';
+  paddingY?: 'compact' | 'normal' | 'spacious';
+  backgroundColor?: string;
+  textColor?: string;
+  
+  // Site Branding column
+  showBrandCol?: boolean;
+  brandTitle?: string;
+  brandDescription?: string;
+  showBrandLogo?: boolean;
+  
+  // Navigation column
+  navTitle?: string;
+  menuLocation?: string;
+  maxNavLinks?: number;
+  
+  // Categories/Topics column
+  categoriesTitle?: string;
+  categoriesStyle?: 'badges' | 'list';
+  maxCategories?: number;
+  showTechStackBadges?: boolean;
+  techStackBadgesText?: string;
+  
+  // Newsletter column
+  showNewsletter: boolean;
+  newsletterTitle: string;
+  newsletterSubtitle: string;
+  newsletterPlaceholder?: string;
+  newsletterButtonText?: string;
+  newsletterSuccessMsg?: string;
+  newsletterDisclaimer?: string;
+  
+  // Social Links
+  showSocialLinks: boolean;
+  socialLinks?: FooterSocialLink[];
+  
+  // Bottom Bar / Sub-Footer
+  copyright: string;
+  customCredits?: string;
+  showBackToTop?: boolean;
+  showLegalLinks?: boolean;
+  legalLinks?: FooterLegalLink[];
+  bottomBarAlignment?: 'split' | 'center' | 'stacked';
+}
+
 export interface ThemeSettings {
   siteName: string;
   tagline: string;
@@ -409,15 +495,7 @@ export interface ThemeSettings {
     ctaUrl: string;
     showSocialLinks?: boolean;
   };
-  footer: {
-    columns: number;
-    copyright: string;
-    showNewsletter: boolean;
-    newsletterTitle: string;
-    newsletterSubtitle: string;
-    showSocialLinks: boolean;
-    customCredits?: string;
-  };
+  footer: FooterConfig;
 }
 
 export interface GitCommitRecord {

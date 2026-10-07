@@ -56,6 +56,7 @@ import { CategoriesManager } from './components/admin/CategoriesManager';
 import { CommentsManager } from './components/admin/CommentsManager';
 import { MenuBuilder } from './components/admin/MenuBuilder';
 import { HomepageBuilder } from './components/admin/HomepageBuilder';
+import { FooterBuilder } from './components/admin/FooterBuilder';
 import { GutenbergEditor } from './components/admin/GutenbergEditor';
 import { ThemeCustomizer } from './components/admin/ThemeCustomizer';
 import { SeoManager } from './components/admin/SeoManager';
@@ -963,6 +964,17 @@ export default function App() {
             <HomepageBuilder
               sections={cms.homepageSections}
               onSaveSections={(s) => cms.updateHomepageSections(s)}
+            />
+          )}
+
+          {adminView === 'footer-builder' && (
+            <FooterBuilder
+              themeSettings={cms.themeSettings}
+              siteSettings={cms.siteSettings}
+              menus={cms.menus}
+              categories={cms.categories}
+              onSaveTheme={(newSettings) => cms.updateThemeSettings(newSettings)}
+              onSaveSiteSettings={(newSiteSettings) => cms.updateSiteSettings(newSiteSettings)}
             />
           )}
 

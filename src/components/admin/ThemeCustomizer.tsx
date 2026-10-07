@@ -485,6 +485,26 @@ export const ThemeCustomizer: React.FC<Props> = ({
                     <option value={4}>4 Columns (Full Magazine)</option>
                   </select>
                 </div>
+
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Color Theme</label>
+                  <select
+                    value={localSettings.footer.style || 'dark'}
+                    onChange={(e) =>
+                      setLocalSettings({
+                        ...localSettings,
+                        footer: { ...localSettings.footer, style: e.target.value as any },
+                      })
+                    }
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-white"
+                  >
+                    <option value="dark">Dark Slate</option>
+                    <option value="midnight">Midnight Navy</option>
+                    <option value="light">Clean Light</option>
+                    <option value="subtle">Subtle Slate</option>
+                  </select>
+                </div>
+
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">Copyright Notice</label>
                   <textarea
@@ -499,6 +519,23 @@ export const ThemeCustomizer: React.FC<Props> = ({
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white"
                   />
                 </div>
+
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Custom Credits</label>
+                  <input
+                    type="text"
+                    value={localSettings.footer.customCredits || ''}
+                    onChange={(e) =>
+                      setLocalSettings({
+                        ...localSettings,
+                        footer: { ...localSettings.footer, customCredits: e.target.value },
+                      })
+                    }
+                    placeholder="e.g. Engineered with ❤️ for Astro & Sveltia"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white"
+                  />
+                </div>
+
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-300">Show Newsletter Box</span>
                   <input
@@ -508,6 +545,36 @@ export const ThemeCustomizer: React.FC<Props> = ({
                       setLocalSettings({
                         ...localSettings,
                         footer: { ...localSettings.footer, showNewsletter: e.target.checked },
+                      })
+                    }
+                    className="rounded h-4 w-4 text-blue-600 bg-slate-950 border-slate-700"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-300">Show Social Links</span>
+                  <input
+                    type="checkbox"
+                    checked={localSettings.footer.showSocialLinks !== false}
+                    onChange={(e) =>
+                      setLocalSettings({
+                        ...localSettings,
+                        footer: { ...localSettings.footer, showSocialLinks: e.target.checked },
+                      })
+                    }
+                    className="rounded h-4 w-4 text-blue-600 bg-slate-950 border-slate-700"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-300">Show Back-to-Top Button</span>
+                  <input
+                    type="checkbox"
+                    checked={localSettings.footer.showBackToTop !== false}
+                    onChange={(e) =>
+                      setLocalSettings({
+                        ...localSettings,
+                        footer: { ...localSettings.footer, showBackToTop: e.target.checked },
                       })
                     }
                     className="rounded h-4 w-4 text-blue-600 bg-slate-950 border-slate-700"

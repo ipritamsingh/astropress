@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Menu as MenuIcon,
   LayoutTemplate,
+  Layout,
   Box,
   Palette,
   Sliders,
@@ -48,6 +49,7 @@ export type AdminView =
   | 'comments'
   | 'menus'
   | 'homepage-builder'
+  | 'footer-builder'
   | 'block-editor'
   | 'customizer'
   | 'seo'
@@ -109,6 +111,7 @@ export const AdminLayout: React.FC<Props> = ({
     },
     { id: 'menus', label: 'Navigation Menus', icon: <MenuIcon className="h-4 w-4" /> },
     { id: 'homepage-builder', label: 'Homepage Builder', icon: <LayoutTemplate className="h-4 w-4" /> },
+    { id: 'footer-builder', label: 'Footer Builder', icon: <Layout className="h-4 w-4 text-sky-400" /> },
     { id: 'block-editor', label: 'Gutenberg Blocks', icon: <Box className="h-4 w-4" /> },
     { id: 'customizer', label: 'Theme Customizer', icon: <Palette className="h-4 w-4" /> },
     { id: 'seo', label: 'SEO Management', icon: <Search className="h-4 w-4" /> },
