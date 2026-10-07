@@ -1,3 +1,8 @@
 ---
-return Astro.redirect('/admin/', 301);
+import Layout from '../layouts/Layout.astro';
+import App from '../App';
 ---
+
+<Layout title="AstroPress Dashboard">
+  <App client:only="react" />
+</Layout>

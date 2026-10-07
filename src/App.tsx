@@ -106,6 +106,7 @@ export default function App() {
       const hash = window.location.hash;
       if (
         path.startsWith('/wpadmin') ||
+        path.startsWith('/dashboard') ||
         search.includes('admin=true') ||
         search.includes('token=') ||
         hash === '#admin'
@@ -155,6 +156,7 @@ export default function App() {
 
       if (
         path.startsWith('/wpadmin') ||
+        path.startsWith('/dashboard') ||
         search.includes('admin=true') ||
         hash === '#admin'
       ) {
@@ -384,6 +386,15 @@ export default function App() {
       setAdminView('dashboard');
       if (typeof window !== 'undefined') {
         window.history.pushState({}, '', '/wpadmin/');
+      }
+      return;
+    }
+
+    if (path === '/dashboard' || path.startsWith('/dashboard')) {
+      setMode('admin');
+      setAdminView('dashboard');
+      if (typeof window !== 'undefined') {
+        window.history.pushState({}, '', '/dashboard/');
       }
       return;
     }
@@ -731,13 +742,15 @@ export default function App() {
             await refreshAuth();
             setAuthAction('login');
             if (typeof window !== 'undefined') {
-              window.history.replaceState({}, '', '/wpadmin/');
+              const currentPath = window.location.pathname.startsWith('/dashboard') ? '/dashboard/' : '/wpadmin/';
+              window.history.replaceState({}, '', currentPath);
             }
           }}
           onBackToLogin={() => {
             setAuthAction('login');
             if (typeof window !== 'undefined') {
-              window.history.replaceState({}, '', '/wpadmin/');
+              const currentPath = window.location.pathname.startsWith('/dashboard') ? '/dashboard/' : '/wpadmin/';
+              window.history.replaceState({}, '', currentPath);
             }
           }}
         />
