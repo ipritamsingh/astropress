@@ -1,0 +1,69 @@
+{
+  "siteTitle": "AstroPress",
+  "siteTagline": "WordPress Editorial Ergonomics with Astro Performance",
+  "siteDescription": "Production-ready headless CMS builder combining Sveltia CMS, Astro frontend architecture, Gutenberg-style block editor, theme customizer, GitHub backend, and Cloudflare Pages deployment.",
+  "siteUrl": "https://astropress.pages.dev",
+  "logoUrl": "/uploads/1000405169.webp",
+  "faviconUrl": "/uploads/1000405169.webp",
+  "defaultOgImage": "/uploads/1000402916.webp",
+  "seoSocialProfiles": {
+    "twitterHandle": "@astropress",
+    "facebookUrl": "https://facebook.com/astropress",
+    "instagramUrl": "https://instagram.com/astropress",
+    "youtubeUrl": "https://youtube.com/@astropress",
+    "linkedinUrl": "https://linkedin.com/company/astropress",
+    "githubUrl": "https://github.com/astropress"
+  },
+  "permalinkStructure": "/%postname%/",
+  "pagePermalinkStructure": "/%pagename%/",
+  "postsPerPage": 6,
+  "commentsAutoApprove": true,
+  "customGlobalCss": "/* Custom CSS added by Admin */\n.post-card-hover { transition: transform 0.2s ease; }",
+  "indexingSettings": {
+    "globalIndexing": true,
+    "postsIndexing": true,
+    "pagesIndexing": true,
+    "categoriesIndexing": false,
+    "tagsIndexing": false,
+    "paginationPagesIndexing": false,
+    "searchResultsIndexing": false,
+    "paginationIndexing": false
+  },
+  "communityCtaEnabled": true,
+  "communityCtaTitle": "Join Our Community",
+  "communityCtaSubtitle": "Get the latest updates, resources, new articles and exclusive content directly through our social channels.",
+  "communityLinks": [
+    {
+      "id": "comm-1",
+      "platform": "telegram",
+      "label": "Join Telegram",
+      "url": "https://t.me/astropress",
+      "enabled": true,
+      "order": 1
+    },
+    {
+      "id": "comm-2",
+      "platform": "whatsapp",
+      "label": "Join WhatsApp",
+      "url": "https://chat.whatsapp.com/astropress",
+      "enabled": true,
+      "order": 2
+    },
+    {
+      "id": "comm-3",
+      "platform": "youtube",
+      "label": "Subscribe on YouTube",
+      "url": "https://youtube.com/@astropress",
+      "enabled": true,
+      "order": 3
+    }
+  ],
+  "newsletterSettings": {
+    "enabled": true,
+    "title": "The Headless Dispatch",
+    "subtitle": "Weekly updates on Astro, Gutenberg blocks, and edge hosting.",
+    "placeholderText": "Enter your email...",
+    "buttonText": "Subscribe",
+    "successMessage": "Thanks for subscribing to The Headless Dispatch!"
+  }
+}

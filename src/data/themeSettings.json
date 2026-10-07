@@ -1,8 +1,8 @@
 {
   "siteName": "AstroPress",
-  "tagline": "The Modern Astro + Sveltia Headless CMS",
-  "logoUrl": "",
-  "faviconUrl": "",
+  "tagline": "WordPress Editorial Ergonomics with Astro Performance",
+  "logoUrl": "/uploads/1000405169.webp",
+  "faviconUrl": "/uploads/1000405169.webp",
   "primaryColor": "#2563eb",
   "accentColor": "#f59e0b",
   "backgroundColor": "#f8fafc",
