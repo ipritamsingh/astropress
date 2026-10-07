@@ -385,7 +385,7 @@ export default function App() {
       setMode('admin');
       setAdminView('dashboard');
       if (typeof window !== 'undefined') {
-        window.history.pushState({}, '', '/dashboard');
+        window.history.pushState({}, '', '/admin/');
       }
       return;
     }
@@ -726,13 +726,13 @@ export default function App() {
             await refreshAuth();
             setAuthAction('login');
             if (typeof window !== 'undefined') {
-              window.history.replaceState({}, '', '/dashboard');
+              window.history.replaceState({}, '', '/admin/');
             }
           }}
           onBackToLogin={() => {
             setAuthAction('login');
             if (typeof window !== 'undefined') {
-              window.history.replaceState({}, '', '/dashboard');
+              window.history.replaceState({}, '', '/admin/');
             }
           }}
         />

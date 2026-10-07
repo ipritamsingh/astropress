@@ -686,7 +686,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         .bind('tok-' + Date.now(), user.id, tokenHash, expiresIso, nowIso)
         .run();
 
-      const resetUrl = `${url.origin}/dashboard?action=reset-password&token=${rawToken}`;
+      const resetUrl = `${url.origin}/admin/?action=reset-password&token=${rawToken}`;
 
       if (env.RESEND_API_KEY) {
         try {
