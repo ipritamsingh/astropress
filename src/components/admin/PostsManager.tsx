@@ -26,6 +26,8 @@ interface Props {
   onNewPost: () => void;
   onEditPost: (post: Post) => void;
   onDeletePost: (id: string) => void;
+  onRestorePost: (id: string) => void;
+  onPermanentlyDeletePost: (id: string) => void;
   onDuplicatePost: (id: string) => void;
   onViewPost: (post: Post) => void;
 }
@@ -37,10 +39,12 @@ export const PostsManager: React.FC<Props> = ({
   onNewPost,
   onEditPost,
   onDeletePost,
+  onRestorePost,
+  onPermanentlyDeletePost,
   onDuplicatePost,
   onViewPost,
 }) => {
-  const [activeTab, setActiveTab] = useState<'all' | 'published' | 'draft'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'published' | 'draft' | 'trash'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedAuthor, setSelectedAuthor] = useState<string>('all');
@@ -51,6 +55,9 @@ export const PostsManager: React.FC<Props> = ({
   let filtered = posts.filter((p) => {
     if (activeTab === 'published' && p.status !== 'published') return false;
     if (activeTab === 'draft' && p.status !== 'draft') return false;
+    if (activeTab === 'trash' && p.status !== 'trash') return false;
+    // Active tabs (all, published, draft) should exclude trashed posts
+    if (activeTab !== 'trash' && p.status === 'trash') return false;
     if (selectedCategory !== 'all' && p.category !== selectedCategory) return false;
     if (selectedAuthor !== 'all' && p.author !== selectedAuthor) return false;
     if (
@@ -144,9 +151,26 @@ export const PostsManager: React.FC<Props> = ({
         >
           Drafts ({posts.filter((p) => p.status === 'draft').length})
         </button>
+        <button
+          onClick={() => setActiveTab('trash')}
+          className={`transition-colors ${
+            activeTab === 'trash' ? 'text-blue-600 font-bold border-b-2 border-blue-600 pb-2 -mb-2' : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          Trash ({posts.filter((p) => p.status === 'trash').length})
+        </button>
       </div>
 
+      {/* Trash View */}
+      {activeTab === 'trash' && posts.filter(p => p.status === 'trash').length === 0 && (
+        <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center">
+            <h3 className="text-lg font-bold text-slate-900">Trash is empty</h3>
+            <p className="text-slate-500 text-xs mt-1">Deleted posts will remain here for 30 days before being permanently removed.</p>
+        </div>
+      )}
+
       {/* Filter and Search Bar */}
+      {activeTab !== 'trash' && (
       <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
         <div className="flex flex-wrap items-center gap-2">
           {/* Category Filter */}
@@ -191,7 +215,10 @@ export const PostsManager: React.FC<Props> = ({
 
           {selectedPostIds.length > 0 && (
             <button
-              onClick={handleBulkDelete}
+              onClick={() => {
+                selectedPostIds.forEach(id => onDeletePost(id));
+                setSelectedPostIds([]);
+              }}
               className="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold border border-rose-200 transition-colors"
             >
               Delete Selected ({selectedPostIds.length})
@@ -211,6 +238,7 @@ export const PostsManager: React.FC<Props> = ({
           />
         </div>
       </div>
+      )}
 
       {/* Posts Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
@@ -231,8 +259,8 @@ export const PostsManager: React.FC<Props> = ({
                 <th className="p-3.5">Author</th>
                 <th className="p-3.5">Categories</th>
                 <th className="p-3.5">Tags</th>
-                <th className="p-3.5">Status</th>
-                <th className="p-3.5">Date</th>
+                <th className="p-3.5">{activeTab === 'trash' ? 'Deleted' : 'Status'}</th>
+                <th className="p-3.5">{activeTab === 'trash' ? 'Remaining' : 'Date'}</th>
                 <th className="p-3.5 text-right">Actions</th>
               </tr>
             </thead>
@@ -287,7 +315,7 @@ export const PostsManager: React.FC<Props> = ({
                               {post.title}
                             </span>
                             {/* WordPress row action links on hover */}
-                            <div className="flex items-center gap-2 mt-1 text-[11px] opacity-80 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-2 mt-1 text-[11px]">
                               <button
                                 onClick={() => onEditPost(post)}
                                 className="text-blue-600 hover:underline font-semibold"
@@ -310,9 +338,7 @@ export const PostsManager: React.FC<Props> = ({
                               </button>
                               <span className="text-slate-300">|</span>
                               <button
-                                onClick={() => {
-                                  if (confirm(`Trash "${post.title}"?`)) onDeletePost(post.id);
-                                }}
+                                onClick={() => onDeletePost(post.id)}
                                 className="text-rose-600 hover:underline"
                               >
                                 Trash
@@ -346,6 +372,11 @@ export const PostsManager: React.FC<Props> = ({
                       </td>
 
                       <td className="p-3.5 whitespace-nowrap">
+                        {activeTab === 'trash' ? (
+                            <span className="text-slate-500 text-[11px]">
+                                {post.deletedAt ? new Date(post.deletedAt).toLocaleDateString() : 'N/A'}
+                            </span>
+                        ) : (
                         <span
                           className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                             post.status === 'published'
@@ -355,28 +386,64 @@ export const PostsManager: React.FC<Props> = ({
                         >
                           {post.status}
                         </span>
+                        )}
                       </td>
 
                       <td className="p-3.5 whitespace-nowrap text-slate-500 text-[11px]">
-                        {new Date(post.pubDate).toLocaleDateString()}
+                        {activeTab === 'trash' ? (
+                           (() => {
+                               if (!post.deletedAt) return 'N/A';
+                               const deletedDate = new Date(post.deletedAt);
+                               const expiryDate = new Date(deletedDate);
+                               expiryDate.setDate(expiryDate.getDate() + 30);
+                               const diffTime = expiryDate.getTime() - new Date().getTime();
+                               const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                               return diffDays <= 0 ? 'Expired' : (diffDays < 1 ? 'Less than 1 day' : `${diffDays} days remaining`);
+                           })()
+                        ) : (
+                            new Date(post.pubDate).toLocaleDateString()
+                        )}
                       </td>
 
                       <td className="p-3.5 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => onEditPost(post)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100"
-                            title="Edit Post"
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => onViewPost(post)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100"
-                            title="View on Website"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </button>
+                          {activeTab === 'trash' ? (
+                            <>
+                                <button
+                                    onClick={() => onRestorePost(post.id)}
+                                    className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold border border-blue-200 transition-colors"
+                                >
+                                    Restore
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if (confirm("Are you sure you want to permanently delete this post? This action cannot be undone.")) {
+                                            onPermanentlyDeletePost(post.id);
+                                        }
+                                    }}
+                                    className="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold border border-rose-200 transition-colors"
+                                >
+                                    Delete Permanently
+                                </button>
+                            </>
+                          ) : (
+                            <>
+                                <button
+                                    onClick={() => onEditPost(post)}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100"
+                                    title="Edit Post"
+                                >
+                                    <Edit3 className="h-4 w-4" />
+                                </button>
+                                <button
+                                    onClick={() => onViewPost(post)}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100"
+                                    title="View on Website"
+                                >
+                                    <ExternalLink className="h-4 w-4" />
+                                </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

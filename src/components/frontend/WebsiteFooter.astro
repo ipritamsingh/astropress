@@ -1,0 +1,303 @@
+---
+import { initialThemeSettings, initialMenus, initialCategories } from '../../data/initialData';
+import siteSettingsJson from '../../data/siteSettings.json';
+import themeSettingsJson from '../../data/themeSettings.json';
+import menusJson from '../../data/menus.json';
+import categoriesJson from '../../data/categories.json';
+import { NewsletterFormIsland } from '../common/NewsletterFormIsland';
+import { FooterSocialLink } from '../../types/cms';
+
+const themeSettings = themeSettingsJson || initialThemeSettings;
+const siteSettings = siteSettingsJson;
+const menus = menusJson || initialMenus;
+const categories = categoriesJson?.categories || initialCategories;
+
+const DEFAULT_SOCIAL_FALLBACKS: FooterSocialLink[] = [
+  { id: 'soc-instagram', platform: 'instagram', label: 'Instagram', url: 'https://instagram.com/astropress', enabled: true, order: 1 },
+  { id: 'soc-youtube', platform: 'youtube', label: 'YouTube', url: 'https://youtube.com/@astropress', enabled: true, order: 2 },
+  { id: 'soc-telegram', platform: 'telegram', label: 'Telegram', url: 'https://t.me/astropress', enabled: true, order: 3 },
+  { id: 'soc-twitter', platform: 'twitter', label: 'Twitter / X', url: 'https://x.com/astropress', enabled: true, order: 4 },
+  { id: 'soc-github', platform: 'github', label: 'GitHub', url: 'https://github.com/astropress', enabled: true, order: 5 },
+];
+
+const { footer } = themeSettings;
+const newsletterConf = siteSettings?.newsletterSettings;
+
+const footerMenu =
+  menus.find((m: any) => m.location === (footer?.menuLocation || 'footer')) ||
+  menus.find((m: any) => m.location === 'footer') ||
+  menus[0];
+
+const title = newsletterConf?.title || footer?.newsletterTitle || 'The Headless Dispatch';
+const subtitle =
+  newsletterConf?.subtitle ||
+  footer?.newsletterSubtitle ||
+  'Subscribe to get notified whenever new architectural tutorials or theme updates drop.';
+const placeholder =
+  newsletterConf?.placeholderText || footer?.newsletterPlaceholder || 'Enter your email...';
+const buttonText =
+  newsletterConf?.buttonText || footer?.newsletterButtonText || 'Subscribe';
+const successMsg =
+  newsletterConf?.successMessage || footer?.newsletterSuccessMsg || 'Thank you for subscribing!';
+
+const columns = footer?.columns ?? 4;
+const showBrandCol = footer?.showBrandCol !== false;
+const showNewsletter = footer?.showNewsletter !== false;
+const showSocialLinks = footer?.showSocialLinks !== false;
+const showBackToTop = footer?.showBackToTop !== false;
+const showLegalLinks = footer?.showLegalLinks !== false;
+const categoriesStyle = footer?.categoriesStyle || 'badges';
+const maxCategories = footer?.maxCategories || 6;
+const maxNavLinks = footer?.maxNavLinks || 5;
+
+const currentYear = new Date().getFullYear().toString();
+const rawCopyright =
+  footer?.copyright ||
+  '© {year} {sitename}. Powered by Astro & Sveltia CMS on Cloudflare Pages.';
+const renderedCopyright = rawCopyright
+  .replace('{year}', currentYear)
+  .replace('{sitename}', footer?.brandTitle || themeSettings.siteName || 'AstroPress');
+
+const themeClass =
+  footer?.style === 'light'
+    ? 'bg-white text-slate-600 border-slate-200'
+    : 'bg-slate-950 text-slate-300 border-slate-800';
+
+const paddingClass =
+  footer?.padding === 'compact'
+    ? 'py-8'
+    : footer?.padding === 'spacious'
+    ? 'py-16'
+    : 'py-12';
+
+const containerClass =
+  themeSettings.containerWidth === 'wide'
+    ? 'max-w-7xl'
+    : themeSettings.containerWidth === 'full'
+    ? 'max-w-full px-4'
+    : 'max-w-6xl';
+
+const socialLinksToRender =
+  footer?.socialLinks && footer.socialLinks.length > 0
+    ? footer.socialLinks.filter((s: any) => s.enabled)
+    : DEFAULT_SOCIAL_FALLBACKS;
+---
+
+<footer class={`border-t font-sans transition-colors ${themeClass} ${paddingClass}`}>
+  <div class={`${containerClass} mx-auto px-4 sm:px-6 lg:px-8`}>
+    {/* Main Columns Grid */}
+    <div
+      class={`grid gap-10 pb-12 border-b ${
+        footer?.style === 'light' ? 'border-slate-200' : 'border-slate-800/80'
+      } ${
+        columns === 1
+          ? 'grid-cols-1 text-center'
+          : columns === 2
+          ? 'grid-cols-1 md:grid-cols-2'
+          : columns === 3
+          ? 'grid-cols-1 md:grid-cols-3'
+          : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'
+      }`}
+    >
+      {/* Column 1: Site Identity */}
+      {showBrandCol && (
+        <div class="space-y-4">
+          <div
+            class={`flex items-center gap-3 select-none ${
+              columns === 1 ? 'justify-center' : ''
+            }`}
+          >
+            {footer?.showBrandLogo !== false && (
+              <div
+                style={`background-color: ${themeSettings.primaryColor};`}
+                class="h-10 w-10 rounded-xl flex items-center justify-center text-white font-extrabold text-xl shadow-xs"
+              >
+                A
+              </div>
+            )}
+            <span
+              class={`font-extrabold text-xl tracking-tight ${
+                footer?.style === 'light' ? 'text-slate-900' : 'text-white'
+              }`}
+            >
+              {footer?.brandTitle || themeSettings.siteName}
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            {footer?.brandDescription ||
+              themeSettings.tagline ||
+              'High-performance headless publishing platform combining the WordPress editorial feel with Astro static speed, Sveltia CMS, and Cloudflare Pages edge delivery.'}
+          </p>
+
+          {/* Social Channels Badges */}
+          {showSocialLinks && socialLinksToRender.length > 0 && (
+            <div
+              class={`flex items-center gap-2.5 pt-2 ${
+                columns === 1 ? 'justify-center' : ''
+              }`}
+            >
+              {socialLinksToRender.map((soc: any) => (
+                <a
+                  href={soc.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  class="h-8 w-8 rounded-lg bg-slate-900/80 border border-slate-800 flex items-center justify-center text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+                  title={`${soc.label} (${soc.username || soc.url})`}
+                >
+                  <span class="text-xs font-bold uppercase">{soc.platform?.slice(0, 2)}</span>
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Column 2: Quick Links / Navigation */}
+      {columns >= 2 && (
+        <div class="space-y-3">
+          <h4
+            class={`text-xs font-bold uppercase tracking-wider ${
+              footer?.style === 'light' ? 'text-slate-900' : 'text-slate-100'
+            }`}
+          >
+            {footer?.navTitle || 'Quick Links'}
+          </h4>
+          <ul class="space-y-2 text-xs">
+            {footerMenu?.items
+              ?.filter((item: any) => item.url !== '/admin' && item.url !== '/wpadmin')
+              ?.slice(0, maxNavLinks)
+              ?.map((item: any) => (
+                <li>
+                  <a
+                    href={item.url}
+                    class="hover:text-white transition-colors hover:translate-x-0.5 transform inline-block text-slate-400"
+                  >
+                    {item.label}
+                  </a>
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Column 3: Topics / Categories */}
+      {columns >= 3 && (
+        <div class="space-y-3">
+          <h4
+            class={`text-xs font-bold uppercase tracking-wider ${
+              footer?.style === 'light' ? 'text-slate-900' : 'text-slate-100'
+            }`}
+          >
+            {footer?.categoriesTitle || 'Editorial Topics'}
+          </h4>
+
+          {categoriesStyle === 'list' ? (
+            <ul class="space-y-2 text-xs">
+              {categories.slice(0, maxCategories).map((cat: any) => (
+                <li>
+                  <a
+                    href={`/category/${cat.slug}`}
+                    class="text-slate-400 hover:text-white transition-colors"
+                  >
+                    • {cat.name}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div class="flex flex-wrap gap-1.5">
+              {categories.slice(0, maxCategories).map((cat: any) => (
+                <a
+                  href={`/category/${cat.slug}`}
+                  class="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[11px] font-medium text-slate-300 hover:text-white transition-colors"
+                >
+                  {cat.name}
+                </a>
+              ))}
+            </div>
+          )}
+
+          {footer?.showTechStackBadges !== false && (
+            <div class="pt-2">
+              <span class="text-[11px] text-slate-400 block font-semibold mb-1">
+                Architecture
+              </span>
+              <span class="text-[11px] text-emerald-400 flex items-center gap-1">
+                {footer?.techStackBadgesText || '● 100% Git-Backed Markdown & YAML'}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Column 4: Newsletter Subscription (interactive Island) */}
+      {columns >= 4 && showNewsletter && (
+        <div class="space-y-3">
+          <h4
+            class={`text-xs font-bold uppercase tracking-wider ${
+              footer?.style === 'light' ? 'text-slate-900' : 'text-slate-100'
+            }`}
+          >
+            {title}
+          </h4>
+          <p class="text-xs text-slate-400 leading-relaxed">{subtitle}</p>
+          <div class="pt-2">
+            <NewsletterFormIsland
+              client:idle
+              placeholder={placeholder}
+              buttonText={buttonText}
+              primaryColor={themeSettings.primaryColor}
+              disclaimer={footer?.newsletterDisclaimer}
+              successMsg={successMsg}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* Bottom Sub-Footer Bar */}
+    <div
+      class={`pt-8 flex flex-col sm:flex-row items-center text-xs text-slate-400 gap-4 ${
+        footer?.bottomBarAlignment === 'center'
+          ? 'justify-center text-center'
+          : 'justify-between'
+      }`}
+    >
+      <div>
+        <p>{renderedCopyright}</p>
+        {showLegalLinks && (footer?.legalLinks || []).length > 0 && (
+          <div
+            class={`flex flex-wrap items-center gap-3 pt-1 text-[11px] text-slate-500 ${
+              footer?.bottomBarAlignment === 'center' ? 'justify-center' : ''
+            }`}
+          >
+            {(footer?.legalLinks || []).map((leg: any) => (
+              <a
+                href={leg.url}
+                class="hover:text-slate-300 transition-colors"
+              >
+                {leg.label}
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div class="flex items-center gap-4">
+        <span class="flex items-center gap-1">
+          {footer?.customCredits || 'Engineered with ❤️ for Astro & Sveltia'}
+        </span>
+        {showBackToTop && (
+          <button
+            type="button"
+            onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
+            class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors shadow-2xs cursor-pointer"
+            title="Back to Top"
+          >
+            ↑
+          </button>
+        )}
+      </div>
+    </div>
+  </div>
+</footer>

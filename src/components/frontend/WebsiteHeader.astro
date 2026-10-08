@@ -1,0 +1,81 @@
+---
+import { initialThemeSettings, initialMenus, initialCategories } from '../../data/initialData';
+import siteSettings from '../../data/siteSettings.json';
+import themeSettingsJson from '../../data/themeSettings.json';
+import menusJson from '../../data/menus.json';
+import categoriesJson from '../../data/categories.json';
+import { HeaderControlsIsland } from '../common/HeaderControlsIsland';
+import { Post, Page } from '../../types/cms';
+
+interface Props {
+  posts?: Post[];
+  pages?: Page[];
+}
+
+const { posts = [], pages = [] } = Astro.props;
+
+const themeSettings = themeSettingsJson || initialThemeSettings;
+const menus = menusJson || initialMenus;
+const categories = categoriesJson?.categories || initialCategories;
+
+const headerMenu = menus.find((m: any) => m.location === 'header') || menus[0];
+const menuItems = headerMenu?.items || [];
+
+const { sticky = true, showSearch = true } = themeSettings.header || {};
+const primaryColor = themeSettings.primaryColor || '#2563eb';
+const siteName = themeSettings.siteName || 'AstroPress';
+const subtitle = themeSettings.header?.subtitle || 'Astro • Sveltia • Edge';
+---
+
+<header
+  class={`bg-white/95 backdrop-blur-md border-b border-slate-200/80 transition-all z-40 relative ${
+    sticky ? 'sticky top-0 shadow-2xs' : 'relative'
+  }`}
+>
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex items-center justify-between h-16 sm:h-20">
+      {/* Brand Logo & Name */}
+      <a
+        href="/"
+        class="flex items-center gap-3 cursor-pointer group select-none shrink-0"
+      >
+        <div
+          style={`background-color: ${primaryColor};`}
+          class="h-10 w-10 rounded-xl flex items-center justify-center text-white font-extrabold text-xl shadow-sm group-hover:scale-105 transition-transform"
+        >
+          A
+        </div>
+        <div>
+          <span class="font-extrabold text-slate-900 text-lg tracking-tight block group-hover:text-blue-600 transition-colors">
+            {siteName}
+          </span>
+          <span class="text-[10px] text-slate-500 font-medium tracking-wider uppercase block -mt-0.5">
+            {subtitle}
+          </span>
+        </div>
+      </a>
+
+      {/* Desktop Navigation Menu */}
+      <nav class="hidden md:flex items-center gap-1 lg:gap-2">
+        {menuItems.map((item: any) => (
+          <a
+            href={item.url}
+            class="px-3.5 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100/70 transition-colors"
+          >
+            {item.label}
+          </a>
+        ))}
+      </nav>
+
+      {/* Header Action Tools + Mobile Menu Drawer (Client Island for search and burger) */}
+      <HeaderControlsIsland
+        client:idle
+        showSearch={showSearch}
+        menuItems={menuItems}
+        posts={posts}
+        pages={pages}
+        categories={categories}
+      />
+    </div>
+  </div>
+</header>

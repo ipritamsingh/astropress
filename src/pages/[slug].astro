@@ -1,18 +1,27 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import App from '../App';
+import { WebsiteHeaderWrapper } from '../components/frontend/WebsiteHeaderWrapper';
+import { WebsiteFooterWrapper } from '../components/frontend/WebsiteFooterWrapper';
+import { SocialCommunityCta } from '../components/frontend/SocialCommunityCta';
+import { SinglePostViewWrapper } from '../components/frontend/SinglePostViewWrapper';
+import { SinglePageViewWrapper } from '../components/frontend/SinglePageViewWrapper';
 import { getCollection } from 'astro:content';
 import { parseMarkdownToBlocks } from '../components/common/GutenbergBlockRenderer';
+import { initialAuthors, initialComments, initialCategories, initialThemeSettings, initialMenus } from '../data/initialData';
+import siteSettingsJson from '../data/siteSettings.json';
+import themeSettingsJson from '../data/themeSettings.json';
+import categoriesJson from '../data/categories.json';
+import menusJson from '../data/menus.json';
 
 export async function getStaticPaths() {
   const posts = await getCollection('posts');
   const pages = await getCollection('pages');
-  const reserved = new Set(['about', 'contact', 'dashboard', 'admin', 'wpadmin', 'posts', 'api', 'uploads']);
+  const reserved = new Set(['about', 'contact', 'admin', 'wpadmin', 'posts', 'api', 'uploads']);
   
   const postPaths = posts
     .filter((post) => {
       const slug = post.data.slug || post.id.replace(/\.md$/, '');
-      return !reserved.has(slug);
+      return !reserved.has(slug) && post.data.status !== 'trash';
     })
     .map((post) => ({
       params: { slug: post.data.slug || post.id.replace(/\.md$/, '') },
@@ -33,44 +42,129 @@ export async function getStaticPaths() {
 }
 
 const { post, page, isPage } = Astro.props as any;
+
+const siteSettings = siteSettingsJson;
+const themeSettings = themeSettingsJson || initialThemeSettings;
+const categories = categoriesJson?.categories || initialCategories;
+const menus = menusJson || initialMenus;
+
 const pageTitle = isPage ? `${page.data.title} — AstroPress` : `${post.data.title} — AstroPress`;
 const pageDescription = isPage ? '' : (post?.data?.excerpt || '');
 const pageOgImage = isPage ? '' : (post?.data?.featuredImage || '');
+
+const rawCollectionPosts = await getCollection('posts');
+const rawCollectionPages = await getCollection('pages');
+
+const allPublishedPosts = rawCollectionPosts
+  .filter((p) => !p.data.draft && p.data.status !== 'draft' && p.data.status !== 'trash')
+  .map((p) => ({
+    id: p.id,
+    title: p.data.title,
+    slug: p.data.slug || p.id.replace(/\.md$/, ''),
+    pubDate: p.data.pubDate ? new Date(p.data.pubDate).toISOString() : new Date().toISOString(),
+    status: 'published' as const,
+    author: p.data.author,
+    category: p.data.category,
+    tags: p.data.tags || [],
+    featuredImage: p.data.featuredImage || '',
+    excerpt: p.data.excerpt || '',
+    readingTime: p.data.readingTime || 5,
+    template: p.data.template || 'standard',
+    blocks: p.data.blocks || [],
+    body: p.body || '',
+    seo: p.data.seo || {},
+  }));
+
+const allPages = rawCollectionPages.map((p) => ({
+  id: p.id,
+  title: p.data.title,
+  slug: p.data.slug || p.id.replace(/\.md$/, ''),
+  status: p.data.draft ? 'draft' : 'published',
+  template: p.data.template || 'default',
+  blocks: p.data.blocks || [],
+  body: p.body || '',
+}));
+
+const activeBlocks = isPage
+  ? (page.data.blocks && page.data.blocks.length > 0 ? page.data.blocks : parseMarkdownToBlocks(page.body || ''))
+  : (post.data.blocks && post.data.blocks.length > 0 ? post.data.blocks : parseMarkdownToBlocks(post.body || ''));
+
+const postComments = isPage ? [] : initialComments.filter((c) => c.postId === post.id);
+
+// Prepare correct mapped props to prevent serialization issues
+const pageMapped = isPage ? {
+  id: page.id,
+  title: page.data.title,
+  slug: page.data.slug || page.id.replace(/\.md$/, ''),
+  status: page.data.draft ? 'draft' : 'published',
+  template: page.data.template || 'default',
+  featuredImage: page.data.featuredImage || '',
+  blocks: activeBlocks,
+  body: page.body || '',
+} : null;
+
+const postMapped = !isPage ? {
+  id: post.id,
+  title: post.data.title,
+  slug: post.data.slug || post.id.replace(/\.md$/, ''),
+  pubDate: post.data.pubDate ? new Date(post.data.pubDate).toISOString() : new Date().toISOString(),
+  status: 'published' as const,
+  author: post.data.author,
+  category: post.data.category,
+  tags: post.data.tags || [],
+  featuredImage: post.data.featuredImage || '',
+  excerpt: post.data.excerpt || '',
+  readingTime: post.data.readingTime || 5,
+  template: post.data.template || 'standard',
+  blocks: activeBlocks,
+  body: post.body || '',
+  seo: post.data.seo || {},
+} : null;
 ---
 
 <Layout title={pageTitle} description={pageDescription} ogImage={pageOgImage}>
-  {isPage ? (
-    <script is:inline define:vars={{ initialPage: {
-      id: page.id,
-      title: page.data.title,
-      slug: page.data.slug || page.id.replace(/\.md$/, ''),
-      status: page.data.draft ? 'draft' : 'published',
-      template: page.data.template || 'default',
-      blocks: (page.data.blocks && page.data.blocks.length > 0) ? page.data.blocks : parseMarkdownToBlocks(page.body || ''),
-      body: page.body || '',
-    } }}>
-      window.__ASTROPRESS_INITIAL_PAGE__ = initialPage;
-    </script>
-  ) : (
-    <script is:inline define:vars={{ initialPost: {
-      id: post.id,
-      title: post.data.title,
-      slug: post.data.slug || post.id.replace(/\.md$/, ''),
-      pubDate: post.data.pubDate ? new Date(post.data.pubDate).toISOString() : new Date().toISOString(),
-      status: post.data.draft ? 'draft' : (post.data.status || 'published'),
-      author: post.data.author,
-      category: post.data.category,
-      tags: post.data.tags || [],
-      featuredImage: post.data.featuredImage || '',
-      excerpt: post.data.excerpt || '',
-      readingTime: post.data.readingTime || 5,
-      template: post.data.template || 'standard',
-      blocks: (post.data.blocks && post.data.blocks.length > 0) ? post.data.blocks : parseMarkdownToBlocks(post.body || ''),
-      body: post.body || '',
-      seo: post.data.seo || {},
-    } }}>
-      window.__ASTROPRESS_INITIAL_POST__ = initialPost;
-    </script>
-  )}
-  <App client:only="react" />
+  <div class="min-h-screen flex flex-col font-sans">
+    <WebsiteHeaderWrapper
+      client:load
+      posts={allPublishedPosts as any}
+      pages={allPages as any}
+      categories={categories as any}
+      themeSettings={themeSettings as any}
+      menus={menus as any}
+      permalinkStructure={siteSettings?.permalinkStructure}
+    />
+
+    <main class="flex-1 w-full">
+      {isPage ? (
+        <SinglePageViewWrapper
+          client:load
+          page={pageMapped as any}
+        />
+      ) : (
+        <SinglePostViewWrapper
+          client:load
+          post={postMapped as any}
+          allPosts={allPublishedPosts as any}
+          comments={postComments as any}
+          authors={initialAuthors as any}
+          permalinkStructure={siteSettings?.permalinkStructure}
+        />
+      )}
+    </main>
+
+    <SocialCommunityCta
+      enabled={siteSettings?.communityCtaEnabled !== false}
+      title={siteSettings?.communityCtaTitle}
+      subtitle={siteSettings?.communityCtaSubtitle}
+      communityLinks={siteSettings?.communityLinks}
+    />
+
+    <WebsiteFooterWrapper
+      client:load
+      themeSettings={themeSettings as any}
+      siteSettings={siteSettings as any}
+      menus={menus as any}
+      categories={categories as any}
+    />
+  </div>
 </Layout>

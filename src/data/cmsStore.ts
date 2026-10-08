@@ -442,6 +442,9 @@ export function useCMS() {
   useEffect(() => {
     // Run authoritative sync on mount in background
     syncWithAuthoritativeRemote().catch(() => {});
+    
+    // Run cleanup on mount
+    cleanupExpiredTrash();
 
     const handleUpdate = (e: any) => {
       if (e.detail) {
@@ -509,6 +512,39 @@ export function useCMS() {
   };
 
   const deletePost = (id: string) => {
+    setData((prevData) => {
+      const updatedPosts = prevData.posts.map((p) => {
+        if (p.id === id) {
+          return {
+            ...p,
+            status: 'trash',
+            originalStatus: p.status,
+            deletedAt: new Date().toISOString(),
+          } as Post;
+        }
+        return p;
+      });
+
+      const updated = { ...prevData, posts: updatedPosts };
+      saveStoredData(updated);
+      return updated;
+    });
+  };
+
+  const restorePost = (id: string) => {
+    const updatedPosts = data.posts.map(p => {
+        if (p.id === id) {
+            return { ...p, status: p.originalStatus || 'draft', originalStatus: undefined, deletedAt: undefined };
+        }
+        return p;
+    });
+
+    const updated = { ...data, posts: updatedPosts };
+    saveStoredData(updated);
+    setData(updated);
+  };
+
+  const permanentlyDeletePost = (id: string) => {
     const target = data.posts.find((p) => p.id === id);
     const updated = {
       ...data,
@@ -525,6 +561,23 @@ export function useCMS() {
     }
     if (target && target.status === 'published') {
       recordCommit(`chore(post): remove article "${target.title}"`, updated);
+    }
+  };
+
+  const cleanupExpiredTrash = () => {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const postsToKeep = data.posts.filter(p => {
+        if (p.status !== 'trash') return true;
+        if (!p.deletedAt) return true;
+        return new Date(p.deletedAt) > thirtyDaysAgo;
+    });
+    
+    if (postsToKeep.length !== data.posts.length) {
+        const updated = { ...data, posts: postsToKeep };
+        saveStoredData(updated);
+        setData(updated);
     }
   };
 
@@ -947,6 +1000,9 @@ export function useCMS() {
     ...data,
     savePost,
     deletePost,
+    restorePost,
+    permanentlyDeletePost,
+    cleanupExpiredTrash,
     duplicatePost,
     savePage,
     deletePage,

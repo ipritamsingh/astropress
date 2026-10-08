@@ -109,7 +109,6 @@ export default function App() {
       const hash = window.location.hash;
       if (
         path.startsWith('/wpadmin') ||
-        path.startsWith('/dashboard') ||
         search.includes('admin=true') ||
         search.includes('token=') ||
         hash === '#admin'
@@ -159,7 +158,6 @@ export default function App() {
 
       if (
         path.startsWith('/wpadmin') ||
-        path.startsWith('/dashboard') ||
         search.includes('admin=true') ||
         hash === '#admin'
       ) {
@@ -556,12 +554,12 @@ export default function App() {
     schemaScript.textContent = JSON.stringify(schemaOrgData, null, 2);
   }, [currentRoute, cms.siteSettings, cms.themeSettings]);
 
-  // Count pending comments
+  const activePosts = cms.posts.filter((p) => p.status !== 'trash');
   const pendingCommentsCount = cms.comments.filter((c) => c.status === 'pending').length;
 
   // Calculate post counts per category
   const postCountsByCategory = cms.categories.reduce<Record<string, number>>((acc, cat) => {
-    acc[cat.name] = cms.posts.filter((p) => {
+    acc[cat.name] = activePosts.filter((p) => {
       if (p.status !== 'published') return false;
       const pCat = (p.category || '').trim().toLowerCase();
       return pCat === (cat.name || '').trim().toLowerCase() || pCat === (cat.slug || '').trim().toLowerCase() || pCat === cat.id;
@@ -625,15 +623,6 @@ export default function App() {
       setAdminView('dashboard');
       if (typeof window !== 'undefined') {
         window.history.pushState({}, '', '/wpadmin/');
-      }
-      return;
-    }
-
-    if (path === '/dashboard' || path.startsWith('/dashboard')) {
-      setMode('admin');
-      setAdminView('dashboard');
-      if (typeof window !== 'undefined') {
-        window.history.pushState({}, '', '/dashboard/');
       }
       return;
     }
@@ -855,7 +844,7 @@ export default function App() {
           <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
             {currentRoute.type === 'home' && (
               <HomepageView
-                posts={cms.posts}
+                posts={activePosts}
                 categories={cms.categories}
                 sections={cms.homepageSections}
                 heroConfig={cms.heroConfig}
@@ -870,7 +859,7 @@ export default function App() {
             {currentRoute.type === 'post' && (
               <SinglePostView
                 post={currentRoute.post}
-                allPosts={cms.posts}
+                allPosts={activePosts}
                 comments={cms.comments}
                 authors={cms.authors}
                 onBack={() => {
@@ -942,7 +931,7 @@ export default function App() {
           <SearchModal
             isOpen={isSearchOpen}
             onClose={() => setIsSearchOpen(false)}
-            posts={cms.posts}
+            posts={activePosts}
             pages={cms.pages}
             categories={cms.categories}
             onSelectPost={handleSelectPost}
@@ -981,15 +970,13 @@ export default function App() {
             await refreshAuth();
             setAuthAction('login');
             if (typeof window !== 'undefined') {
-              const currentPath = window.location.pathname.startsWith('/dashboard') ? '/dashboard/' : '/wpadmin/';
-              window.history.replaceState({}, '', currentPath);
+              window.history.replaceState({}, '', '/wpadmin/');
             }
           }}
           onBackToLogin={() => {
             setAuthAction('login');
             if (typeof window !== 'undefined') {
-              const currentPath = window.location.pathname.startsWith('/dashboard') ? '/dashboard/' : '/wpadmin/';
-              window.history.replaceState({}, '', currentPath);
+              window.history.replaceState({}, '', '/wpadmin/');
             }
           }}
         />
@@ -1117,6 +1104,8 @@ export default function App() {
               onNewPost={handleCreateNewPost}
               onEditPost={(p) => setEditingPost(p)}
               onDeletePost={(id) => cms.deletePost(id)}
+              onRestorePost={(id) => cms.restorePost(id)}
+              onPermanentlyDeletePost={(id) => cms.permanentlyDeletePost(id)}
               onDuplicatePost={(id) => cms.duplicatePost(id)}
               onViewPost={(p) => {
                 setCurrentRoute({ type: 'post', post: p });

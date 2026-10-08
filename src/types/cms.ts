@@ -88,6 +88,8 @@ export interface Post {
   body: string; // Markdown fallback / raw content
   seo: PostSEO;
   views?: number;
+  deletedAt?: string; // ISO string for trash cleanup
+  originalStatus?: PostStatus; // Status before being moved to trash
 }
 
 export interface Page {

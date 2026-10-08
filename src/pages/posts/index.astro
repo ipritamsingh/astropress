@@ -1,0 +1,162 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { WebsiteHeaderWrapper } from '../../components/frontend/WebsiteHeaderWrapper';
+import { WebsiteFooterWrapper } from '../../components/frontend/WebsiteFooterWrapper';
+import { SocialCommunityCta } from '../../components/frontend/SocialCommunityCta';
+import { getCollection } from 'astro:content';
+import { initialThemeSettings, initialCategories, initialMenus } from '../../data/initialData';
+import themeSettingsJson from '../../data/themeSettings.json';
+import siteSettingsJson from '../../data/siteSettings.json';
+import categoriesJson from '../../data/categories.json';
+import menusJson from '../../data/menus.json';
+
+const rawCollectionPosts = await getCollection('posts');
+const rawCollectionPages = await getCollection('pages');
+
+const allPublishedPosts = rawCollectionPosts
+  .filter((p) => !p.data.draft && p.data.status !== 'draft')
+  .map((p) => ({
+    id: p.id,
+    title: p.data.title,
+    slug: p.data.slug || p.id.replace(/\.md$/, ''),
+    pubDate: p.data.pubDate ? new Date(p.data.pubDate).toISOString() : new Date().toISOString(),
+    status: 'published' as const,
+    author: p.data.author,
+    category: p.data.category,
+    tags: p.data.tags || [],
+    featuredImage: p.data.featuredImage || '',
+    excerpt: p.data.excerpt || '',
+    readingTime: p.data.readingTime || 5,
+    template: p.data.template || 'standard',
+    blocks: p.data.blocks || [],
+    body: p.body || '',
+    seo: p.data.seo || {},
+  }))
+  .sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
+
+const allPages = rawCollectionPages.map((p) => ({
+  id: p.id,
+  title: p.data.title,
+  slug: p.data.slug || p.id.replace(/\.md$/, ''),
+  status: p.data.draft ? 'draft' : 'published',
+  template: p.data.template || 'default',
+  blocks: p.data.blocks || [],
+  body: p.body || '',
+}));
+
+const themeSettings = themeSettingsJson || initialThemeSettings;
+const siteSettings = siteSettingsJson;
+const categories = categoriesJson?.categories || initialCategories;
+const menus = menusJson || initialMenus;
+
+const getPostPermalink = (post: any) => {
+  const permalinkStruct = siteSettings?.permalinkStructure || '/%postname%/';
+  const cleanSlug = (post.slug || '').replace(/^\//, '');
+  if (permalinkStruct === '/posts/%postname%/') {
+    return `/posts/${cleanSlug}/`;
+  } else if (permalinkStruct === '/%year%/%month%/%day%/%postname%/') {
+    const d = new Date(post.pubDate || Date.now());
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `/${year}/${month}/${day}/${cleanSlug}/`;
+  } else if (permalinkStruct === '/archives/%post_id%/') {
+    return `/archives/${post.id}/`;
+  } else {
+    return `/${cleanSlug}/`;
+  }
+};
+---
+
+<Layout title="All Articles & Dispatches — AstroPress">
+  <div class="min-h-screen flex flex-col font-sans">
+    <WebsiteHeaderWrapper
+      client:load
+      posts={allPublishedPosts as any}
+      pages={allPages as any}
+      categories={categories as any}
+      themeSettings={themeSettings as any}
+      menus={menus as any}
+      permalinkStructure={siteSettings?.permalinkStructure}
+    />
+
+    <main class="flex-1 max-w-5xl mx-auto py-10 px-4 sm:px-6 w-full font-sans">
+      <a
+        href="/"
+        class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 transition-colors mb-6 animate-in fade-in"
+      >
+        <span>← Back to Home</span>
+      </a>
+
+      <header class="mb-10 pb-6 border-b border-slate-200 space-y-3 animate-in fade-in slide-in-from-top-3 duration-200">
+        <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-600">
+          <span>📚</span>
+          <span>Index</span>
+        </div>
+        <h1 class="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight font-serif-custom">
+          All Published Articles
+        </h1>
+        <p class="text-sm sm:text-base text-slate-600 max-w-2xl leading-relaxed">
+          Comprehensive archive of tutorials, architectural blueprints, and publishing insights.
+        </p>
+      </header>
+
+      <div class="space-y-6">
+        {allPublishedPosts.map((post) => (
+          <article class="group rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 hover:border-blue-300 hover:shadow-md transition-all flex flex-col sm:flex-row gap-5 items-start sm:items-center">
+            <a href={getPostPermalink(post)} class="w-full sm:w-48 aspect-16/10 sm:aspect-square sm:h-36 rounded-xl overflow-hidden bg-slate-100 shrink-0 relative block">
+              <img
+                src={post.featuredImage || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=600&q=80'}
+                alt={post.title}
+                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                loading="lazy"
+              />
+            </a>
+
+            <div class="flex-1 flex flex-col justify-between space-y-2 w-full">
+              <div>
+                <div class="flex items-center gap-2 text-xs text-slate-500 mb-1">
+                  <span class="font-bold text-blue-600">{post.category}</span>
+                  <span>•</span>
+                  <span>{new Date(post.pubDate).toLocaleDateString()}</span>
+                  <span>•</span>
+                  <span>{post.readingTime} min read</span>
+                </div>
+                <a href={getPostPermalink(post)}>
+                  <h3 class="font-bold text-lg text-slate-900 group-hover:text-blue-600 transition-colors leading-snug">
+                    {post.title}
+                  </h3>
+                </a>
+                <p class="text-xs sm:text-sm text-slate-600 line-clamp-2 mt-1 leading-relaxed">
+                  {post.excerpt}
+                </p>
+              </div>
+
+              <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <span class="font-medium text-slate-700">{post.author}</span>
+                <a href={getPostPermalink(post)} class="text-blue-600 font-bold group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                  Read Article →
+                </a>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </main>
+
+    <SocialCommunityCta
+      enabled={siteSettings?.communityCtaEnabled !== false}
+      title={siteSettings?.communityCtaTitle}
+      subtitle={siteSettings?.communityCtaSubtitle}
+      communityLinks={siteSettings?.communityLinks}
+    />
+
+    <WebsiteFooterWrapper
+      client:load
+      themeSettings={themeSettings as any}
+      siteSettings={siteSettings as any}
+      menus={menus as any}
+      categories={categories as any}
+    />
+  </div>
+</Layout>

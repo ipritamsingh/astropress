@@ -3,39 +3,31 @@ import Layout from '../../layouts/Layout.astro';
 import { WebsiteHeaderWrapper } from '../../components/frontend/WebsiteHeaderWrapper';
 import { WebsiteFooterWrapper } from '../../components/frontend/WebsiteFooterWrapper';
 import { SocialCommunityCta } from '../../components/frontend/SocialCommunityCta';
-import { SinglePostViewWrapper } from '../../components/frontend/SinglePostViewWrapper';
+import { ArchiveViewWrapper } from '../../components/frontend/ArchiveViewWrapper';
 import { getCollection } from 'astro:content';
-import { parseMarkdownToBlocks } from '../../components/common/GutenbergBlockRenderer';
-import { initialAuthors, initialComments, initialCategories, initialThemeSettings, initialMenus } from '../../data/initialData';
-import siteSettingsJson from '../../data/siteSettings.json';
+import { initialThemeSettings, initialCategories, initialMenus } from '../../data/initialData';
 import themeSettingsJson from '../../data/themeSettings.json';
+import siteSettingsJson from '../../data/siteSettings.json';
 import categoriesJson from '../../data/categories.json';
 import menusJson from '../../data/menus.json';
 
 export async function getStaticPaths() {
   const posts = await getCollection('posts');
-  return posts.map((post) => ({
-    params: { slug: post.data.slug || post.id.replace(/\.md$/, '') },
-    props: { post },
+  const categoriesList = categoriesJson?.categories || initialCategories;
+
+  return categoriesList.map((cat: any) => ({
+    params: { slug: cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-') },
+    props: { category: cat },
   }));
 }
 
-const { post } = Astro.props as any;
-
-const siteSettings = siteSettingsJson;
-const themeSettings = themeSettingsJson || initialThemeSettings;
-const categories = categoriesJson?.categories || initialCategories;
-const menus = menusJson || initialMenus;
-
-const pageTitle = `${post.data.title} — AstroPress`;
-const pageDescription = post?.data?.excerpt || '';
-const pageOgImage = post?.data?.featuredImage || '';
+const { category } = Astro.props as any;
 
 const rawCollectionPosts = await getCollection('posts');
 const rawCollectionPages = await getCollection('pages');
 
 const allPublishedPosts = rawCollectionPosts
-  .filter((p) => !p.data.draft && p.data.status !== 'draft')
+  .filter((p) => !p.data.draft && p.data.status !== 'draft' && p.data.status !== 'trash')
   .map((p) => ({
     id: p.id,
     title: p.data.title,
@@ -52,7 +44,8 @@ const allPublishedPosts = rawCollectionPosts
     blocks: p.data.blocks || [],
     body: p.body || '',
     seo: p.data.seo || {},
-  }));
+  }))
+  .sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
 
 const allPages = rawCollectionPages.map((p) => ({
   id: p.id,
@@ -64,30 +57,13 @@ const allPages = rawCollectionPages.map((p) => ({
   body: p.body || '',
 }));
 
-const activeBlocks = post.data.blocks && post.data.blocks.length > 0 ? post.data.blocks : parseMarkdownToBlocks(post.body || '');
-
-const postComments = initialComments.filter((c) => c.postId === post.id);
-
-const postMapped = {
-  id: post.id,
-  title: post.data.title,
-  slug: post.data.slug || post.id.replace(/\.md$/, ''),
-  pubDate: post.data.pubDate ? new Date(post.data.pubDate).toISOString() : new Date().toISOString(),
-  status: 'published' as const,
-  author: post.data.author,
-  category: post.data.category,
-  tags: post.data.tags || [],
-  featuredImage: post.data.featuredImage || '',
-  excerpt: post.data.excerpt || '',
-  readingTime: post.data.readingTime || 5,
-  template: post.data.template || 'standard',
-  blocks: activeBlocks,
-  body: post.body || '',
-  seo: post.data.seo || {},
-};
+const themeSettings = themeSettingsJson || initialThemeSettings;
+const siteSettings = siteSettingsJson;
+const categories = categoriesJson?.categories || initialCategories;
+const menus = menusJson || initialMenus;
 ---
 
-<Layout title={pageTitle} description={pageDescription} ogImage={pageOgImage}>
+<Layout title={`${category.name} Archive — AstroPress`}>
   <div class="min-h-screen flex flex-col font-sans">
     <WebsiteHeaderWrapper
       client:load
@@ -100,12 +76,11 @@ const postMapped = {
     />
 
     <main class="flex-1 w-full">
-      <SinglePostViewWrapper
+      <ArchiveViewWrapper
         client:load
-        post={postMapped as any}
-        allPosts={allPublishedPosts as any}
-        comments={postComments as any}
-        authors={initialAuthors as any}
+        type="category"
+        item={category}
+        posts={allPublishedPosts as any}
         permalinkStructure={siteSettings?.permalinkStructure}
       />
     </main>
