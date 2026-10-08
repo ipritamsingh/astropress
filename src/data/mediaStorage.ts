@@ -58,6 +58,9 @@ export async function persistMediaBlob(id: string, blobOrDataUrl: Blob | string,
  * Retrieve all persisted media items from IndexedDB
  */
 export async function getAllPersistedMediaBlobs(): Promise<Array<{ id: string; filename?: string; data: string }>> {
+  if (typeof window === 'undefined' || !window.indexedDB) {
+    return [];
+  }
   try {
     const db = await openDatabase();
     return new Promise((resolve, reject) => {
@@ -73,12 +76,8 @@ export async function getAllPersistedMediaBlobs(): Promise<Array<{ id: string; f
             itemsWithDataUrl.push(item);
           } else if (item.data instanceof Blob) {
             try {
-              const dataUrl = await new Promise<string>((res) => {
-                const reader = new FileReader();
-                reader.onloadend = () => res(reader.result as string);
-                reader.readAsDataURL(item.data);
-              });
-              itemsWithDataUrl.push({ ...item, data: dataUrl });
+              const dataUrl = await convertEntryToDataUrl(item.data);
+              if (dataUrl) itemsWithDataUrl.push({ ...item, data: dataUrl });
             } catch {}
           }
         }
@@ -97,6 +96,7 @@ export async function getAllPersistedMediaBlobs(): Promise<Array<{ id: string; f
  */
 export async function getPersistedMediaBlob(idOrPath: string): Promise<string | null> {
   if (!idOrPath) return null;
+  if (typeof window === 'undefined' || !window.indexedDB) return null;
   const cleanKey = idOrPath.replace(/^\/?(public\/)?uploads\//, '');
   try {
     const db = await openDatabase();
@@ -165,11 +165,17 @@ async function convertEntryToDataUrl(data: any): Promise<string | null> {
   if (!data) return null;
   if (typeof data === 'string') return data;
   if (data instanceof Blob) {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.readAsDataURL(data);
-    });
+    if (typeof FileReader !== 'undefined') {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(data);
+      });
+    } else {
+      const buf = await data.arrayBuffer();
+      const base64 = Buffer.from(buf).toString('base64');
+      return `data:${data.type || 'application/octet-stream'};base64,${base64}`;
+    }
   }
   return null;
 }

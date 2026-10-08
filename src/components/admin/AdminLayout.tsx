@@ -35,6 +35,7 @@ import {
   Cloud,
   AlertCircle,
   Shield,
+  Database,
 } from 'lucide-react';
 import { ThemeSettings, DeploymentSettings } from '../../types/cms';
 
@@ -42,23 +43,25 @@ export type AdminView =
   | 'dashboard'
   | 'posts'
   | 'pages'
-  | 'media'
-  | 'hero-section'
   | 'categories'
   | 'tags'
-  | 'comments'
+  | 'media'
+  | 'header-builder'
   | 'menus'
+  | 'hero-section'
   | 'homepage-builder'
-  | 'footer-builder'
   | 'block-editor'
+  | 'footer-builder'
+  | 'comments'
   | 'customizer'
   | 'seo'
+  | 'account-security'
   | 'users'
   | 'settings'
+  | 'backup-restore'
   | 'github-deployment'
   | 'tools'
-  | 'sveltia-native'
-  | 'account-security';
+  | 'sveltia-native';
 
 interface Props {
   currentView: AdminView;
@@ -98,26 +101,28 @@ export const AdminLayout: React.FC<Props> = ({
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
     { id: 'posts', label: 'Posts', icon: <FileText className="h-4 w-4" /> },
-    { id: 'hero-section', label: 'Hero Section', icon: <Sparkles className="h-4 w-4 text-amber-500" /> },
-    { id: 'media', label: 'Media Library', icon: <ImageIcon className="h-4 w-4" /> },
     { id: 'pages', label: 'Pages', icon: <Files className="h-4 w-4" /> },
     { id: 'categories', label: 'Categories', icon: <FolderTree className="h-4 w-4" /> },
     { id: 'tags', label: 'Tags', icon: <TagIcon className="h-4 w-4" /> },
+    { id: 'media', label: 'Media Library', icon: <ImageIcon className="h-4 w-4" /> },
+    { id: 'header-builder', label: 'Header Builder', icon: <Layout className="h-4 w-4 text-violet-400" /> },
+    { id: 'menus', label: 'Navigation Menus', icon: <MenuIcon className="h-4 w-4" /> },
+    { id: 'hero-section', label: 'Hero Section', icon: <Sparkles className="h-4 w-4 text-amber-500" /> },
+    { id: 'homepage-builder', label: 'Homepage Builder', icon: <LayoutTemplate className="h-4 w-4" /> },
+    { id: 'block-editor', label: 'Gutenberg Blocks', icon: <Box className="h-4 w-4" /> },
+    { id: 'footer-builder', label: 'Footer Builder', icon: <Layout className="h-4 w-4 text-sky-400" /> },
     {
       id: 'comments',
       label: 'Comments',
       icon: <MessageSquare className="h-4 w-4" />,
       badge: pendingCommentsCount > 0 ? pendingCommentsCount : undefined,
     },
-    { id: 'menus', label: 'Navigation Menus', icon: <MenuIcon className="h-4 w-4" /> },
-    { id: 'homepage-builder', label: 'Homepage Builder', icon: <LayoutTemplate className="h-4 w-4" /> },
-    { id: 'footer-builder', label: 'Footer Builder', icon: <Layout className="h-4 w-4 text-sky-400" /> },
-    { id: 'block-editor', label: 'Gutenberg Blocks', icon: <Box className="h-4 w-4" /> },
     { id: 'customizer', label: 'Theme Customizer', icon: <Palette className="h-4 w-4" /> },
     { id: 'seo', label: 'SEO Management', icon: <Search className="h-4 w-4" /> },
     { id: 'account-security', label: 'Account Security', icon: <Shield className="h-4 w-4 text-emerald-400" /> },
     { id: 'users', label: 'Users & Access', icon: <Users className="h-4 w-4" /> },
     { id: 'settings', label: 'Settings', icon: <Settings className="h-4 w-4" /> },
+    { id: 'backup-restore', label: 'Backup & Restore', icon: <Database className="h-4 w-4 text-teal-400" /> },
     { id: 'github-deployment', label: 'GitHub & Deployment', icon: <GitBranch className="h-4 w-4" /> },
     { id: 'tools', label: 'Tools & Astro Export', icon: <Wrench className="h-4 w-4" /> },
     { id: 'sveltia-native', label: 'Native Sveltia CMS', icon: <Code2 className="h-4 w-4" /> },

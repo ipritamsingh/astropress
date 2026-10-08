@@ -60,7 +60,7 @@ export interface CMSDataState {
 const STORAGE_KEY = 'astropress_cms_state_v3';
 const UPDATE_EVENT = 'astropress_state_updated';
 
-function loadStoredData(): CMSDataState {
+export function loadStoredData(): CMSDataState {
   if (typeof window === 'undefined') {
     return {
       posts: initialPosts,
@@ -442,6 +442,18 @@ export function useCMS() {
   useEffect(() => {
     // Run authoritative sync on mount in background
     syncWithAuthoritativeRemote().catch(() => {});
+
+    const handleUpdate = (e: any) => {
+      if (e.detail) {
+        setData(e.detail);
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener(UPDATE_EVENT, handleUpdate);
+      return () => {
+        window.removeEventListener(UPDATE_EVENT, handleUpdate);
+      };
+    }
   }, []);
 
   const recordCommit = (message: string, currentData?: CMSDataState) => {
@@ -926,6 +938,11 @@ export function useCMS() {
     setData(clean);
   };
 
+  const restoreFullState = (newState: CMSDataState) => {
+    saveStoredData(newState);
+    setData(newState);
+  };
+
   return {
     ...data,
     savePost,
@@ -957,5 +974,6 @@ export function useCMS() {
     recordCommit,
     syncWithAuthoritativeRemote,
     resetToFactoryDefaults,
+    restoreFullState,
   };
 }

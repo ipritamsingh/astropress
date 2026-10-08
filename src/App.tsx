@@ -57,10 +57,12 @@ import { CommentsManager } from './components/admin/CommentsManager';
 import { MenuBuilder } from './components/admin/MenuBuilder';
 import { HomepageBuilder } from './components/admin/HomepageBuilder';
 import { FooterBuilder } from './components/admin/FooterBuilder';
+import { HeaderBuilder } from './components/admin/HeaderBuilder';
 import { GutenbergEditor } from './components/admin/GutenbergEditor';
 import { ThemeCustomizer } from './components/admin/ThemeCustomizer';
 import { SeoManager } from './components/admin/SeoManager';
 import { SettingsManager } from './components/admin/SettingsManager';
+import { BackupRestoreManager } from './components/admin/BackupRestoreManager';
 import { UsersManager } from './components/admin/UsersManager';
 import { ToolsExporter } from './components/admin/ToolsExporter';
 import { SveltiaNativeFrame } from './components/admin/SveltiaNativeFrame';
@@ -1214,6 +1216,14 @@ export default function App() {
             />
           )}
 
+          {adminView === 'header-builder' && (
+            <HeaderBuilder
+              themeSettings={cms.themeSettings}
+              menus={cms.menus}
+              onSaveTheme={(newSettings) => cms.updateThemeSettings(newSettings)}
+            />
+          )}
+
           {adminView === 'block-editor' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -1284,6 +1294,10 @@ export default function App() {
               onUpdateSiteSettings={(s) => cms.updateSiteSettings(s)}
               onResetDefaults={() => cms.resetToFactoryDefaults()}
             />
+          )}
+
+          {adminView === 'backup-restore' && (
+            <BackupRestoreManager cms={cms} />
           )}
 
           {adminView === 'github-deployment' && (

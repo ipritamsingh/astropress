@@ -152,7 +152,7 @@ export const HeaderBuilder: React.FC<Props> = ({ themeSettings, menus, onSaveThe
                     {siteName}
                   </span>
                   <span className="text-[9px] text-slate-400 font-mono block -mt-0.5">
-                    Astro • Sveltia • Edge
+                    {headerConfig.subtitle || 'Astro • Sveltia • Edge'}
                   </span>
                 </div>
               </div>
@@ -276,6 +276,20 @@ export const HeaderBuilder: React.FC<Props> = ({ themeSettings, menus, onSaveThe
                 onChange={(e) => setSiteName(e.target.value)}
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-bold"
               />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-700 block mb-1">Header Subtitle</label>
+              <input
+                type="text"
+                value={headerConfig.subtitle || ''}
+                onChange={(e) => setHeaderConfig({ ...headerConfig, subtitle: e.target.value })}
+                placeholder="Astro • Sveltia • Edge"
+                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-semibold"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Displays directly beneath the site name in the public header. Leave empty to restore the default ("Astro • Sveltia • Edge").
+              </p>
             </div>
 
             <div>

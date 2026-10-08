@@ -505,6 +505,7 @@ export interface ThemeSettings {
     ctaText: string;
     ctaUrl: string;
     showSocialLinks?: boolean;
+    subtitle?: string;
   };
   footer: FooterConfig;
 }

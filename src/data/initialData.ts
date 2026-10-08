@@ -710,6 +710,7 @@ export const initialThemeSettings: ThemeSettings = {
     showCta: true,
     ctaText: 'Visit Admin',
     ctaUrl: '/wpadmin/',
+    subtitle: 'Astro • Sveltia • Edge',
   },
   footer: {
     columns: 4,

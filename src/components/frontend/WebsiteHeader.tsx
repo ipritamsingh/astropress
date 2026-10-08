@@ -46,7 +46,7 @@ export const WebsiteHeader: React.FC<Props> = ({
                 {themeSettings.siteName}
               </span>
               <span className="text-[10px] text-slate-500 font-medium tracking-wider uppercase block -mt-0.5">
-                Astro • Sveltia • Edge
+                {themeSettings.header?.subtitle || 'Astro • Sveltia • Edge'}
               </span>
             </div>
           </div>

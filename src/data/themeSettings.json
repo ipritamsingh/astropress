@@ -18,7 +18,8 @@
     "showSearch": true,
     "showCta": true,
     "ctaText": "Visit Admin",
-    "ctaUrl": "/admin"
+    "ctaUrl": "/admin",
+    "subtitle": "Modern • Fast • Secure"
   },
   "footer": {
     "columns": 4,
