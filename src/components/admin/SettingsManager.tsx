@@ -89,44 +89,31 @@ export const SettingsManager: React.FC<Props> = ({
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
-    if (siteSettings?.permalinkStructure) {
-      setPermalinkStructure(siteSettings.permalinkStructure);
-    }
-    if (siteSettings?.pagePermalinkStructure) {
-      setPagePermalinkStructure(siteSettings.pagePermalinkStructure);
-    }
-    if (siteSettings?.siteTitle) {
-      setSiteName(siteSettings.siteTitle);
-    }
-    if (siteSettings?.siteTagline) {
-      setTagline(siteSettings.siteTagline);
-    }
-    if (siteSettings?.postsPerPage) {
-      setPostsPerPage(siteSettings.postsPerPage);
-    }
-    if (siteSettings?.communityCtaEnabled !== undefined) {
-      setCommunityCtaEnabled(siteSettings.communityCtaEnabled !== false);
-    }
-    if (siteSettings?.communityCtaTitle) {
-      setCommunityCtaTitle(siteSettings.communityCtaTitle);
-    }
-    if (siteSettings?.communityCtaSubtitle) {
-      setCommunityCtaSubtitle(siteSettings.communityCtaSubtitle);
-    }
-    if (siteSettings?.communityLinks) {
-      setCommunityLinks(siteSettings.communityLinks);
-    }
-    if (siteSettings?.newsletterSettings) {
-      setNewsletterTitle(siteSettings.newsletterSettings.title || 'The Headless Dispatch');
-      setNewsletterSubtitle(
-        siteSettings.newsletterSettings.subtitle ||
-          'Get the latest articles, tutorials and updates directly in your inbox.'
-      );
-      setNewsletterPlaceholder(siteSettings.newsletterSettings.placeholderText || 'Enter your email...');
-      setNewsletterButtonText(siteSettings.newsletterSettings.buttonText || 'Subscribe');
-      setNewsletterSuccessMessage(
-        siteSettings.newsletterSettings.successMessage || 'Thanks for subscribing to The Headless Dispatch!'
-      );
+    if (siteSettings) {
+      if (siteSettings.permalinkStructure !== undefined) setPermalinkStructure(siteSettings.permalinkStructure || '/%postname%/');
+      if (siteSettings.pagePermalinkStructure !== undefined) setPagePermalinkStructure(siteSettings.pagePermalinkStructure || '/%pagename%/');
+      if (siteSettings.siteTitle !== undefined) setSiteName(siteSettings.siteTitle || themeSettings.siteName || 'AstroPress');
+      if (siteSettings.siteTagline !== undefined) setTagline(siteSettings.siteTagline || themeSettings.tagline || '');
+      if (siteSettings.postsPerPage !== undefined) setPostsPerPage(siteSettings.postsPerPage || 6);
+      if (siteSettings.communityCtaEnabled !== undefined) {
+        setCommunityCtaEnabled(siteSettings.communityCtaEnabled !== false);
+      }
+      if (siteSettings.communityCtaTitle !== undefined) setCommunityCtaTitle(siteSettings.communityCtaTitle || 'Join Our Community');
+      if (siteSettings.communityCtaSubtitle !== undefined) setCommunityCtaSubtitle(siteSettings.communityCtaSubtitle || '');
+      if (siteSettings.communityLinks !== undefined) setCommunityLinks(siteSettings.communityLinks || []);
+      
+      if (siteSettings.newsletterSettings) {
+        setNewsletterTitle(siteSettings.newsletterSettings.title ?? 'The Headless Dispatch');
+        setNewsletterSubtitle(
+          siteSettings.newsletterSettings.subtitle ??
+            'Get the latest articles, tutorials and updates directly in your inbox.'
+        );
+        setNewsletterPlaceholder(siteSettings.newsletterSettings.placeholderText ?? 'Enter your email...');
+        setNewsletterButtonText(siteSettings.newsletterSettings.buttonText ?? 'Subscribe');
+        setNewsletterSuccessMessage(
+          siteSettings.newsletterSettings.successMessage ?? 'Thanks for subscribing to The Headless Dispatch!'
+        );
+      }
     }
   }, [siteSettings]);
 

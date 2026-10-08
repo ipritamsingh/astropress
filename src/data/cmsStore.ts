@@ -308,6 +308,33 @@ function sanitizeDataForLocalStorage(data: CMSDataState): CMSDataState {
     return { ...p, featuredImage: cleanFeatured, blocks: cleanBlocks };
   });
 
+  // Sanitize siteSettings and themeSettings assets
+  if (cleanData.siteSettings) {
+    const assetFields = ['logoUrl', 'faviconUrl', 'defaultOgImage'] as const;
+    assetFields.forEach((field) => {
+      const val = cleanData.siteSettings[field];
+      if (val && val.startsWith('data:')) {
+        const foundUrl = mediaByUrl.get(val);
+        if (foundUrl) {
+          (cleanData.siteSettings as any)[field] = foundUrl;
+        }
+      }
+    });
+  }
+
+  if (cleanData.themeSettings) {
+    const assetFields = ['logoUrl', 'faviconUrl'] as const;
+    assetFields.forEach((field) => {
+      const val = (cleanData.themeSettings as any)[field];
+      if (val && val.startsWith('data:')) {
+        const foundUrl = mediaByUrl.get(val);
+        if (foundUrl) {
+          (cleanData.themeSettings as any)[field] = foundUrl;
+        }
+      }
+    });
+  }
+
   return cleanData;
 }
 
@@ -397,6 +424,7 @@ export function useCMS() {
               menus: diskData.menus,
               heroConfig: diskData.heroConfig,
               themeSettings: diskData.themeSettings,
+              siteSettings: diskData.siteSettings,
             });
             saveStoredData(merged);
             return merged;
@@ -412,21 +440,11 @@ export function useCMS() {
   };
 
   useEffect(() => {
-    const handleUpdate = (e: any) => {
-      if (e.detail) {
-        setData(e.detail);
-      }
-    };
-    window.addEventListener(UPDATE_EVENT, handleUpdate);
-
     // Run authoritative sync on mount in background
     syncWithAuthoritativeRemote().catch(() => {});
-
-    return () => window.removeEventListener(UPDATE_EVENT, handleUpdate);
   }, []);
 
   const recordCommit = (message: string, currentData?: CMSDataState) => {
-    const baseData = currentData || data;
     const newRecord: GitCommitRecord = {
       id: 'c-' + Date.now().toString(36),
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
@@ -435,12 +453,16 @@ export function useCMS() {
       branch: 'main',
       status: 'synced',
     };
-    const updated = {
-      ...baseData,
-      commitHistory: [newRecord, ...(baseData.commitHistory || []).slice(0, 19)],
-    };
-    saveStoredData(updated);
-    setData(updated);
+
+    setData((prev) => {
+      const baseData = currentData || prev;
+      const updated = {
+        ...baseData,
+        commitHistory: [newRecord, ...(baseData.commitHistory || []).slice(0, 19)],
+      };
+      saveStoredData(updated);
+      return updated;
+    });
   };
 
   // POSTS
@@ -719,80 +741,115 @@ export function useCMS() {
 
   // THEME SETTINGS
   const updateThemeSettings = (newSettings: Partial<ThemeSettings>) => {
-    const updatedSettings: ThemeSettings = {
-      ...data.themeSettings,
-      ...newSettings,
-      header: newSettings.header
-        ? { ...data.themeSettings.header, ...newSettings.header }
-        : data.themeSettings.header,
-      footer: newSettings.footer
-        ? {
-            ...data.themeSettings.footer,
-            ...newSettings.footer,
-            socialLinks: Array.isArray(newSettings.footer.socialLinks)
-              ? [...newSettings.footer.socialLinks]
-              : data.themeSettings.footer.socialLinks,
-            legalLinks: Array.isArray(newSettings.footer.legalLinks)
-              ? [...newSettings.footer.legalLinks]
-              : data.themeSettings.footer.legalLinks,
-          }
-        : data.themeSettings.footer,
-    };
+    setData((prev) => {
+      const updatedSettings: ThemeSettings = {
+        ...prev.themeSettings,
+        ...newSettings,
+        header: newSettings.header
+          ? { ...prev.themeSettings.header, ...newSettings.header }
+          : prev.themeSettings.header,
+        footer: newSettings.footer
+          ? {
+              ...prev.themeSettings.footer,
+              ...newSettings.footer,
+              socialLinks: Array.isArray(newSettings.footer.socialLinks)
+                ? [...newSettings.footer.socialLinks]
+                : prev.themeSettings.footer.socialLinks,
+              legalLinks: Array.isArray(newSettings.footer.legalLinks)
+                ? [...newSettings.footer.legalLinks]
+                : prev.themeSettings.footer.legalLinks,
+            }
+          : prev.themeSettings.footer,
+      };
 
-    const updatedSiteSettings: SiteSettings = {
-      ...data.siteSettings,
-      siteTitle: updatedSettings.siteName || data.siteSettings.siteTitle,
-      siteTagline: updatedSettings.tagline || data.siteSettings.siteTagline,
-      logoUrl: updatedSettings.logoUrl !== undefined ? updatedSettings.logoUrl : data.siteSettings.logoUrl,
-      faviconUrl: updatedSettings.faviconUrl !== undefined ? updatedSettings.faviconUrl : data.siteSettings.faviconUrl,
-    };
+      const updatedSiteSettings: SiteSettings = {
+        ...prev.siteSettings,
+        siteTitle: updatedSettings.siteName ?? prev.siteSettings.siteTitle,
+        siteTagline: updatedSettings.tagline ?? prev.siteSettings.siteTagline,
+        logoUrl: updatedSettings.logoUrl !== undefined ? updatedSettings.logoUrl : prev.siteSettings.logoUrl,
+        faviconUrl: updatedSettings.faviconUrl !== undefined ? updatedSettings.faviconUrl : prev.siteSettings.faviconUrl,
+      };
 
-    const updated = {
-      ...data,
-      themeSettings: updatedSettings,
-      siteSettings: updatedSiteSettings,
-    };
-    saveStoredData(updated);
-    setData(updated);
+      const updated = {
+        ...prev,
+        themeSettings: updatedSettings,
+        siteSettings: updatedSiteSettings,
+      };
+      saveStoredData(updated);
 
-    // Sync themeSettings.json to local disk asynchronously so server endpoints read updated config
-    if (typeof window !== 'undefined') {
-      fetch('/api/content/sync-disk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          files: [
-            {
-              path: 'src/data/themeSettings.json',
-              content: JSON.stringify(updatedSettings, null, 2),
-            },
-          ],
-        }),
-      }).catch(() => {});
-    }
+      // Sync themeSettings.json & siteSettings.json to local disk asynchronously so server endpoints read updated config
+      if (typeof window !== 'undefined') {
+        fetch('/api/content/sync-disk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            files: [
+              {
+                path: 'src/data/themeSettings.json',
+                content: JSON.stringify(updatedSettings, null, 2),
+              },
+              {
+                path: 'src/data/siteSettings.json',
+                content: JSON.stringify(updatedSiteSettings, null, 2),
+              },
+            ],
+          }),
+        }).catch(() => {});
+      }
 
-    recordCommit('style: update website theme and customizer preferences', updated);
+      setTimeout(() => {
+        recordCommit('style: update website theme and customizer preferences', updated);
+      }, 0);
+
+      return updated;
+    });
   };
 
   // SITE SETTINGS
   const updateSiteSettings = (newSettings: Partial<SiteSettings>) => {
-    const updatedSiteSettings = { ...data.siteSettings, ...newSettings };
-    const updatedThemeSettings: ThemeSettings = {
-      ...data.themeSettings,
-      siteName: updatedSiteSettings.siteTitle || data.themeSettings.siteName,
-      tagline: updatedSiteSettings.siteTagline || data.themeSettings.tagline,
-      logoUrl: updatedSiteSettings.logoUrl !== undefined ? updatedSiteSettings.logoUrl : data.themeSettings.logoUrl,
-      faviconUrl: updatedSiteSettings.faviconUrl !== undefined ? updatedSiteSettings.faviconUrl : data.themeSettings.faviconUrl,
-    };
+    setData((prev) => {
+      const updatedSiteSettings = { ...prev.siteSettings, ...newSettings };
+      const updatedThemeSettings: ThemeSettings = {
+        ...prev.themeSettings,
+        siteName: updatedSiteSettings.siteTitle ?? prev.themeSettings.siteName,
+        tagline: updatedSiteSettings.siteTagline ?? prev.themeSettings.tagline,
+        logoUrl: updatedSiteSettings.logoUrl !== undefined ? updatedSiteSettings.logoUrl : prev.themeSettings.logoUrl,
+        faviconUrl: updatedSiteSettings.faviconUrl !== undefined ? updatedSiteSettings.faviconUrl : prev.themeSettings.faviconUrl,
+      };
 
-    const updated = {
-      ...data,
-      siteSettings: updatedSiteSettings,
-      themeSettings: updatedThemeSettings,
-    };
-    saveStoredData(updated);
-    setData(updated);
-    recordCommit('config(site): update global site metadata and permalink structure', updated);
+      const updated = {
+        ...prev,
+        siteSettings: updatedSiteSettings,
+        themeSettings: updatedThemeSettings,
+      };
+      saveStoredData(updated);
+
+      // Sync siteSettings.json & themeSettings.json to local disk asynchronously
+      if (typeof window !== 'undefined') {
+        fetch('/api/content/sync-disk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            files: [
+              {
+                path: 'src/data/siteSettings.json',
+                content: JSON.stringify(updatedSiteSettings, null, 2),
+              },
+              {
+                path: 'src/data/themeSettings.json',
+                content: JSON.stringify(updatedThemeSettings, null, 2),
+              },
+            ],
+          }),
+        }).catch(() => {});
+      }
+
+      setTimeout(() => {
+        recordCommit('config(site): update global site metadata and permalink structure', updated);
+      }, 0);
+
+      return updated;
+    });
   };
 
   // TEMPLATES

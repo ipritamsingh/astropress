@@ -366,6 +366,7 @@ export interface SiteSettings {
   siteTagline: string;
   siteDescription: string;
   siteUrl: string;
+  focusKeyword?: string;
   logoUrl?: string;
   faviconUrl?: string;
   defaultOgImage?: string;

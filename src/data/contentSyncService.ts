@@ -8,6 +8,7 @@ import {
   Menu,
   HeroSectionConfig,
   ThemeSettings,
+  SiteSettings,
   DeploymentSettings,
 } from '../types/cms';
 import { CMSDataState } from './cmsStore';
@@ -210,6 +211,7 @@ export async function fetchRemoteCMSDataFromGitHub(
     let fetchedMenus: Menu[] | undefined = undefined;
     let fetchedHeroConfig: HeroSectionConfig | undefined = undefined;
     let fetchedThemeSettings: ThemeSettings | undefined = undefined;
+    let fetchedSiteSettings: SiteSettings | undefined = undefined;
 
     // Helper to fetch blob content
     const fetchBlobText = async (itemPath: string, blobSha: string): Promise<string> => {
@@ -300,6 +302,14 @@ export async function fetchRemoteCMSDataFromGitHub(
             fetchedThemeSettings = JSON.parse(text);
           } catch (e) {}
         }
+      } else if (item.path === 'src/data/siteSettings.json') {
+        const text = await fetchBlobText(item.path, item.sha);
+        if (text) {
+          rawFiles.push({ path: item.path, content: text });
+          try {
+            fetchedSiteSettings = JSON.parse(text);
+          } catch (e) {}
+        }
       } else if (item.path === 'src/data/media.json') {
         const text = await fetchBlobText(item.path, item.sha);
         if (text) {
@@ -327,6 +337,7 @@ export async function fetchRemoteCMSDataFromGitHub(
         menus: fetchedMenus,
         heroConfig: fetchedHeroConfig,
         themeSettings: fetchedThemeSettings,
+        siteSettings: fetchedSiteSettings,
       },
     };
   } catch (err: any) {
@@ -481,8 +492,31 @@ export function mergeCMSStates(localState: CMSDataState, remoteState: Partial<CM
   // 7. Merge Menus
   let mergedMenus = remoteState.menus && remoteState.menus.length > 0 ? remoteState.menus : localState.menus;
 
-  // 8. Merge HeroConfig and ThemeSettings
-  const mergedHeroConfig = remoteState.heroConfig || localState.heroConfig;
+  // 8. Merge SiteSettings, HeroConfig and ThemeSettings
+  const mergedHeroConfig = {
+    ...(remoteState.heroConfig || {}),
+    ...(localState.heroConfig || {}),
+  };
+
+  const mergedSiteSettings = {
+    ...(remoteState.siteSettings || {}),
+    ...(localState.siteSettings || {}),
+  };
+
+  // Special handling for assets to avoid overwriting with empty defaults or stale remote values
+  const assetFields = ['logoUrl', 'faviconUrl', 'defaultOgImage'] as const;
+  assetFields.forEach((field) => {
+    const localVal = localState.siteSettings?.[field];
+    const remoteVal = remoteState.siteSettings?.[field];
+    
+    // If local has a valid non-empty value but remote has an empty string or is missing,
+    // we should trust local more as it likely contains in-session or unsynced changes.
+    // If the user intentionally cleared it in the current session, localVal would be ''.
+    if (localVal && (remoteVal === '' || remoteVal === undefined)) {
+      mergedSiteSettings[field] = localVal;
+    }
+  });
+
   const localSocialLinks = localState.themeSettings?.footer?.socialLinks;
   const remoteSocialLinks = remoteState.themeSettings?.footer?.socialLinks;
   const mergedSocialLinks =
@@ -501,17 +535,20 @@ export function mergeCMSStates(localState: CMSDataState, remoteState: Partial<CM
       ? remoteLegalLinks
       : [];
 
-  const mergedThemeSettings = remoteState.themeSettings
-    ? {
-        ...remoteState.themeSettings,
-        footer: {
-          ...localState.themeSettings.footer,
-          ...(remoteState.themeSettings.footer || {}),
-          socialLinks: mergedSocialLinks,
-          legalLinks: mergedLegalLinks,
-        },
-      }
-    : localState.themeSettings;
+  const mergedThemeSettings = {
+    ...(remoteState.themeSettings || {}),
+    ...(localState.themeSettings || {}),
+    siteName: mergedSiteSettings.siteTitle ?? (localState.themeSettings && localState.themeSettings.siteName) ?? (remoteState.themeSettings && remoteState.themeSettings.siteName) ?? 'AstroPress',
+    tagline: mergedSiteSettings.siteTagline ?? (localState.themeSettings && localState.themeSettings.tagline) ?? (remoteState.themeSettings && remoteState.themeSettings.tagline) ?? '',
+    logoUrl: mergedSiteSettings.logoUrl !== undefined ? mergedSiteSettings.logoUrl : ((localState.themeSettings && localState.themeSettings.logoUrl) || (remoteState.themeSettings && remoteState.themeSettings.logoUrl) || ''),
+    faviconUrl: mergedSiteSettings.faviconUrl !== undefined ? mergedSiteSettings.faviconUrl : ((localState.themeSettings && localState.themeSettings.faviconUrl) || (remoteState.themeSettings && remoteState.themeSettings.faviconUrl) || ''),
+    footer: {
+      ...(remoteState.themeSettings?.footer || {}),
+      ...(localState.themeSettings?.footer || {}),
+      socialLinks: mergedSocialLinks,
+      legalLinks: mergedLegalLinks,
+    },
+  };
 
   return {
     ...localState,
@@ -524,5 +561,6 @@ export function mergeCMSStates(localState: CMSDataState, remoteState: Partial<CM
     menus: mergedMenus,
     heroConfig: mergedHeroConfig,
     themeSettings: mergedThemeSettings,
+    siteSettings: mergedSiteSettings,
   };
 }

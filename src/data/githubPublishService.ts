@@ -5,6 +5,7 @@ import {
   DeploymentSettings,
   HeroSectionConfig,
   ThemeSettings,
+  SiteSettings,
   Category,
   Tag,
   Author,
@@ -348,6 +349,7 @@ export interface FullPushPayload {
   pages?: Page[];
   heroConfig?: HeroSectionConfig;
   themeSettings?: ThemeSettings;
+  siteSettings?: SiteSettings;
   categories?: Category[];
   tags?: Tag[];
   authors?: Author[];
@@ -496,6 +498,7 @@ async function performAtomicBulkDeploy(payload: FullPushPayload) {
   let localPages: Page[] = [];
   let localHeroConfig = payload.heroConfig;
   let localThemeSettings = payload.themeSettings;
+  let localSiteSettings = payload.siteSettings;
   let localCategories = payload.categories;
   let localTags = payload.tags;
   let localAuthors = payload.authors;
@@ -510,6 +513,7 @@ async function performAtomicBulkDeploy(payload: FullPushPayload) {
       if (Array.isArray(parsed.pages)) localPages = parsed.pages;
       if (!localHeroConfig && parsed.heroConfig) localHeroConfig = parsed.heroConfig;
       if (!localThemeSettings && parsed.themeSettings) localThemeSettings = parsed.themeSettings;
+      if (!localSiteSettings && parsed.siteSettings) localSiteSettings = parsed.siteSettings;
       if (!localCategories && Array.isArray(parsed.categories)) localCategories = parsed.categories;
       if (!localTags && Array.isArray(parsed.tags)) localTags = parsed.tags;
       if (!localAuthors && Array.isArray(parsed.authors)) localAuthors = parsed.authors;
@@ -571,6 +575,7 @@ async function performAtomicBulkDeploy(payload: FullPushPayload) {
   let activePages = [...(localPages || [])];
   let activeHeroConfig = localHeroConfig;
   let activeThemeSettings = localThemeSettings;
+  let activeSiteSettings = localSiteSettings;
   let activeCategories = localCategories ? [...localCategories] : [];
   let activeTags = localTags ? [...localTags] : [];
   let activeAuthors = localAuthors ? [...localAuthors] : [];
@@ -594,7 +599,7 @@ async function performAtomicBulkDeploy(payload: FullPushPayload) {
           heroConfig: activeHeroConfig || ({} as any),
           themeSettings: activeThemeSettings || ({} as any),
           templates: [],
-          siteSettings: {} as any,
+          siteSettings: activeSiteSettings || ({} as any),
           deploymentSettings,
           commitHistory: [],
         },
@@ -610,6 +615,7 @@ async function performAtomicBulkDeploy(payload: FullPushPayload) {
       activeMenus = mergedState.menus;
       activeHeroConfig = mergedState.heroConfig;
       activeThemeSettings = mergedState.themeSettings;
+      activeSiteSettings = mergedState.siteSettings;
     }
   } catch (syncErr) {
     console.warn('[Deploy] Remote CMS pre-deploy sync warning:', syncErr);
@@ -653,6 +659,9 @@ async function performAtomicBulkDeploy(payload: FullPushPayload) {
   }
   if (activeThemeSettings) {
     fullFilesMap['src/data/themeSettings.json'] = JSON.stringify(activeThemeSettings, null, 2);
+  }
+  if (activeSiteSettings) {
+    fullFilesMap['src/data/siteSettings.json'] = JSON.stringify(activeSiteSettings, null, 2);
   }
   if (activeCategories.length > 0 || activeTags.length > 0) {
     fullFilesMap['src/data/categories.json'] = JSON.stringify(

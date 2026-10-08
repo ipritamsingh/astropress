@@ -1,6 +1,7 @@
 ---
 import '../index.css';
 import { initialSiteSettings } from '../data/initialData';
+import siteSettings from '../data/siteSettings.json';
 
 interface Props {
   title?: string;
@@ -11,31 +12,36 @@ interface Props {
   schemaData?: any;
 }
 
-const siteTitle = initialSiteSettings.siteTitle;
-const siteUrl = initialSiteSettings.siteUrl || 'https://astropress.pages.dev';
-const twitterHandle = initialSiteSettings.seoSocialProfiles?.twitterHandle || '@astropress';
+const resolvedSiteSettings = siteSettings || initialSiteSettings;
+
+const siteTitle = resolvedSiteSettings.siteTitle ?? initialSiteSettings.siteTitle;
+const siteUrl = resolvedSiteSettings.siteUrl ?? initialSiteSettings.siteUrl ?? 'https://astropress.pages.dev';
+
+const profiles = resolvedSiteSettings.seoSocialProfiles || initialSiteSettings.seoSocialProfiles || {};
+const twitterHandle = profiles.twitterHandle ?? '@astropress';
+
+const defaultOgImage = resolvedSiteSettings.defaultOgImage ?? initialSiteSettings.defaultOgImage;
 
 const {
-  title = `${siteTitle} — ${initialSiteSettings.siteTagline}`,
-  description = initialSiteSettings.siteDescription,
-  ogImage = initialSiteSettings.defaultOgImage,
+  title = `${siteTitle} — ${resolvedSiteSettings.siteTagline ?? initialSiteSettings.siteTagline}`,
+  description = resolvedSiteSettings.siteDescription ?? initialSiteSettings.siteDescription,
+  ogImage = defaultOgImage,
   canonicalUrl = Astro.url ? Astro.url.href : siteUrl,
   robotsDirective = "index, follow",
   schemaData,
 } = Astro.props;
 
-const defaultProfiles = initialSiteSettings.seoSocialProfiles || {};
 const sameAsUrls = [
-  defaultProfiles.facebookUrl,
-  defaultProfiles.instagramUrl,
-  defaultProfiles.youtubeUrl,
-  defaultProfiles.linkedinUrl,
-  defaultProfiles.githubUrl,
-  defaultProfiles.twitterHandle ? `https://x.com/${defaultProfiles.twitterHandle.replace(/^@/, '')}` : undefined,
+  profiles.facebookUrl,
+  profiles.instagramUrl,
+  profiles.youtubeUrl,
+  profiles.linkedinUrl,
+  profiles.githubUrl,
+  profiles.twitterHandle ? `https://x.com/${profiles.twitterHandle.replace(/^@/, '')}` : undefined,
 ].filter(Boolean);
 
-const siteLogoUrl = initialSiteSettings.logoUrl;
-const siteFaviconUrl = initialSiteSettings.faviconUrl || '/favicon.ico';
+const siteLogoUrl = resolvedSiteSettings.logoUrl ?? initialSiteSettings.logoUrl;
+const siteFaviconUrl = resolvedSiteSettings.faviconUrl ?? initialSiteSettings.faviconUrl ?? '/favicon.ico';
 
 const organizationSchema: any = {
   '@type': 'Organization',

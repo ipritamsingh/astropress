@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ThemeSettings, Menu } from '../../types/cms';
 import {
   Sliders,
@@ -38,6 +38,15 @@ export const HeaderBuilder: React.FC<Props> = ({ themeSettings, menus, onSaveThe
   const [logoUrl, setLogoUrl] = useState(themeSettings.logoUrl || '');
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop');
+
+  // Synchronize with updated themeSettings props
+  useEffect(() => {
+    if (themeSettings) {
+      if (themeSettings.siteName !== undefined) setSiteName(themeSettings.siteName || 'AstroPress');
+      if (themeSettings.logoUrl !== undefined) setLogoUrl(themeSettings.logoUrl || '');
+      if (themeSettings.header) setHeaderConfig(themeSettings.header);
+    }
+  }, [themeSettings]);
 
   const headerMenu = menus.find((m) => m.location === 'header') || menus[0];
 

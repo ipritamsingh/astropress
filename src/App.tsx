@@ -1271,7 +1271,7 @@ export default function App() {
               onDeleteMedia={cms.deleteMediaItem}
               onUpdateSiteSettings={(s) => cms.updateSiteSettings(s)}
               onSaveSeoSettings={(seoSettings) => {
-                cms.recordCommit('seo: update global search metadata and indexing settings');
+                // Done inside cms.updateSiteSettings directly
               }}
             />
           )}
@@ -1292,6 +1292,7 @@ export default function App() {
               pages={cms.pages}
               heroConfig={cms.heroConfig}
               themeSettings={cms.themeSettings}
+              siteSettings={cms.siteSettings}
               categories={cms.categories}
               tags={cms.tags}
               authors={cms.authors}

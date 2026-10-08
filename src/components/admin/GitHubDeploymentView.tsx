@@ -6,6 +6,7 @@ import {
   DeploymentSettings,
   HeroSectionConfig,
   ThemeSettings,
+  SiteSettings,
   Category,
   Tag,
   Author,
@@ -53,6 +54,7 @@ interface Props {
   sessionToken?: string;
   heroConfig?: HeroSectionConfig;
   themeSettings?: ThemeSettings;
+  siteSettings?: SiteSettings;
   categories?: Category[];
   tags?: Tag[];
   authors?: Author[];
@@ -73,6 +75,7 @@ export const GitHubDeploymentView: React.FC<Props> = ({
   sessionToken = '',
   heroConfig,
   themeSettings,
+  siteSettings,
   categories,
   tags,
   authors,
@@ -197,6 +200,7 @@ export const GitHubDeploymentView: React.FC<Props> = ({
         pages,
         heroConfig,
         themeSettings,
+        siteSettings,
         categories,
         tags,
         authors,
