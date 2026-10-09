@@ -204,7 +204,7 @@ export const HomepageBuilder: React.FC<Props> = ({ sections, onSaveSections }) =
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
             <LayoutTemplate className="h-6 w-6 text-blue-600" />
             <span>Extensible Homepage Builder</span>
             <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
@@ -258,79 +258,79 @@ export const HomepageBuilder: React.FC<Props> = ({ sections, onSaveSections }) =
               }`}
             >
               {/* Section Header Row */}
-              <div className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="p-4 sm:p-5 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <span className="font-mono text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded shrink-0">
                     #{index + 1}
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-bold text-sm text-slate-900 break-words whitespace-normal md:truncate">{sec.title || sec.type}</h3>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-sm text-slate-900 truncate">{sec.title || sec.type}</h3>
                       <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 shrink-0">
                         {sec.type}
                       </span>
                     </div>
-                    <span className="text-xs text-slate-500 break-words whitespace-normal md:truncate block mt-0.5">{sec.subtitle || 'Configurable section'}</span>
+                    <span className="text-xs text-slate-500 truncate block">{sec.subtitle || 'Configurable section'}</span>
                   </div>
                 </div>
 
                 {/* Section Controls */}
-                <div className="flex items-center gap-1.5 flex-wrap shrink-0 w-full md:w-auto justify-start md:justify-end pt-3 md:pt-0 border-t border-slate-100 md:border-t-0">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     type="button"
                     onClick={() => toggleVisibility(sec.id)}
-                    className={`p-2.5 md:p-2 rounded-xl text-xs font-semibold transition-colors ${
+                    className={`p-2 rounded-xl text-xs font-semibold transition-colors ${
                       sec.enabled
                         ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                         : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
                     }`}
                     title={sec.enabled ? 'Section Enabled' : 'Section Disabled'}
                   >
-                    {sec.enabled ? <Eye className="h-4.5 w-4.5 md:h-4 md:w-4" /> : <EyeOff className="h-4.5 w-4.5 md:h-4 md:w-4" />}
+                    {sec.enabled ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                   </button>
 
                   <button
                     type="button"
                     disabled={index === 0}
                     onClick={() => moveSection(index, 'up')}
-                    className="p-2.5 md:p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-20 transition-colors"
+                    className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-20 transition-colors"
                     title="Move Up"
                   >
-                    <ArrowUp className="h-4.5 w-4.5 md:h-4 md:w-4" />
+                    <ArrowUp className="h-4 w-4" />
                   </button>
 
                   <button
                     type="button"
                     disabled={index === localSections.length - 1}
                     onClick={() => moveSection(index, 'down')}
-                    className="p-2.5 md:p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-20 transition-colors"
+                    className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-20 transition-colors"
                     title="Move Down"
                   >
-                    <ArrowDown className="h-4.5 w-4.5 md:h-4 md:w-4" />
+                    <ArrowDown className="h-4 w-4" />
                   </button>
 
                   <button
                     type="button"
                     onClick={() => duplicateSection(index)}
-                    className="p-2.5 md:p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors"
+                    className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors"
                     title="Duplicate Section"
                   >
-                    <Copy className="h-4.5 w-4.5 md:h-4 md:w-4" />
+                    <Copy className="h-4 w-4" />
                   </button>
 
                   <button
                     type="button"
                     onClick={() => deleteSection(sec.id)}
-                    className="p-2.5 md:p-2 rounded-xl border border-slate-200 text-rose-600 hover:bg-rose-50 transition-colors"
+                    className="p-2 rounded-xl border border-slate-200 text-rose-600 hover:bg-rose-50 transition-colors"
                     title="Delete Section"
                   >
-                    <Trash2 className="h-4.5 w-4.5 md:h-4 md:w-4" />
+                    <Trash2 className="h-4 w-4" />
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setExpandedSectionId(isExpanded ? null : sec.id)}
-                    className="px-3.5 py-2 md:px-3 md:py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 flex-1 md:flex-initial text-center"
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100"
                   >
                     {isExpanded ? 'Collapse' : 'Configure'}
                   </button>

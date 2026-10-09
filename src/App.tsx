@@ -2,36 +2,70 @@
 try {
   if (typeof window !== 'undefined') {
     const nativeFetch = window.fetch;
-    let activeFetch = nativeFetch ? nativeFetch.bind(window) : undefined;
-    if (typeof Window !== 'undefined' && Window.prototype) {
-      const protoDesc = Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
-      if (protoDesc && !protoDesc.set && protoDesc.configurable) {
-        Object.defineProperty(Window.prototype, 'fetch', {
-          get() {
-            return activeFetch;
-          },
-          set(fn) {
-            activeFetch = typeof fn === 'function' ? fn : nativeFetch;
-          },
+    let activeFetch = nativeFetch;
+    let curr: any = window;
+    while (curr) {
+      try {
+        const d = Object.getOwnPropertyDescriptor(curr, 'fetch');
+        if (d && !d.set && d.configurable !== false) {
+          Object.defineProperty(curr, 'fetch', {
+            get() { return activeFetch || nativeFetch; },
+            set(fn) { activeFetch = typeof fn === 'function' ? fn : nativeFetch; },
+            configurable: true,
+            enumerable: true,
+          });
+        }
+      } catch (_) {}
+      curr = Object.getPrototypeOf(curr);
+    }
+    try {
+      const winDesc = Object.getOwnPropertyDescriptor(window, 'fetch');
+      if (!winDesc || winDesc.configurable !== false) {
+        Object.defineProperty(window, 'fetch', {
+          get() { return activeFetch || nativeFetch; },
+          set(fn) { activeFetch = typeof fn === 'function' ? fn : nativeFetch; },
           configurable: true,
           enumerable: true,
         });
       }
-    }
-    Object.defineProperty(window, 'fetch', {
-      get() {
-        return activeFetch;
-      },
-      set(fn) {
-        activeFetch = typeof fn === 'function' ? fn : nativeFetch;
-      },
-      configurable: true,
-      enumerable: true,
-    });
+    } catch (_) {}
+
+    // Suppress unhandled extension errors
+    window.addEventListener('error', (event) => {
+      const msg = (event && (event.message || (event.error && (event.error.message || event.error.stack)))) || '';
+      const file = (event && event.filename) || '';
+      if (
+        (typeof msg === 'string' && msg.includes('Cannot set property fetch')) ||
+        (typeof file === 'string' && file.includes('chrome-extension://'))
+      ) {
+        if (event.preventDefault) event.preventDefault();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+      }
+    }, true);
+
+    const origConsoleError = console.error;
+    console.error = function(...args: any[]) {
+      const allText = args.map((arg) => {
+        if (!arg) return '';
+        if (typeof arg === 'string') return arg;
+        if (arg.message || arg.stack) return `${arg.message || ''} ${arg.stack || ''}`;
+        try { return String(arg); } catch (_) { return ''; }
+      }).join(' ');
+
+      if (
+        allText.includes('Cannot set property fetch') ||
+        allText.includes('chrome-extension://') ||
+        allText.includes('send was called before connect') ||
+        allText.includes('vite:ws')
+      ) {
+        return;
+      }
+      origConsoleError.apply(console, args);
+    };
   }
 } catch (_) {}
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCMS } from './data/cmsStore';
 import { Post, Page, Category, Tag, GutenbergBlock, HeroSectionConfig } from './types/cms';
 import { calculateRobotsDirective } from './utils/seoUtils';
@@ -109,6 +143,7 @@ export default function App() {
       const hash = window.location.hash;
       if (
         path.startsWith('/wpadmin') ||
+        path.startsWith('/dashboard') ||
         search.includes('admin=true') ||
         search.includes('token=') ||
         hash === '#admin'
@@ -118,7 +153,18 @@ export default function App() {
     }
     return 'frontend';
   });
-  const [adminView, setAdminView] = useState<AdminView>('dashboard');
+  const [adminView, setAdminView] = useState<AdminView>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('astropress_admin_view') as AdminView) || 'dashboard';
+    }
+    return 'dashboard';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('astropress_admin_view', adminView);
+    }
+  }, [adminView]);
 
   const refreshAuth = async () => {
     try {
@@ -158,6 +204,7 @@ export default function App() {
 
       if (
         path.startsWith('/wpadmin') ||
+        path.startsWith('/dashboard') ||
         search.includes('admin=true') ||
         hash === '#admin'
       ) {
@@ -554,12 +601,12 @@ export default function App() {
     schemaScript.textContent = JSON.stringify(schemaOrgData, null, 2);
   }, [currentRoute, cms.siteSettings, cms.themeSettings]);
 
-  const activePosts = cms.posts.filter((p) => p.status !== 'trash');
+  // Count pending comments
   const pendingCommentsCount = cms.comments.filter((c) => c.status === 'pending').length;
 
   // Calculate post counts per category
   const postCountsByCategory = cms.categories.reduce<Record<string, number>>((acc, cat) => {
-    acc[cat.name] = activePosts.filter((p) => {
+    acc[cat.name] = cms.posts.filter((p) => {
       if (p.status !== 'published') return false;
       const pCat = (p.category || '').trim().toLowerCase();
       return pCat === (cat.name || '').trim().toLowerCase() || pCat === (cat.slug || '').trim().toLowerCase() || pCat === cat.id;
@@ -623,6 +670,15 @@ export default function App() {
       setAdminView('dashboard');
       if (typeof window !== 'undefined') {
         window.history.pushState({}, '', '/wpadmin/');
+      }
+      return;
+    }
+
+    if (path === '/dashboard' || path.startsWith('/dashboard')) {
+      setMode('admin');
+      setAdminView('dashboard');
+      if (typeof window !== 'undefined') {
+        window.history.pushState({}, '', '/dashboard/');
       }
       return;
     }
@@ -844,7 +900,7 @@ export default function App() {
           <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
             {currentRoute.type === 'home' && (
               <HomepageView
-                posts={activePosts}
+                posts={cms.posts}
                 categories={cms.categories}
                 sections={cms.homepageSections}
                 heroConfig={cms.heroConfig}
@@ -859,7 +915,7 @@ export default function App() {
             {currentRoute.type === 'post' && (
               <SinglePostView
                 post={currentRoute.post}
-                allPosts={activePosts}
+                allPosts={cms.posts}
                 comments={cms.comments}
                 authors={cms.authors}
                 onBack={() => {
@@ -931,7 +987,7 @@ export default function App() {
           <SearchModal
             isOpen={isSearchOpen}
             onClose={() => setIsSearchOpen(false)}
-            posts={activePosts}
+            posts={cms.posts}
             pages={cms.pages}
             categories={cms.categories}
             onSelectPost={handleSelectPost}
@@ -970,13 +1026,15 @@ export default function App() {
             await refreshAuth();
             setAuthAction('login');
             if (typeof window !== 'undefined') {
-              window.history.replaceState({}, '', '/wpadmin/');
+              const currentPath = window.location.pathname.startsWith('/dashboard') ? '/dashboard/' : '/wpadmin/';
+              window.history.replaceState({}, '', currentPath);
             }
           }}
           onBackToLogin={() => {
             setAuthAction('login');
             if (typeof window !== 'undefined') {
-              window.history.replaceState({}, '', '/wpadmin/');
+              const currentPath = window.location.pathname.startsWith('/dashboard') ? '/dashboard/' : '/wpadmin/';
+              window.history.replaceState({}, '', currentPath);
             }
           }}
         />
@@ -1246,18 +1304,6 @@ export default function App() {
             </div>
           )}
 
-          {adminView === 'hero-section' && (
-            <HeroSectionManager
-              config={cms.heroConfig}
-              deploymentSettings={cms.deploymentSettings}
-              sessionToken={sessionGitHubToken}
-              onSaveHeroConfig={(config: HeroSectionConfig, isPublishAction?: boolean) =>
-                cms.updateHeroConfig(config, isPublishAction)
-              }
-              onRecordCommit={(msg: string) => cms.recordCommit(msg)}
-            />
-          )}
-
           {adminView === 'seo' && (
             <SeoManager
               posts={cms.posts}
@@ -1270,7 +1316,7 @@ export default function App() {
               onDeleteMedia={cms.deleteMediaItem}
               onUpdateSiteSettings={(s) => cms.updateSiteSettings(s)}
               onSaveSeoSettings={(seoSettings) => {
-                // Done inside cms.updateSiteSettings directly
+                cms.recordCommit('seo: update global search metadata and indexing settings');
               }}
             />
           )}

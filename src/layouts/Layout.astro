@@ -1,7 +1,6 @@
 ---
 import '../index.css';
 import { initialSiteSettings } from '../data/initialData';
-import siteSettings from '../data/siteSettings.json';
 
 interface Props {
   title?: string;
@@ -12,36 +11,31 @@ interface Props {
   schemaData?: any;
 }
 
-const resolvedSiteSettings = siteSettings || initialSiteSettings;
-
-const siteTitle = resolvedSiteSettings.siteTitle ?? initialSiteSettings.siteTitle;
-const siteUrl = resolvedSiteSettings.siteUrl ?? initialSiteSettings.siteUrl ?? 'https://astropress.pages.dev';
-
-const profiles = resolvedSiteSettings.seoSocialProfiles || initialSiteSettings.seoSocialProfiles || {};
-const twitterHandle = profiles.twitterHandle ?? '@astropress';
-
-const defaultOgImage = resolvedSiteSettings.defaultOgImage ?? initialSiteSettings.defaultOgImage;
+const siteTitle = initialSiteSettings.siteTitle;
+const siteUrl = initialSiteSettings.siteUrl || 'https://astropress.pages.dev';
+const twitterHandle = initialSiteSettings.seoSocialProfiles?.twitterHandle || '@astropress';
 
 const {
-  title = `${siteTitle} — ${resolvedSiteSettings.siteTagline ?? initialSiteSettings.siteTagline}`,
-  description = resolvedSiteSettings.siteDescription ?? initialSiteSettings.siteDescription,
-  ogImage = defaultOgImage,
+  title = `${siteTitle} — ${initialSiteSettings.siteTagline}`,
+  description = initialSiteSettings.siteDescription,
+  ogImage = initialSiteSettings.defaultOgImage,
   canonicalUrl = Astro.url ? Astro.url.href : siteUrl,
   robotsDirective = "index, follow",
   schemaData,
 } = Astro.props;
 
+const defaultProfiles = initialSiteSettings.seoSocialProfiles || {};
 const sameAsUrls = [
-  profiles.facebookUrl,
-  profiles.instagramUrl,
-  profiles.youtubeUrl,
-  profiles.linkedinUrl,
-  profiles.githubUrl,
-  profiles.twitterHandle ? `https://x.com/${profiles.twitterHandle.replace(/^@/, '')}` : undefined,
+  defaultProfiles.facebookUrl,
+  defaultProfiles.instagramUrl,
+  defaultProfiles.youtubeUrl,
+  defaultProfiles.linkedinUrl,
+  defaultProfiles.githubUrl,
+  defaultProfiles.twitterHandle ? `https://x.com/${defaultProfiles.twitterHandle.replace(/^@/, '')}` : undefined,
 ].filter(Boolean);
 
-const siteLogoUrl = resolvedSiteSettings.logoUrl ?? initialSiteSettings.logoUrl;
-const siteFaviconUrl = resolvedSiteSettings.faviconUrl ?? initialSiteSettings.faviconUrl ?? '/favicon.ico';
+const siteLogoUrl = initialSiteSettings.logoUrl;
+const siteFaviconUrl = initialSiteSettings.faviconUrl || '/favicon.ico';
 
 const organizationSchema: any = {
   '@type': 'Organization',
@@ -89,6 +83,124 @@ const defaultSchemaGraph = schemaData || {
 <!doctype html>
 <html lang="en">
   <head>
+    <script is:inline>
+      (function() {
+        try {
+          // 1. Capture and suppress unhandled extension/sandbox errors in capturing phase
+          window.addEventListener('error', function(event) {
+            var msg = (event && (event.message || (event.error && (event.error.message || event.error.stack)))) || '';
+            var file = (event && (event.filename || '')) || '';
+            if (
+              (typeof msg === 'string' && msg.indexOf('Cannot set property fetch') !== -1) ||
+              (typeof file === 'string' && file.indexOf('chrome-extension://') !== -1)
+            ) {
+              if (event.preventDefault) event.preventDefault();
+              if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+              return true;
+            }
+          }, true);
+
+          window.addEventListener('unhandledrejection', function(event) {
+            var reason = event && event.reason;
+            var msg = (reason && (reason.message || reason.stack)) || (typeof reason === 'string' ? reason : '');
+            if (
+              typeof msg === 'string' && (
+                msg.indexOf('Cannot set property fetch') !== -1 ||
+                msg.indexOf('chrome-extension://') !== -1
+              )
+            ) {
+              if (event.preventDefault) event.preventDefault();
+              if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+            }
+          }, true);
+
+          var prevOnError = window.onerror;
+          window.onerror = function(msg, url, lineNo, colNo, error) {
+            var m = (typeof msg === 'string' ? msg : '') || (error && (error.message || error.stack)) || '';
+            var u = typeof url === 'string' ? url : '';
+            if (
+              m.indexOf('Cannot set property fetch') !== -1 ||
+              u.indexOf('chrome-extension://') !== -1
+            ) {
+              return true;
+            }
+            if (prevOnError) return prevOnError.apply(this, arguments);
+          };
+
+          // 2. Filter console.error and console.warn for known sandbox/extension artifacts
+          var origError = console.error;
+          console.error = function() {
+            var allText = Array.prototype.slice.call(arguments).map(function(arg) {
+              if (!arg) return '';
+              if (typeof arg === 'string') return arg;
+              if (arg.message || arg.stack) return (arg.message || '') + ' ' + (arg.stack || '');
+              try { return String(arg); } catch(_) { return ''; }
+            }).join(' ');
+
+            if (
+              allText.indexOf('Cannot set property fetch') !== -1 ||
+              allText.indexOf('chrome-extension://') !== -1 ||
+              allText.indexOf('send was called before connect') !== -1 ||
+              allText.indexOf('WebSocket') !== -1 ||
+              allText.indexOf('vite:ws') !== -1
+            ) {
+              return;
+            }
+            origError.apply(console, arguments);
+          };
+
+          var origWarn = console.warn;
+          console.warn = function() {
+            var allText = Array.prototype.slice.call(arguments).map(function(arg) {
+              if (!arg) return '';
+              if (typeof arg === 'string') return arg;
+              try { return String(arg); } catch(_) { return ''; }
+            }).join(' ');
+
+            if (
+              allText.indexOf('send was called before connect') !== -1 ||
+              allText.indexOf('WebSocket') !== -1 ||
+              allText.indexOf('vite:ws') !== -1
+            ) {
+              return;
+            }
+            origWarn.apply(console, arguments);
+          };
+
+          // 3. Make fetch assignable across window and entire prototype chain
+          try {
+            var _nativeFetch = window.fetch;
+            var _activeFetch = _nativeFetch;
+            var curr = window;
+            while (curr) {
+              try {
+                var d = Object.getOwnPropertyDescriptor(curr, 'fetch');
+                if (d && !d.set && d.configurable !== false) {
+                  Object.defineProperty(curr, 'fetch', {
+                    get: function() { return _activeFetch || _nativeFetch; },
+                    set: function(val) { _activeFetch = typeof val === 'function' ? val : _nativeFetch; },
+                    configurable: true,
+                    enumerable: true
+                  });
+                }
+              } catch (_) {}
+              curr = Object.getPrototypeOf(curr);
+            }
+            try {
+              var winDesc = Object.getOwnPropertyDescriptor(window, 'fetch');
+              if (!winDesc || winDesc.configurable !== false) {
+                Object.defineProperty(window, 'fetch', {
+                  get: function() { return _activeFetch || _nativeFetch; },
+                  set: function(val) { _activeFetch = typeof val === 'function' ? val : _nativeFetch; },
+                  configurable: true,
+                  enumerable: true
+                });
+              }
+            } catch (_) {}
+          } catch (_) {}
+        } catch (e) {}
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
@@ -111,52 +223,6 @@ const defaultSchemaGraph = schemaData || {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
     <script type="application/ld+json" id="astropress-schema" set:html={JSON.stringify(defaultSchemaGraph, null, 2)} />
-    
-    <!-- Fetch & Sandbox compatibility guard -->
-    <script is:inline>
-      (function() {
-        try {
-          // Suppress Vite HMR / WebSocket send before connect warnings in sandboxed iframes
-          var origError = console.error;
-          console.error = function() {
-            var msg = arguments[0];
-            if (typeof msg === 'string' && (msg.includes('send was called before connect') || msg.includes('WebSocket') || msg.includes('vite:ws'))) {
-              return;
-            }
-            origError.apply(console, arguments);
-          };
-          var origWarn = console.warn;
-          console.warn = function() {
-            var msg = arguments[0];
-            if (typeof msg === 'string' && (msg.includes('send was called before connect') || msg.includes('WebSocket') || msg.includes('vite:ws'))) {
-              return;
-            }
-            origWarn.apply(console, arguments);
-          };
-
-          // Guard against "Cannot set property fetch of #<Window> which has only a getter"
-          var nativeFetch = window.fetch;
-          var activeFetch = nativeFetch ? function() { return nativeFetch.apply(window, arguments); } : undefined;
-          if (typeof Window !== 'undefined' && Window.prototype) {
-            var protoDesc = Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
-            if (protoDesc && !protoDesc.set && protoDesc.configurable) {
-              Object.defineProperty(Window.prototype, 'fetch', {
-                get: function() { return activeFetch; },
-                set: function(fn) { activeFetch = typeof fn === 'function' ? fn : nativeFetch; },
-                configurable: true,
-                enumerable: true
-              });
-            }
-          }
-          Object.defineProperty(window, 'fetch', {
-            get: function() { return activeFetch; },
-            set: function(fn) { activeFetch = typeof fn === 'function' ? fn : nativeFetch; },
-            configurable: true,
-            enumerable: true
-          });
-        } catch (e) {}
-      })();
-    </script>
   </head>
   <body class="min-h-screen bg-slate-50 text-slate-800 antialiased font-sans">
     <slot />

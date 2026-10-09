@@ -1,20 +1,11 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { WebsiteHeaderWrapper } from '../components/frontend/WebsiteHeaderWrapper';
-import { WebsiteFooterWrapper } from '../components/frontend/WebsiteFooterWrapper';
-import { SocialCommunityCta } from '../components/frontend/SocialCommunityCta';
-import { HomepageViewWrapper } from '../components/frontend/HomepageViewWrapper';
+import App from '../App';
 import { getCollection } from 'astro:content';
-import { initialThemeSettings, initialCategories } from '../data/initialData';
-import themeSettingsJson from '../data/themeSettings.json';
-import siteSettingsJson from '../data/siteSettings.json';
-import categoriesJson from '../data/categories.json';
-import menusJson from '../data/menus.json';
-import { initialMenus } from '../data/initialData';
 
 export async function getStaticPaths() {
   const posts = await getCollection('posts');
-  const publishedCount = posts.filter((p) => !p.data.draft && p.data.status !== 'draft' && p.data.status !== 'trash').length;
+  const publishedCount = posts.filter((p) => !p.data.draft && p.data.status !== 'draft').length;
   const totalPages = publishedCount > 6 ? 1 + Math.ceil((publishedCount - 6) / 10) : 1;
 
   const paths = [];
@@ -25,87 +16,11 @@ export async function getStaticPaths() {
 }
 
 const { pageNum } = Astro.props;
-
-const rawCollectionPosts = await getCollection('posts');
-const rawCollectionPages = await getCollection('pages');
-
-const allPublishedPosts = rawCollectionPosts
-  .filter((p) => !p.data.draft && p.data.status !== 'draft' && p.data.status !== 'trash')
-  .map((p) => ({
-    id: p.id,
-    title: p.data.title,
-    slug: p.data.slug || p.id.replace(/\.md$/, ''),
-    pubDate: p.data.pubDate ? new Date(p.data.pubDate).toISOString() : new Date().toISOString(),
-    status: 'published' as const,
-    author: p.data.author,
-    category: p.data.category,
-    tags: p.data.tags || [],
-    featuredImage: p.data.featuredImage || '',
-    excerpt: p.data.excerpt || '',
-    readingTime: p.data.readingTime || 5,
-    template: p.data.template || 'standard',
-    blocks: p.data.blocks || [],
-    body: p.body || '',
-    seo: p.data.seo || {},
-  }))
-  .sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
-
-const allPages = rawCollectionPages.map((p) => ({
-  id: p.id,
-  title: p.data.title,
-  slug: p.data.slug || p.id.replace(/\.md$/, ''),
-  status: p.data.draft ? 'draft' : 'published',
-  template: p.data.template || 'default',
-  blocks: p.data.blocks || [],
-  body: p.body || '',
-}));
-
-const themeSettings = themeSettingsJson || initialThemeSettings;
-const siteSettings = siteSettingsJson;
-const categories = categoriesJson?.categories || initialCategories;
-const menus = menusJson || initialMenus;
 ---
 
-<Layout
-  title={`Page ${pageNum} — AstroPress`}
-  robotsDirective="noindex, follow"
->
-  <div class="min-h-screen flex flex-col font-sans">
-    <WebsiteHeaderWrapper
-      client:load
-      posts={allPublishedPosts as any}
-      pages={allPages as any}
-      categories={categories as any}
-      themeSettings={themeSettings as any}
-      menus={menus as any}
-      permalinkStructure={siteSettings?.permalinkStructure}
-    />
-
-    <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-      <HomepageViewWrapper
-        client:load
-        posts={allPublishedPosts as any}
-        categories={categories as any}
-        sections={[]}
-        themeSettings={themeSettings as any}
-        currentPage={pageNum}
-        permalinkStructure={siteSettings?.permalinkStructure}
-      />
-    </main>
-
-    <SocialCommunityCta
-      enabled={siteSettings?.communityCtaEnabled !== false}
-      title={siteSettings?.communityCtaTitle}
-      subtitle={siteSettings?.communityCtaSubtitle}
-      communityLinks={siteSettings?.communityLinks}
-    />
-
-    <WebsiteFooterWrapper
-      client:load
-      themeSettings={themeSettings as any}
-      siteSettings={siteSettings as any}
-      menus={menus as any}
-      categories={categories as any}
-    />
-  </div>
+<Layout title={`Page ${pageNum} — AstroPress`} robotsDirective="noindex, follow">
+  <script is:inline define:vars={{ pageNum }}>
+    window.__ASTROPRESS_INITIAL_PAGE_NUM__ = pageNum;
+  </script>
+  <App client:only="react" />
 </Layout>

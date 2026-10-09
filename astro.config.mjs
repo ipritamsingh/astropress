@@ -11,6 +11,18 @@ function d1AuthPlugin() {
     name: 'd1-auth-local-dev',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
+        if (req.url && req.url.startsWith('/api/debug-fetch')) {
+          let body = '';
+          req.on('data', (chunk) => (body += chunk));
+          req.on('end', () => {
+            console.log('[BROWSER FETCH DESCRIPTOR]', body);
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true }));
+          });
+          return;
+        }
+
         if (
           req.url &&
           (req.url.startsWith('/api/auth') ||

@@ -119,6 +119,13 @@ export function loadStoredData(): CMSDataState {
         const existing = postMap.get(sp.slug);
         if (!existing) {
           postMap.set(sp.slug, sp);
+        } else if (existing.status === 'trash') {
+          postMap.set(sp.slug, {
+            ...sp,
+            status: 'trash',
+            originalStatus: existing.originalStatus || sp.status,
+            deletedAt: existing.deletedAt,
+          });
         } else if (existing.status !== 'published' && sp.status === 'published') {
           postMap.set(sp.slug, { ...existing, ...sp, status: 'published' });
         }
@@ -532,16 +539,23 @@ export function useCMS() {
   };
 
   const restorePost = (id: string) => {
-    const updatedPosts = data.posts.map(p => {
+    setData((prevData) => {
+      const updatedPosts = prevData.posts.map((p) => {
         if (p.id === id) {
-            return { ...p, status: p.originalStatus || 'draft', originalStatus: undefined, deletedAt: undefined };
+          return {
+            ...p,
+            status: p.originalStatus || 'draft',
+            originalStatus: undefined,
+            deletedAt: undefined,
+          };
         }
         return p;
-    });
+      });
 
-    const updated = { ...data, posts: updatedPosts };
-    saveStoredData(updated);
-    setData(updated);
+      const updated = { ...prevData, posts: updatedPosts };
+      saveStoredData(updated);
+      return updated;
+    });
   };
 
   const permanentlyDeletePost = (id: string) => {

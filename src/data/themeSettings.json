@@ -1,5 +1,5 @@
 {
-  "siteName": "AstroPress",
+  "siteName": "PritamPress",
   "tagline": "WordPress Editorial Ergonomics with Astro Performance",
   "logoUrl": "/uploads/1000405169.webp",
   "faviconUrl": "/uploads/1000405169.webp",
@@ -19,7 +19,7 @@
     "showCta": true,
     "ctaText": "Visit Admin",
     "ctaUrl": "/admin",
-    "subtitle": "Modern • Fast • Secure"
+    "subtitle": "Modern • Fast • Free"
   },
   "footer": {
     "columns": 4,

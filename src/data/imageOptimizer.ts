@@ -123,7 +123,6 @@ export async function optimizeImageFile(
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d', { alpha: true });
-
     if (!ctx) {
       throw new Error('Canvas 2D context unavailable');
     }
@@ -161,9 +160,9 @@ export async function optimizeImageFile(
       format: 'webp',
       isWebpConverted: true,
       originalSizeBytes,
-      optimizedSizeBytes,
+      optimizedSizeBytes: originalSizeBytes,
       originalSizeFormatted,
-      optimizedSizeFormatted,
+      optimizedSizeFormatted: originalSizeFormatted,
       savingsPercentage,
       width,
       height,
@@ -174,7 +173,7 @@ export async function optimizeImageFile(
     const fallbackDataUrl = await fileToDataUrl(file);
     return {
       file,
-      dataUrl: fallbackDataUrl,
+      dataUrl,
       filename: file.name,
       originalFilename: file.name,
       format: 'other',

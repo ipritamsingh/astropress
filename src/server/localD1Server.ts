@@ -451,7 +451,6 @@ export async function handleLocalApiRequest(req: any, res: any) {
       const authors = readJsonSafe(path.join(rootDir, 'src', 'data', 'authors.json'));
       const heroConfig = readJsonSafe(path.join(rootDir, 'src', 'data', 'heroConfig.json'));
       const themeSettings = readJsonSafe(path.join(rootDir, 'src', 'data', 'themeSettings.json'));
-      const siteSettings = readJsonSafe(path.join(rootDir, 'src', 'data', 'siteSettings.json'));
       const menus = readJsonSafe(path.join(rootDir, 'src', 'data', 'menus.json'));
 
       res.statusCode = 200;
@@ -466,7 +465,6 @@ export async function handleLocalApiRequest(req: any, res: any) {
           authors,
           heroConfig,
           themeSettings,
-          siteSettings,
           menus,
         })
       );

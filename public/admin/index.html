@@ -9,33 +9,116 @@
     <script>
       (function() {
         try {
-          var nativeFetch = window.fetch;
-          var activeFetch = nativeFetch ? nativeFetch.bind(window) : undefined;
-          if (typeof Window !== 'undefined' && Window.prototype) {
-            var protoDesc = Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
-            if (protoDesc && !protoDesc.set && protoDesc.configurable) {
-              Object.defineProperty(Window.prototype, 'fetch', {
-                get: function() {
-                  return activeFetch;
-                },
-                set: function(fn) {
-                  activeFetch = typeof fn === 'function' ? fn : nativeFetch;
-                },
-                configurable: true,
-                enumerable: true
-              });
+          window.addEventListener('error', function(event) {
+            var msg = (event && (event.message || (event.error && (event.error.message || event.error.stack)))) || '';
+            var file = (event && (event.filename || '')) || '';
+            if (
+              (typeof msg === 'string' && msg.indexOf('Cannot set property fetch') !== -1) ||
+              (typeof file === 'string' && file.indexOf('chrome-extension://') !== -1)
+            ) {
+              if (event.preventDefault) event.preventDefault();
+              if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+              return true;
             }
-          }
-          Object.defineProperty(window, 'fetch', {
-            get: function() {
-              return activeFetch;
-            },
-            set: function(fn) {
-              activeFetch = typeof fn === 'function' ? fn : nativeFetch;
-            },
-            configurable: true,
-            enumerable: true
-          });
+          }, true);
+
+          window.addEventListener('unhandledrejection', function(event) {
+            var reason = event && event.reason;
+            var msg = (reason && (reason.message || reason.stack)) || (typeof reason === 'string' ? reason : '');
+            if (
+              typeof msg === 'string' && (
+                msg.indexOf('Cannot set property fetch') !== -1 ||
+                msg.indexOf('chrome-extension://') !== -1
+              )
+            ) {
+              if (event.preventDefault) event.preventDefault();
+              if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+            }
+          }, true);
+
+          var prevOnError = window.onerror;
+          window.onerror = function(msg, url, lineNo, colNo, error) {
+            var m = (typeof msg === 'string' ? msg : '') || (error && (error.message || error.stack)) || '';
+            var u = typeof url === 'string' ? url : '';
+            if (
+              m.indexOf('Cannot set property fetch') !== -1 ||
+              u.indexOf('chrome-extension://') !== -1
+            ) {
+              return true;
+            }
+            if (prevOnError) return prevOnError.apply(this, arguments);
+          };
+
+          var origError = console.error;
+          console.error = function() {
+            var allText = Array.prototype.slice.call(arguments).map(function(arg) {
+              if (!arg) return '';
+              if (typeof arg === 'string') return arg;
+              if (arg.message || arg.stack) return (arg.message || '') + ' ' + (arg.stack || '');
+              try { return String(arg); } catch(_) { return ''; }
+            }).join(' ');
+
+            if (
+              allText.indexOf('Cannot set property fetch') !== -1 ||
+              allText.indexOf('chrome-extension://') !== -1 ||
+              allText.indexOf('send was called before connect') !== -1 ||
+              allText.indexOf('WebSocket') !== -1 ||
+              allText.indexOf('vite:ws') !== -1
+            ) {
+              return;
+            }
+            origError.apply(console, arguments);
+          };
+
+          var origWarn = console.warn;
+          console.warn = function() {
+            var allText = Array.prototype.slice.call(arguments).map(function(arg) {
+              if (!arg) return '';
+              if (typeof arg === 'string') return arg;
+              try { return String(arg); } catch(_) { return ''; }
+            }).join(' ');
+
+            if (
+              allText.indexOf('send was called before connect') !== -1 ||
+              allText.indexOf('WebSocket') !== -1 ||
+              allText.indexOf('vite:ws') !== -1
+            ) {
+              return;
+            }
+            origWarn.apply(console, arguments);
+          };
+
+          // Make fetch assignable across window and entire prototype chain
+          try {
+            var _nativeFetch = window.fetch;
+            var _activeFetch = _nativeFetch;
+            var curr = window;
+            while (curr) {
+              try {
+                var d = Object.getOwnPropertyDescriptor(curr, 'fetch');
+                if (d && !d.set && d.configurable !== false) {
+                  Object.defineProperty(curr, 'fetch', {
+                    get: function() { return _activeFetch || _nativeFetch; },
+                    set: function(val) { _activeFetch = typeof val === 'function' ? val : _nativeFetch; },
+                    configurable: true,
+                    enumerable: true
+                  });
+                }
+              } catch (_) {}
+              curr = Object.getPrototypeOf(curr);
+            }
+            try {
+              var winDesc = Object.getOwnPropertyDescriptor(window, 'fetch');
+              if (!winDesc || winDesc.configurable !== false) {
+                Object.defineProperty(window, 'fetch', {
+                  get: function() { return _activeFetch || _nativeFetch; },
+                  set: function(val) { _activeFetch = typeof val === 'function' ? val : _nativeFetch; },
+                  configurable: true,
+                  enumerable: true
+                });
+              }
+            } catch (_) {}
+          } catch (_) {}
         } catch (e) {}
       })();
     </script>

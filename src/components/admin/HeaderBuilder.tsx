@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ThemeSettings, Menu } from '../../types/cms';
+import { initialThemeSettings } from '../../data/initialData';
 import {
   Sliders,
   Eye,
@@ -23,15 +24,9 @@ interface Props {
 
 export const HeaderBuilder: React.FC<Props> = ({ themeSettings, menus, onSaveTheme }) => {
   const [headerConfig, setHeaderConfig] = useState(
-    themeSettings.header || {
-      layout: 'standard',
-      sticky: true,
-      transparentOnHome: false,
-      showSearch: true,
-      showCta: true,
-      ctaText: 'Visit Admin',
-      ctaUrl: '/wpadmin',
-      showSocialLinks: true,
+    {
+      ...initialThemeSettings.header,
+      ...themeSettings.header,
     }
   );
   const [siteName, setSiteName] = useState(themeSettings.siteName || 'AstroPress');
@@ -44,7 +39,10 @@ export const HeaderBuilder: React.FC<Props> = ({ themeSettings, menus, onSaveThe
     if (themeSettings) {
       if (themeSettings.siteName !== undefined) setSiteName(themeSettings.siteName || 'AstroPress');
       if (themeSettings.logoUrl !== undefined) setLogoUrl(themeSettings.logoUrl || '');
-      if (themeSettings.header) setHeaderConfig(themeSettings.header);
+      if (themeSettings.header) setHeaderConfig({
+        ...initialThemeSettings.header,
+        ...themeSettings.header
+      });
     }
   }, [themeSettings]);
 
@@ -279,16 +277,16 @@ export const HeaderBuilder: React.FC<Props> = ({ themeSettings, menus, onSaveThe
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">Header Subtitle</label>
+              <label className="text-xs font-semibold text-slate-700 block mb-1">Brand Subtitle / Tagline</label>
               <input
                 type="text"
-                value={headerConfig.subtitle || ''}
+                value={headerConfig.subtitle ?? ''}
                 onChange={(e) => setHeaderConfig({ ...headerConfig, subtitle: e.target.value })}
                 placeholder="Astro • Sveltia • Edge"
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-semibold"
               />
               <p className="text-[10px] text-slate-400 mt-1">
-                Displays directly beneath the site name in the public header. Leave empty to restore the default ("Astro • Sveltia • Edge").
+                Displays directly beneath the site name in the public header across desktop and mobile.
               </p>
             </div>
 

@@ -1,106 +1,31 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { WebsiteHeaderWrapper } from '../components/frontend/WebsiteHeaderWrapper';
-import { WebsiteFooterWrapper } from '../components/frontend/WebsiteFooterWrapper';
-import { SocialCommunityCta } from '../components/frontend/SocialCommunityCta';
-import { HomepageViewWrapper } from '../components/frontend/HomepageViewWrapper';
+import App from '../App';
 import { getCollection } from 'astro:content';
-import {
-  initialThemeSettings,
-  initialHomepageSections,
-  initialHeroConfig,
-  initialCategories,
-} from '../data/initialData';
-import themeSettingsJson from '../data/themeSettings.json';
-import heroConfigJson from '../data/heroConfig.json';
-import siteSettingsJson from '../data/siteSettings.json';
-import categoriesJson from '../data/categories.json';
-import menusJson from '../data/menus.json';
-import { initialMenus } from '../data/initialData';
 
-const rawCollectionPosts = await getCollection('posts');
-const rawCollectionPages = await getCollection('pages');
-
-const publishedPosts = rawCollectionPosts
-  .filter((p) => !p.data.draft && p.data.status !== 'draft' && p.data.status !== 'trash')
-  .map((p) => ({
-    id: p.id,
-    title: p.data.title,
-    slug: p.data.slug || p.id.replace(/\.md$/, ''),
-    pubDate: p.data.pubDate ? new Date(p.data.pubDate).toISOString() : new Date().toISOString(),
-    status: 'published' as const,
-    author: p.data.author,
-    category: p.data.category,
-    tags: p.data.tags || [],
-    featuredImage: p.data.featuredImage || '',
-    excerpt: p.data.excerpt || '',
-    readingTime: p.data.readingTime || 5,
-    template: p.data.template || 'standard',
-    blocks: p.data.blocks || [],
-    body: p.body || '',
-    seo: p.data.seo || {},
-  }))
-  .sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
-
-const allPages = rawCollectionPages.map((p) => ({
-  id: p.id,
-  title: p.data.title,
-  slug: p.data.slug || p.id.replace(/\.md$/, ''),
-  status: p.data.draft ? 'draft' : 'published',
-  template: p.data.template || 'default',
-  blocks: p.data.blocks || [],
-  body: p.body || '',
+const collectionPosts = await getCollection('posts');
+const serverPosts = collectionPosts.map((post) => ({
+  id: post.id,
+  title: post.data.title,
+  slug: post.data.slug || post.id.replace(/\.md$/, ''),
+  pubDate: post.data.pubDate ? new Date(post.data.pubDate).toISOString() : new Date().toISOString(),
+  status: post.data.draft ? 'draft' : (post.data.status || 'published'),
+  author: post.data.author,
+  category: post.data.category,
+  tags: post.data.tags || [],
+  featuredImage: post.data.featuredImage || '',
+  excerpt: post.data.excerpt || '',
+  readingTime: post.data.readingTime || 5,
+  template: post.data.template || 'standard',
+  blocks: post.data.blocks || [],
+  body: post.body || '',
+  seo: post.data.seo || {},
 }));
-
-const themeSettings = themeSettingsJson || initialThemeSettings;
-const heroConfig = heroConfigJson || initialHeroConfig;
-const siteSettings = siteSettingsJson;
-const categories = categoriesJson?.categories || initialCategories;
-const sections = [...initialHomepageSections].sort((a, b) => a.order - b.order);
-const menus = menusJson || initialMenus;
 ---
 
-<Layout
-  title={`${themeSettings.siteName || 'AstroPress'} — ${themeSettings.tagline || 'WordPress-Style Sveltia CMS Platform'}`}
-  description={siteSettings?.siteDescription || themeSettings.tagline}
->
-  <div class="min-h-screen flex flex-col font-sans">
-    <WebsiteHeaderWrapper
-      client:load
-      posts={publishedPosts as any}
-      pages={allPages as any}
-      categories={categories as any}
-      themeSettings={themeSettings as any}
-      menus={menus as any}
-      permalinkStructure={siteSettings?.permalinkStructure}
-    />
-
-    <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-      <HomepageViewWrapper
-        client:load
-        posts={publishedPosts as any}
-        categories={categories as any}
-        sections={sections as any}
-        heroConfig={heroConfig as any}
-        themeSettings={themeSettings as any}
-        currentPage={1}
-        permalinkStructure={siteSettings?.permalinkStructure}
-      />
-    </main>
-
-    <SocialCommunityCta
-      enabled={siteSettings?.communityCtaEnabled !== false}
-      title={siteSettings?.communityCtaTitle}
-      subtitle={siteSettings?.communityCtaSubtitle}
-      communityLinks={siteSettings?.communityLinks}
-    />
-
-    <WebsiteFooterWrapper
-      client:load
-      themeSettings={themeSettings as any}
-      siteSettings={siteSettings as any}
-      menus={menus as any}
-      categories={categories as any}
-    />
-  </div>
+<Layout title="AstroPress — WordPress-Style Sveltia CMS Platform">
+  <script is:inline define:vars={{ serverPosts }}>
+    window.__ASTROPRESS_SERVER_POSTS__ = serverPosts;
+  </script>
+  <App client:only="react" />
 </Layout>

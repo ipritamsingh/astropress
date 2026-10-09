@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Post, Page, ThemeSettings, SiteSettings, IndexingSettings, SeoSocialProfiles, MediaItem } from '../../types/cms';
 import { MediaLibrary } from './MediaLibrary';
-import { getPersistedMediaBlob } from '../../data/mediaStorage';
 import {
   Globe,
   Share2,
@@ -17,58 +16,6 @@ import {
   Image as ImageIcon,
   Link2,
 } from 'lucide-react';
-
-const SEOAssetPreview: React.FC<{
-  url: string;
-  alt: string;
-  className?: string;
-  style?: React.CSSProperties;
-}> = ({ url, alt, className = '', style }) => {
-  const [displaySrc, setDisplaySrc] = useState<string>(url);
-
-  useEffect(() => {
-    let active = true;
-    if (url && (url.startsWith('/uploads/') || url.startsWith('uploads/'))) {
-      getPersistedMediaBlob(url)
-        .then((blobUrl) => {
-          if (active && blobUrl) {
-            setDisplaySrc(blobUrl);
-          } else if (active) {
-            setDisplaySrc(url);
-          }
-        })
-        .catch(() => {
-          if (active) setDisplaySrc(url);
-        });
-    } else {
-      setDisplaySrc(url);
-    }
-    return () => {
-      active = false;
-    };
-  }, [url]);
-
-  const handleImgError = async () => {
-    try {
-      const fallback = await getPersistedMediaBlob(url);
-      if (fallback) {
-        setDisplaySrc(fallback);
-      }
-    } catch {}
-  };
-
-  if (!displaySrc) return null;
-
-  return (
-    <img
-      src={displaySrc}
-      alt={alt}
-      onError={handleImgError}
-      className={className}
-      style={style}
-    />
-  );
-};
 
 interface Props {
   posts: Post[];
@@ -99,29 +46,30 @@ export const SeoManager: React.FC<Props> = ({
   const [mediaPickerTarget, setMediaPickerTarget] = useState<'logo' | 'favicon' | 'ogImage' | null>(null);
 
   // Centralized Site Identity & SEO Fields
-  const [siteTitle, setSiteTitle] = useState(siteSettings?.siteTitle ?? themeSettings.siteName ?? 'AstroPress');
-  const [siteTagline, setSiteTagline] = useState(siteSettings?.siteTagline ?? themeSettings.tagline ?? '');
+  const [siteTitle, setSiteTitle] = useState(siteSettings?.siteTitle || themeSettings.siteName || 'AstroPress');
+  const [siteTagline, setSiteTagline] = useState(siteSettings?.siteTagline || themeSettings.tagline || 'WordPress Editorial Ergonomics with Astro Performance');
   const [siteDescription, setSiteDescription] = useState(
-    siteSettings?.siteDescription ??
-      siteSettings?.siteTagline ??
-      themeSettings.tagline ??
-      ''
+    siteSettings?.siteDescription ||
+      siteSettings?.siteTagline ||
+      themeSettings.tagline ||
+      'High-performance headless publishing platform powered by Astro, Sveltia CMS, Cloudflare Pages, and GitHub content storage.'
   );
-  const [siteUrl, setSiteUrl] = useState(siteSettings?.siteUrl ?? 'https://astropress.pages.dev');
-  const [logoUrl, setLogoUrl] = useState(siteSettings?.logoUrl ?? themeSettings.logoUrl ?? '');
-  const [faviconUrl, setFaviconUrl] = useState(siteSettings?.faviconUrl ?? themeSettings.faviconUrl ?? '');
+  const [siteUrl, setSiteUrl] = useState(siteSettings?.siteUrl || 'https://astropress.pages.dev');
+  const [logoUrl, setLogoUrl] = useState(siteSettings?.logoUrl || themeSettings.logoUrl || '');
+  const [faviconUrl, setFaviconUrl] = useState(siteSettings?.faviconUrl || themeSettings.faviconUrl || '');
   const [defaultOgImage, setDefaultOgImage] = useState(
-    siteSettings?.defaultOgImage ?? ''
+    siteSettings?.defaultOgImage ||
+      'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=80'
   );
-  const [focusKeyword, setFocusKeyword] = useState(siteSettings?.focusKeyword ?? 'Astro Sveltia CMS');
+  const [focusKeyword, setFocusKeyword] = useState('Astro Sveltia CMS');
 
   // SEO Social Profiles (Schema.org sameAs links)
   const [twitterHandle, setTwitterHandle] = useState(siteSettings?.seoSocialProfiles?.twitterHandle || '@astropress');
-  const [facebookUrl, setFacebookUrl] = useState(siteSettings?.seoSocialProfiles?.facebookUrl || '');
-  const [instagramUrl, setInstagramUrl] = useState(siteSettings?.seoSocialProfiles?.instagramUrl || '');
-  const [youtubeUrl, setYoutubeUrl] = useState(siteSettings?.seoSocialProfiles?.youtubeUrl || '');
-  const [linkedinUrl, setLinkedinUrl] = useState(siteSettings?.seoSocialProfiles?.linkedinUrl || '');
-  const [githubUrl, setGithubUrl] = useState(siteSettings?.seoSocialProfiles?.githubUrl || '');
+  const [facebookUrl, setFacebookUrl] = useState(siteSettings?.seoSocialProfiles?.facebookUrl || 'https://facebook.com/astropress');
+  const [instagramUrl, setInstagramUrl] = useState(siteSettings?.seoSocialProfiles?.instagramUrl || 'https://instagram.com/astropress');
+  const [youtubeUrl, setYoutubeUrl] = useState(siteSettings?.seoSocialProfiles?.youtubeUrl || 'https://youtube.com/@astropress');
+  const [linkedinUrl, setLinkedinUrl] = useState(siteSettings?.seoSocialProfiles?.linkedinUrl || 'https://linkedin.com/company/astropress');
+  const [githubUrl, setGithubUrl] = useState(siteSettings?.seoSocialProfiles?.githubUrl || 'https://github.com/astropress');
 
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -139,36 +87,20 @@ export const SeoManager: React.FC<Props> = ({
   // Synchronize when props update
   useEffect(() => {
     if (siteSettings) {
-      if (siteSettings.siteTitle !== undefined) setSiteTitle(siteSettings.siteTitle || themeSettings.siteName || '');
-      if (siteSettings.siteTagline !== undefined) setSiteTagline(siteSettings.siteTagline || themeSettings.tagline || '');
-      if (siteSettings.siteDescription !== undefined) setSiteDescription(siteSettings.siteDescription || '');
-      if (siteSettings.siteUrl !== undefined) setSiteUrl(siteSettings.siteUrl || '');
-      if (siteSettings.logoUrl !== undefined) setLogoUrl(siteSettings.logoUrl || themeSettings.logoUrl || '');
-      if (siteSettings.faviconUrl !== undefined) setFaviconUrl(siteSettings.faviconUrl || themeSettings.faviconUrl || '');
-      if (siteSettings.defaultOgImage !== undefined) setDefaultOgImage(siteSettings.defaultOgImage || '');
-      if (siteSettings.focusKeyword !== undefined) setFocusKeyword(siteSettings.focusKeyword || '');
-      
+      if (siteSettings.siteTitle) setSiteTitle(siteSettings.siteTitle);
+      if (siteSettings.siteTagline) setSiteTagline(siteSettings.siteTagline);
+      if (siteSettings.siteDescription) setSiteDescription(siteSettings.siteDescription);
+      if (siteSettings.siteUrl) setSiteUrl(siteSettings.siteUrl);
+      if (siteSettings.logoUrl !== undefined) setLogoUrl(siteSettings.logoUrl);
+      if (siteSettings.faviconUrl !== undefined) setFaviconUrl(siteSettings.faviconUrl);
+      if (siteSettings.defaultOgImage) setDefaultOgImage(siteSettings.defaultOgImage);
       if (siteSettings.seoSocialProfiles) {
-        setTwitterHandle(siteSettings.seoSocialProfiles.twitterHandle || '');
+        setTwitterHandle(siteSettings.seoSocialProfiles.twitterHandle || '@astropress');
         setFacebookUrl(siteSettings.seoSocialProfiles.facebookUrl || '');
         setInstagramUrl(siteSettings.seoSocialProfiles.instagramUrl || '');
         setYoutubeUrl(siteSettings.seoSocialProfiles.youtubeUrl || '');
         setLinkedinUrl(siteSettings.seoSocialProfiles.linkedinUrl || '');
         setGithubUrl(siteSettings.seoSocialProfiles.githubUrl || '');
-      }
-
-      if (siteSettings.indexingSettings) {
-        setGlobalIndexing(siteSettings.indexingSettings.globalIndexing ?? true);
-        setPostsIndexing(siteSettings.indexingSettings.postsIndexing ?? true);
-        setPagesIndexing(siteSettings.indexingSettings.pagesIndexing ?? true);
-        setCategoriesIndexing(siteSettings.indexingSettings.categoriesIndexing ?? false);
-        setTagsIndexing(siteSettings.indexingSettings.tagsIndexing ?? false);
-        setPaginationPagesIndexing(
-          siteSettings.indexingSettings.paginationPagesIndexing ?? 
-          siteSettings.indexingSettings.paginationIndexing ?? 
-          false
-        );
-        setSearchResultsIndexing(siteSettings.indexingSettings.searchResultsIndexing ?? false);
       }
     }
   }, [siteSettings]);
@@ -200,7 +132,6 @@ export const SeoManager: React.FC<Props> = ({
       siteTagline,
       siteDescription,
       siteUrl,
-      focusKeyword,
       logoUrl,
       faviconUrl,
       defaultOgImage,
@@ -480,7 +411,7 @@ Sitemap: ${canonicalDomain}/sitemap.xml`;
                   <span className="text-[11px] font-semibold text-slate-500">Logo Preview:</span>
                   {logoUrl ? (
                     <div className="p-1.5 bg-white rounded-lg border border-slate-200 max-h-12 flex items-center justify-center shadow-2xs">
-                      <SEOAssetPreview url={logoUrl} alt="Logo Preview" className="max-h-8 h-8 w-auto object-contain" />
+                      <img src={logoUrl} alt="Logo Preview" className="max-h-8 object-contain" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
                     </div>
                   ) : (
                     <span className="text-[11px] text-slate-400 italic">No logo set</span>
@@ -528,7 +459,7 @@ Sitemap: ${canonicalDomain}/sitemap.xml`;
                   <span className="text-[11px] font-semibold text-slate-500">Favicon Preview:</span>
                   {faviconUrl ? (
                     <div className="p-1.5 bg-white rounded-lg border border-slate-200 flex items-center gap-2 shadow-2xs">
-                      <SEOAssetPreview url={faviconUrl} alt="Favicon Preview" className="h-6 w-6 object-contain rounded" />
+                      <img src={faviconUrl} alt="Favicon Preview" className="h-6 w-6 object-contain rounded" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
                       <span className="text-[10px] text-slate-400 font-mono">32x32</span>
                     </div>
                   ) : (
@@ -576,8 +507,8 @@ Sitemap: ${canonicalDomain}/sitemap.xml`;
                 <div className="pt-1 flex items-center justify-between gap-3">
                   <span className="text-[11px] font-semibold text-slate-500">Social Card Preview:</span>
                   {defaultOgImage ? (
-                    <div className="p-1.5 bg-white rounded-lg border border-slate-200 max-h-24 flex items-center justify-center shadow-2xs overflow-hidden">
-                      <SEOAssetPreview url={defaultOgImage} alt="OG Preview" className="max-h-20 h-20 w-auto object-contain" />
+                    <div className="p-1.5 bg-slate-900 rounded-lg border border-slate-200 max-h-16 flex items-center justify-center shadow-2xs overflow-hidden">
+                      <img src={defaultOgImage} alt="OG Preview" className="max-h-12 object-contain" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
                     </div>
                   ) : (
                     <span className="text-[11px] text-slate-400 italic">No OG image set</span>
@@ -674,8 +605,8 @@ Sitemap: ${canonicalDomain}/sitemap.xml`;
                 className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:border-blue-500 text-xs font-mono"
               />
               {defaultOgImage && (
-                <div className="mt-2 rounded-xl border border-slate-200 overflow-hidden max-h-36 bg-white flex items-center justify-center p-1">
-                  <SEOAssetPreview url={defaultOgImage} alt="OG Image Field Preview" className="max-h-32 object-contain" />
+                <div className="mt-2 rounded-xl border border-slate-200 overflow-hidden max-h-36 bg-slate-900 flex items-center justify-center p-1">
+                  <img src={defaultOgImage} alt="OG Image Field Preview" className="max-h-32 object-contain" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
                 </div>
               )}
             </div>
