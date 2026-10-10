@@ -23,6 +23,7 @@ interface Props {
   heroConfig?: HeroSectionConfig;
   themeSettings: ThemeSettings;
   currentPage?: number;
+  postsPerPage?: number;
   onSelectPost: (post: Post) => void;
   onSelectCategory: (cat: Category) => void;
   onNavigate?: (path: string) => void;
@@ -35,6 +36,7 @@ export const HomepageView: React.FC<Props> = ({
   heroConfig,
   themeSettings,
   currentPage = 1,
+  postsPerPage = 6,
   onSelectPost,
   onSelectCategory,
   onNavigate,
@@ -45,14 +47,14 @@ export const HomepageView: React.FC<Props> = ({
 
   const currentPageNum = currentPage && currentPage > 0 ? currentPage : 1;
   const totalPosts = publishedPosts.length;
-  const totalPages = totalPosts <= 6 ? 1 : 1 + Math.ceil((totalPosts - 6) / 10);
+  const totalPages = Math.ceil(totalPosts / postsPerPage);
 
   let displayPosts: Post[] = [];
   if (currentPageNum === 1) {
-    displayPosts = publishedPosts.slice(0, 6);
+    displayPosts = publishedPosts.slice(0, postsPerPage);
   } else {
-    const startIndex = 6 + (currentPageNum - 2) * 10;
-    const endIndex = 6 + (currentPageNum - 1) * 10;
+    const startIndex = postsPerPage + (currentPageNum - 2) * postsPerPage;
+    const endIndex = postsPerPage + (currentPageNum - 1) * postsPerPage;
     displayPosts = publishedPosts.slice(startIndex, endIndex);
   }
 

@@ -181,6 +181,7 @@ export function loadStoredData(): CMSDataState {
     };
 
     let loadedHeroConfig = parsed.heroConfig || initialHeroConfig;
+    console.log('CMS loadedHeroConfig:', loadedHeroConfig);
     if (
       loadedHeroConfig &&
       (loadedHeroConfig.secondaryButtonUrl === '/admin' ||

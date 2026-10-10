@@ -906,6 +906,7 @@ export default function App() {
                 heroConfig={cms.heroConfig}
                 themeSettings={cms.themeSettings}
                 currentPage={currentRoute.pageNum || 1}
+                postsPerPage={cms.siteSettings.postsPerPage}
                 onNavigate={handleNavigate}
                 onSelectPost={handleSelectPost}
                 onSelectCategory={handleSelectCategory}

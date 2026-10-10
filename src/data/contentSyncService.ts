@@ -509,7 +509,10 @@ export function mergeCMSStates(localState: CMSDataState, remoteState: Partial<CM
   let mergedMenus = remoteState.menus && remoteState.menus.length > 0 ? remoteState.menus : localState.menus;
 
   // 8. Merge HeroConfig and ThemeSettings
-  const mergedHeroConfig = remoteState.heroConfig || localState.heroConfig;
+  const mergedHeroConfig = {
+    ...remoteState.heroConfig,
+    ...localState.heroConfig,
+  };
   const localSocialLinks = localState.themeSettings?.footer?.socialLinks;
   const remoteSocialLinks = remoteState.themeSettings?.footer?.socialLinks;
   const mergedSocialLinks =

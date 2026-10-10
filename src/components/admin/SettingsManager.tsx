@@ -21,6 +21,7 @@ export const SettingsManager: React.FC<Props> = ({
   const [tagline, setTagline] = useState(siteSettings?.siteTagline || themeSettings.tagline);
   const [adminEmail, setAdminEmail] = useState('amitsinghpritam@gmail.com');
   const [postsPerPage, setPostsPerPage] = useState(siteSettings?.postsPerPage || 6);
+  const [postsPerPageInput, setPostsPerPageInput] = useState<string>((siteSettings?.postsPerPage || 6).toString());
   const [permalinkStructure, setPermalinkStructure] = useState(
     siteSettings?.permalinkStructure || '/%postname%/'
   );
@@ -103,6 +104,7 @@ export const SettingsManager: React.FC<Props> = ({
     }
     if (siteSettings?.postsPerPage) {
       setPostsPerPage(siteSettings.postsPerPage);
+      setPostsPerPageInput(siteSettings.postsPerPage.toString());
     }
     if (siteSettings?.communityCtaEnabled !== undefined) {
       setCommunityCtaEnabled(siteSettings.communityCtaEnabled !== false);
@@ -278,9 +280,16 @@ export const SettingsManager: React.FC<Props> = ({
             <input
               type="number"
               min={1}
-              max={24}
-              value={postsPerPage}
-              onChange={(e) => setPostsPerPage(parseInt(e.target.value) || 6)}
+              value={postsPerPageInput}
+              onChange={(e) => setPostsPerPageInput(e.target.value)}
+              onBlur={() => {
+                const val = parseInt(postsPerPageInput);
+                if (!isNaN(val) && val >= 1) {
+                  setPostsPerPage(val);
+                } else {
+                  setPostsPerPageInput(postsPerPage.toString());
+                }
+              }}
               className="w-20 p-2 rounded-xl border border-slate-200 bg-slate-50 font-bold"
             />
             <span className="text-slate-500">posts</span>

@@ -54,10 +54,15 @@ export const HeroSectionManager: React.FC<Props> = ({
   onRecordCommit,
 }) => {
   const [localConfig, setLocalConfig] = useState<HeroSectionConfig>(config);
+  
+  // Sync when parent config updates
+  React.useEffect(() => {
+    setLocalConfig(config);
+  }, [config]);
+
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [activeTab, setActiveTab] = useState<'content' | 'style' | 'illustration' | 'badges'>('content');
-  const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+  const [savedSuccess, setSavedSuccess] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishResult, setPublishResult] = useState<PublishResult | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
@@ -67,16 +72,10 @@ export const HeroSectionManager: React.FC<Props> = ({
     setLocalConfig((prev) => ({ ...prev, ...updates }));
   };
 
-  const handleSaveDraft = () => {
-    setIsSavingDraft(true);
-    setPublishError(null);
+  const handleSave = () => {
     onSaveHeroConfig(localConfig, false);
-    setTimeout(() => {
-      setIsSavingDraft(false);
-      const timeStr = new Date().toLocaleTimeString();
-      setDraftSavedAt(`Draft Saved at ${timeStr}`);
-      setTimeout(() => setDraftSavedAt(null), 3000);
-    }, 400);
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 2500);
   };
 
   const handlePublish = async () => {
@@ -244,12 +243,21 @@ export const HeroSectionManager: React.FC<Props> = ({
           </button>
 
           <button
-            onClick={handleSaveDraft}
-            disabled={isSavingDraft || isPublishing}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs shadow-2xs transition-colors disabled:opacity-50"
+            onClick={handleSave}
+            disabled={isPublishing}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all disabled:opacity-50"
           >
-            <Save className="h-4 w-4 text-slate-500" />
-            <span>{isSavingDraft ? 'Saving Draft...' : 'Save Draft'}</span>
+            {savedSuccess ? (
+              <>
+                <CheckCircle2 className="h-4 w-4" />
+                <span>Hero Saved!</span>
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4" />
+                <span>Save Hero Configuration</span>
+              </>
+            )}
           </button>
 
           <button
@@ -273,13 +281,6 @@ export const HeroSectionManager: React.FC<Props> = ({
       </div>
 
       {/* Notifications / Status Alerts */}
-      {draftSavedAt && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center gap-2 text-xs font-semibold text-blue-900 animate-in fade-in">
-          <CheckCircle2 className="h-4 w-4 text-blue-600 shrink-0" />
-          <span>{draftSavedAt} (Draft stored locally without triggering Cloudflare build).</span>
-        </div>
-      )}
-
       {publishResult && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-1 text-xs text-emerald-900 animate-in fade-in">
           <div className="flex items-center gap-2 font-bold text-sm text-emerald-800">
