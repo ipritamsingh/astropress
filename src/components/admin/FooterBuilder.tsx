@@ -7,7 +7,10 @@ import {
   FooterConfig,
   FooterSocialLink,
   FooterLegalLink,
+  FooterNewsletterStyle,
 } from '../../types/cms';
+import { initialNewsletterStyle } from '../../data/initialData';
+import { FooterNewsletterCard } from '../common/FooterNewsletterCard';
 import {
   SUPPORTED_SOCIAL_PLATFORMS,
   SocialPlatformMeta,
@@ -40,6 +43,12 @@ import {
   Link2,
   ExternalLink,
   AtSign,
+  Mail,
+  RotateCcw,
+  Sliders,
+  Type,
+  Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 
 interface Props {
@@ -106,6 +115,40 @@ const DEFAULT_INITIAL_SOCIAL_LINKS: FooterSocialLink[] = [
   },
 ];
 
+const ColorPickerInput: React.FC<{
+  label: string;
+  value?: string;
+  defaultValue: string;
+  onChange: (color: string) => void;
+  description?: string;
+}> = ({ label, value, defaultValue, onChange, description }) => {
+  const currentColor = value || defaultValue;
+  const safeHex = currentColor.startsWith('#') && currentColor.length === 7 ? currentColor : '#2563eb';
+  return (
+    <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1.5 shadow-2xs">
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-bold text-slate-700">{label}</label>
+        <span className="text-[11px] font-mono font-bold text-slate-500 uppercase">{currentColor}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={safeHex}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-8 w-11 p-0.5 rounded-lg border border-slate-300 cursor-pointer bg-slate-50 shrink-0"
+        />
+        <input
+          type="text"
+          value={currentColor}
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 font-mono uppercase text-slate-800 bg-slate-50 outline-none focus:border-blue-500 focus:bg-white transition-all"
+        />
+      </div>
+      {description && <p className="text-[10px] text-slate-400">{description}</p>}
+    </div>
+  );
+};
+
 export const FooterBuilder: React.FC<Props> = ({
   themeSettings,
   siteSettings,
@@ -164,15 +207,15 @@ export const FooterBuilder: React.FC<Props> = ({
     newsletterTitle:
       siteSettings?.newsletterSettings?.title ||
       themeSettings.footer?.newsletterTitle ||
-      'The Headless Dispatch',
+      'THE HEADLESS DISPATCH',
     newsletterSubtitle:
       siteSettings?.newsletterSettings?.subtitle ||
       themeSettings.footer?.newsletterSubtitle ||
-      'Subscribe to get notified whenever new architectural tutorials or theme updates drop.',
+      'Get the latest articles, tutorials and updates directly in your inbox.',
     newsletterPlaceholder:
       siteSettings?.newsletterSettings?.placeholderText ||
       themeSettings.footer?.newsletterPlaceholder ||
-      'Enter your email...',
+      'Enter your email address',
     newsletterButtonText:
       siteSettings?.newsletterSettings?.buttonText ||
       themeSettings.footer?.newsletterButtonText ||
@@ -180,9 +223,13 @@ export const FooterBuilder: React.FC<Props> = ({
     newsletterSuccessMsg:
       siteSettings?.newsletterSettings?.successMessage ||
       themeSettings.footer?.newsletterSuccessMsg ||
-      'Thank you for subscribing!',
+      'Thank you for subscribing to The Headless Dispatch!',
     newsletterDisclaimer:
-      themeSettings.footer?.newsletterDisclaimer || 'No spam, unsubscribe at any time.',
+      themeSettings.footer?.newsletterDisclaimer || 'No spam. Unsubscribe at any time.',
+    newsletterStyle: {
+      ...initialNewsletterStyle,
+      ...(themeSettings.footer?.newsletterStyle || {}),
+    },
     showSocialLinks: themeSettings.footer?.showSocialLinks !== false,
     socialLinks: normalizedInitialSocialLinks,
     copyright:
@@ -197,9 +244,33 @@ export const FooterBuilder: React.FC<Props> = ({
   };
 
   const [footerConfig, setFooterConfig] = useState<FooterConfig>(initialFooter);
-  const [activeTab, setActiveTab] = useState<'layout' | 'content' | 'social' | 'subfooter'>('social');
+  const [activeTab, setActiveTab] = useState<'layout' | 'content' | 'social' | 'subfooter' | 'newsletter'>('layout');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  const handleResetNewsletterDefaults = () => {
+    setFooterConfig((prev) => ({
+      ...prev,
+      newsletterTitle: 'THE HEADLESS DISPATCH',
+      newsletterSubtitle: 'Get the latest articles, tutorials and updates directly in your inbox.',
+      newsletterPlaceholder: 'Enter your email address',
+      newsletterButtonText: 'Subscribe',
+      newsletterDisclaimer: 'No spam. Unsubscribe at any time.',
+      newsletterSuccessMsg: 'Thank you for subscribing to The Headless Dispatch!',
+      newsletterStyle: { ...initialNewsletterStyle },
+    }));
+  };
+
+  const updateNewsletterStyle = (patch: Partial<FooterNewsletterStyle>) => {
+    setFooterConfig((prev) => ({
+      ...prev,
+      newsletterStyle: {
+        ...initialNewsletterStyle,
+        ...(prev.newsletterStyle || {}),
+        ...patch,
+      },
+    }));
+  };
 
   // Synchronize when themeSettings prop updates
   useEffect(() => {
@@ -228,6 +299,11 @@ export const FooterBuilder: React.FC<Props> = ({
       setFooterConfig((prev) => ({
         ...prev,
         ...themeSettings.footer,
+        newsletterStyle: {
+          ...initialNewsletterStyle,
+          ...(prev.newsletterStyle || {}),
+          ...(themeSettings.footer?.newsletterStyle || {}),
+        },
         socialLinks: normalizedSocialLinks,
         legalLinks: themeSettings.footer.legalLinks || prev.legalLinks || DEFAULT_LEGAL_LINKS,
       }));
@@ -735,32 +811,12 @@ export const FooterBuilder: React.FC<Props> = ({
 
                 {/* Column 4: Newsletter Box */}
                 {footerConfig.columns >= 4 && footerConfig.showNewsletter && (
-                  <div className="space-y-3 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800/80">
-                    <h4 className="text-xs font-bold text-white">
-                      {footerConfig.newsletterTitle || 'The Headless Dispatch'}
-                    </h4>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
-                      {footerConfig.newsletterSubtitle}
-                    </p>
-                    <div className="flex gap-1.5 pt-1">
-                      <input
-                        type="email"
-                        placeholder={footerConfig.newsletterPlaceholder || 'Enter email...'}
-                        readOnly
-                        className="flex-1 bg-slate-800/80 border border-slate-700 text-xs px-2.5 py-1.5 rounded-xl text-slate-300"
-                      />
-                      <button
-                        style={{ backgroundColor: themeSettings.primaryColor }}
-                        className="px-3 py-1.5 text-white font-bold text-xs rounded-xl shadow-2xs"
-                      >
-                        {footerConfig.newsletterButtonText || 'Join'}
-                      </button>
-                    </div>
-                    {footerConfig.newsletterDisclaimer && (
-                      <p className="text-[10px] text-slate-500">
-                        {footerConfig.newsletterDisclaimer}
-                      </p>
-                    )}
+                  <div className="w-full">
+                    <FooterNewsletterCard
+                      footerConfig={footerConfig}
+                      siteSettings={siteSettings}
+                      isPreview={true}
+                    />
                   </div>
                 )}
               </div>
@@ -849,6 +905,17 @@ export const FooterBuilder: React.FC<Props> = ({
           >
             <Shield className="h-4 w-4" />
             <span>4. Sub-Footer & Legal</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('newsletter')}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all shrink-0 ${
+              activeTab === 'newsletter'
+                ? 'border-blue-600 text-blue-600 bg-white rounded-t-xl'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Mail className="h-4 w-4" />
+            <span>5. Newsletter Card Styling</span>
           </button>
         </div>
 
@@ -1268,9 +1335,23 @@ export const FooterBuilder: React.FC<Props> = ({
                         newsletterDisclaimer: e.target.value,
                       })
                     }
-                    placeholder="No spam, unsubscribe anytime."
+                    placeholder="No spam. Unsubscribe at any time."
                     className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white"
                   />
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('newsletter')}
+                    className="w-full flex items-center justify-between p-3 rounded-xl bg-blue-50 hover:bg-blue-100/80 border border-blue-200 text-blue-700 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-blue-600" />
+                      <span>Open Newsletter Card Styling (Colors, Fonts, Layout)</span>
+                    </span>
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -1632,6 +1713,611 @@ export const FooterBuilder: React.FC<Props> = ({
                         }`}
                       >
                         {align.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 5: Newsletter Card Design & Customization */}
+        {activeTab === 'newsletter' && (
+          <div className="p-6 space-y-8">
+            {/* Top Toolbar with Reset Action */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-blue-600" />
+                  <span>Newsletter Card Styling & Appearance</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Customize the modern blue gradient card, typography, buttons, colors, and layout for the footer email subscription section.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleResetNewsletterDefaults}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs transition-colors cursor-pointer shadow-2xs"
+                  title="Restore default newsletter colors, text, and layout without affecting other site settings"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 text-slate-500" />
+                  <span>Reset Newsletter Defaults</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Section 1: Content & Copy */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-blue-600" />
+                  <span>1. Content & Messaging</span>
+                </h4>
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={footerConfig.showNewsletter}
+                    onChange={(e) =>
+                      setFooterConfig({ ...footerConfig, showNewsletter: e.target.checked })
+                    }
+                    className="h-4 w-4 text-blue-600 rounded"
+                  />
+                  <span>Enable Newsletter Section</span>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4.5 rounded-2xl border border-slate-200">
+                <div className="md:col-span-2">
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                    Heading Title
+                  </label>
+                  <input
+                    type="text"
+                    value={footerConfig.newsletterTitle}
+                    onChange={(e) =>
+                      setFooterConfig({ ...footerConfig, newsletterTitle: e.target.value })
+                    }
+                    placeholder="THE HEADLESS DISPATCH"
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white font-bold"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                    Description Text
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={footerConfig.newsletterSubtitle}
+                    onChange={(e) =>
+                      setFooterConfig({ ...footerConfig, newsletterSubtitle: e.target.value })
+                    }
+                    placeholder="Get the latest articles, tutorials and updates directly in your inbox."
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                    Email Input Placeholder
+                  </label>
+                  <input
+                    type="text"
+                    value={footerConfig.newsletterPlaceholder || ''}
+                    onChange={(e) =>
+                      setFooterConfig({ ...footerConfig, newsletterPlaceholder: e.target.value })
+                    }
+                    placeholder="Enter your email address"
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                    Subscribe Button Label
+                  </label>
+                  <input
+                    type="text"
+                    value={footerConfig.newsletterButtonText || ''}
+                    onChange={(e) =>
+                      setFooterConfig({ ...footerConfig, newsletterButtonText: e.target.value })
+                    }
+                    placeholder="Subscribe"
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                    Privacy / Disclaimer Text
+                  </label>
+                  <input
+                    type="text"
+                    value={footerConfig.newsletterDisclaimer || ''}
+                    onChange={(e) =>
+                      setFooterConfig({ ...footerConfig, newsletterDisclaimer: e.target.value })
+                    }
+                    placeholder="No spam. Unsubscribe at any time."
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                    Success Message
+                  </label>
+                  <input
+                    type="text"
+                    value={footerConfig.newsletterSuccessMsg || ''}
+                    onChange={(e) =>
+                      setFooterConfig({ ...footerConfig, newsletterSuccessMsg: e.target.value })
+                    }
+                    placeholder="Thank you for subscribing!"
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white"
+                  />
+                </div>
+
+                <div className="md:col-span-2 pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={footerConfig.newsletterStyle?.showIcon !== false}
+                      onChange={(e) =>
+                        updateNewsletterStyle({ showIcon: e.target.checked })
+                      }
+                      className="h-4 w-4 text-blue-600 rounded"
+                    />
+                    <span>Show Mail Icon in Header</span>
+                  </label>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500 font-medium">Icon Size:</span>
+                    {(['sm', 'md', 'lg'] as const).map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => updateNewsletterStyle({ iconSize: size })}
+                        className={`px-2.5 py-1 text-xs rounded-lg font-bold border transition-all ${
+                          (footerConfig.newsletterStyle?.iconSize || 'md') === size
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {size.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Colors & Visual Palette */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <Palette className="h-4 w-4 text-blue-600" />
+                <span>2. Color Palette & Gradients</span>
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 bg-slate-50 p-4.5 rounded-2xl border border-slate-200">
+                <ColorPickerInput
+                  label="Card Background (Start)"
+                  value={footerConfig.newsletterStyle?.cardBgStart}
+                  defaultValue="#1E3A8A"
+                  description="Top-left gradient start color"
+                  onChange={(c) => updateNewsletterStyle({ cardBgStart: c })}
+                />
+                <ColorPickerInput
+                  label="Card Background (End)"
+                  value={footerConfig.newsletterStyle?.cardBgEnd}
+                  defaultValue="#0B1220"
+                  description="Bottom-right gradient end color"
+                  onChange={(c) => updateNewsletterStyle({ cardBgEnd: c })}
+                />
+                <ColorPickerInput
+                  label="Button Background"
+                  value={footerConfig.newsletterStyle?.buttonBg}
+                  defaultValue="#2563EB"
+                  description="Subscribe CTA button background"
+                  onChange={(c) => updateNewsletterStyle({ buttonBg: c })}
+                />
+                <ColorPickerInput
+                  label="Button Text Color"
+                  value={footerConfig.newsletterStyle?.buttonTextColor}
+                  defaultValue="#FFFFFF"
+                  description="Subscribe CTA label and icon"
+                  onChange={(c) => updateNewsletterStyle({ buttonTextColor: c })}
+                />
+                <ColorPickerInput
+                  label="Input Background"
+                  value={footerConfig.newsletterStyle?.inputBg}
+                  defaultValue="#111827"
+                  description="Dark navy email input background"
+                  onChange={(c) => updateNewsletterStyle({ inputBg: c })}
+                />
+                <ColorPickerInput
+                  label="Input Border Color"
+                  value={footerConfig.newsletterStyle?.inputBorder}
+                  defaultValue="#1F2937"
+                  description="Subtle input border outline"
+                  onChange={(c) => updateNewsletterStyle({ inputBorder: c })}
+                />
+                <ColorPickerInput
+                  label="Input Text Color"
+                  value={footerConfig.newsletterStyle?.inputTextColor}
+                  defaultValue="#F9FAFB"
+                  description="Typed email address text"
+                  onChange={(c) => updateNewsletterStyle({ inputTextColor: c })}
+                />
+                <ColorPickerInput
+                  label="Input Placeholder Color"
+                  value={footerConfig.newsletterStyle?.placeholderColor}
+                  defaultValue="#94A3B8"
+                  description="Placeholder text preview"
+                  onChange={(c) => updateNewsletterStyle({ placeholderColor: c })}
+                />
+                <ColorPickerInput
+                  label="Heading Text Color"
+                  value={footerConfig.newsletterStyle?.headingColor}
+                  defaultValue="#F9FAFB"
+                  description="Card title color"
+                  onChange={(c) => updateNewsletterStyle({ headingColor: c })}
+                />
+                <ColorPickerInput
+                  label="Description Text Color"
+                  value={footerConfig.newsletterStyle?.descriptionColor}
+                  defaultValue="#94A3B8"
+                  description="Subtitle proposition color"
+                  onChange={(c) => updateNewsletterStyle({ descriptionColor: c })}
+                />
+                <ColorPickerInput
+                  label="Privacy Disclaimer Color"
+                  value={footerConfig.newsletterStyle?.privacyTextColor}
+                  defaultValue="#94A3B8"
+                  description="No spam disclaimer text color"
+                  onChange={(c) => updateNewsletterStyle({ privacyTextColor: c })}
+                />
+              </div>
+            </div>
+
+            {/* Section 3: Layout & Sizing */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <Sliders className="h-4 w-4 text-blue-600" />
+                <span>3. Layout, Padding & Dimensions</span>
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-slate-50 p-4.5 rounded-2xl border border-slate-200">
+                {/* Card Padding */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 block">Card Padding</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: 'compact', name: 'Compact' },
+                      { id: 'normal', name: 'Normal' },
+                      { id: 'spacious', name: 'Spacious' },
+                    ].map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => updateNewsletterStyle({ cardPadding: p.id as any })}
+                        className={`py-1.5 px-2 text-xs rounded-lg font-semibold border transition-all ${
+                          (footerConfig.newsletterStyle?.cardPadding || 'normal') === p.id
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Border Radius */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 block">Border Radius</label>
+                  <div className="grid grid-cols-4 gap-1">
+                    {[
+                      { id: 'sm', name: 'SM' },
+                      { id: 'md', name: 'MD' },
+                      { id: 'lg', name: 'LG' },
+                      { id: 'xl', name: 'XL' },
+                      { id: '2xl', name: '2XL' },
+                      { id: '3xl', name: '3XL' },
+                      { id: 'none', name: 'None' },
+                    ].map((r) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => updateNewsletterStyle({ cardBorderRadius: r.id as any })}
+                        className={`py-1 text-xs rounded-lg font-semibold border transition-all ${
+                          (footerConfig.newsletterStyle?.cardBorderRadius || '2xl') === r.id
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {r.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Input Height */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 block">Input Height</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: 'compact', name: 'Compact (36px)' },
+                      { id: 'normal', name: 'Normal (38px)' },
+                      { id: 'comfortable', name: 'Comfort (42px)' },
+                    ].map((h) => (
+                      <button
+                        key={h.id}
+                        type="button"
+                        onClick={() => updateNewsletterStyle({ inputHeight: h.id as any })}
+                        className={`py-1.5 px-1 text-[11px] rounded-lg font-semibold border text-center transition-all ${
+                          (footerConfig.newsletterStyle?.inputHeight || 'compact') === h.id
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {h.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Button Height */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 block">Button Height</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: 'compact', name: 'Compact' },
+                      { id: 'normal', name: 'Normal' },
+                      { id: 'comfortable', name: 'Comfort' },
+                    ].map((bh) => (
+                      <button
+                        key={bh.id}
+                        type="button"
+                        onClick={() => updateNewsletterStyle({ buttonHeight: bh.id as any })}
+                        className={`py-1.5 px-2 text-xs rounded-lg font-semibold border transition-all ${
+                          (footerConfig.newsletterStyle?.buttonHeight || 'compact') === bh.id
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {bh.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Button Horizontal Padding */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 block">Button Padding (X)</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: 'compact', name: 'Compact' },
+                      { id: 'normal', name: 'Normal' },
+                      { id: 'spacious', name: 'Spacious' },
+                    ].map((bp) => (
+                      <button
+                        key={bp.id}
+                        type="button"
+                        onClick={() => updateNewsletterStyle({ buttonPaddingX: bp.id as any })}
+                        className={`py-1.5 px-2 text-xs rounded-lg font-semibold border transition-all ${
+                          (footerConfig.newsletterStyle?.buttonPaddingX || 'normal') === bp.id
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {bp.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Gap Between Input and Button */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 block">Input/Button Gap</label>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[
+                      { id: 'xs', name: '6px' },
+                      { id: 'sm', name: '8px' },
+                      { id: 'md', name: '12px' },
+                      { id: 'lg', name: '16px' },
+                    ].map((g) => (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => updateNewsletterStyle({ gap: g.id as any })}
+                        className={`py-1.5 px-1 text-xs rounded-lg font-semibold border text-center transition-all ${
+                          (footerConfig.newsletterStyle?.gap || 'sm') === g.id
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {g.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Desktop Layout Direction */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 block">Desktop Alignment</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'row', name: 'Side by Side' },
+                      { id: 'column', name: 'Stacked Vertical' },
+                    ].map((l) => (
+                      <button
+                        key={l.id}
+                        type="button"
+                        onClick={() => updateNewsletterStyle({ desktopLayout: l.id as any })}
+                        className={`py-1.5 px-2 text-xs rounded-lg font-semibold border text-center transition-all ${
+                          (footerConfig.newsletterStyle?.desktopLayout || 'row') === l.id
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {l.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Maximum Content Width */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 block">Max Width</label>
+                  <div className="grid grid-cols-4 gap-1">
+                    {[
+                      { id: 'sm', name: 'SM' },
+                      { id: 'md', name: 'MD' },
+                      { id: 'lg', name: 'LG' },
+                      { id: 'full', name: 'Full' },
+                    ].map((w) => (
+                      <button
+                        key={w.id}
+                        type="button"
+                        onClick={() => updateNewsletterStyle({ maxWidth: w.id as any })}
+                        className={`py-1 text-xs rounded-lg font-semibold border transition-all ${
+                          (footerConfig.newsletterStyle?.maxWidth || 'full') === w.id
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {w.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Responsive Mobile Stacking */}
+                <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200">
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block">Stack on Mobile</span>
+                    <span className="text-[10px] text-slate-500">Auto-wrap input & button on phones</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={footerConfig.newsletterStyle?.stackOnMobile !== false}
+                    onChange={(e) => updateNewsletterStyle({ stackOnMobile: e.target.checked })}
+                    className="h-4 w-4 text-blue-600 rounded"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 4: Typography */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <Type className="h-4 w-4 text-blue-600" />
+                <span>4. Typography & Font Weights</span>
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50 p-4.5 rounded-2xl border border-slate-200">
+                {/* Heading Size */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 block">Heading Size</label>
+                  <div className="grid grid-cols-3 gap-1">
+                    {[
+                      { id: 'xs', name: 'XS' },
+                      { id: 'sm', name: 'SM' },
+                      { id: 'base', name: 'Base' },
+                      { id: 'lg', name: 'LG' },
+                      { id: 'xl', name: 'XL' },
+                    ].map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => updateNewsletterStyle({ headingFontSize: s.id as any })}
+                        className={`py-1 text-xs rounded-lg font-semibold border transition-all ${
+                          (footerConfig.newsletterStyle?.headingFontSize || 'sm') === s.id
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Heading Weight */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 block">Heading Weight</label>
+                  <div className="grid grid-cols-3 gap-1">
+                    {[
+                      { id: 'medium', name: 'Med' },
+                      { id: 'semibold', name: 'Semi' },
+                      { id: 'bold', name: 'Bold' },
+                      { id: 'extrabold', name: 'Extra' },
+                    ].map((w) => (
+                      <button
+                        key={w.id}
+                        type="button"
+                        onClick={() => updateNewsletterStyle({ headingFontWeight: w.id as any })}
+                        className={`py-1 text-xs rounded-lg font-semibold border transition-all ${
+                          (footerConfig.newsletterStyle?.headingFontWeight || 'extrabold') === w.id
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {w.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Description Size */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 block">Description Size</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: 'xs', name: 'XS (11px)' },
+                      { id: 'sm', name: 'SM (12px)' },
+                      { id: 'base', name: 'Base (14px)' },
+                    ].map((ds) => (
+                      <button
+                        key={ds.id}
+                        type="button"
+                        onClick={() => updateNewsletterStyle({ descriptionFontSize: ds.id as any })}
+                        className={`py-1 text-[11px] rounded-lg font-semibold border text-center transition-all ${
+                          (footerConfig.newsletterStyle?.descriptionFontSize || 'xs') === ds.id
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {ds.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Button Font Size */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 block">Button Font Size</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: 'xs', name: 'XS' },
+                      { id: 'sm', name: 'SM' },
+                      { id: 'base', name: 'Base' },
+                    ].map((bs) => (
+                      <button
+                        key={bs.id}
+                        type="button"
+                        onClick={() => updateNewsletterStyle({ buttonFontSize: bs.id as any })}
+                        className={`py-1 text-xs rounded-lg font-semibold border transition-all ${
+                          (footerConfig.newsletterStyle?.buttonFontSize || 'xs') === bs.id
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {bs.name}
                       </button>
                     ))}
                   </div>

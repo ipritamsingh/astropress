@@ -32,6 +32,7 @@ import {
   initialTemplates,
   initialSiteSettings,
   initialHeroConfig,
+  initialNewsletterStyle,
 } from './initialData';
 import {
   fetchRemoteCMSDataFromGitHub,
@@ -207,6 +208,10 @@ export function loadStoredData(): CMSDataState {
       footer: {
         ...initialThemeSettings.footer,
         ...rawFooter,
+        newsletterStyle: {
+          ...initialNewsletterStyle,
+          ...(rawFooter.newsletterStyle || {}),
+        },
         socialLinks: Array.isArray(rawFooter.socialLinks)
           ? rawFooter.socialLinks
           : initialThemeSettings.footer.socialLinks,
@@ -832,6 +837,12 @@ export function useCMS() {
           ? {
               ...prev.themeSettings.footer,
               ...newSettings.footer,
+              newsletterStyle: newSettings.footer.newsletterStyle
+                ? {
+                    ...(prev.themeSettings.footer?.newsletterStyle || initialNewsletterStyle),
+                    ...newSettings.footer.newsletterStyle,
+                  }
+                : prev.themeSettings.footer?.newsletterStyle,
               socialLinks: Array.isArray(newSettings.footer.socialLinks)
                 ? [...newSettings.footer.socialLinks]
                 : prev.themeSettings.footer.socialLinks,

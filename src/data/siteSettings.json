@@ -60,7 +60,7 @@
   ],
   "newsletterSettings": {
     "enabled": true,
-    "title": "The Headless Dispatch",
+    "title": "The Headless Dispatch email ",
     "subtitle": "Weekly updates on Astro, Gutenberg blocks, and edge hosting.",
     "placeholderText": "Enter your email...",
     "buttonText": "Subscribe",

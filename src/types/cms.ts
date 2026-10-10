@@ -434,6 +434,43 @@ export interface FooterLegalLink {
   enabled?: boolean;
 }
 
+export interface FooterNewsletterStyle {
+  // Content & Icon
+  showIcon?: boolean;
+  iconSize?: 'sm' | 'md' | 'lg';
+
+  // Colors
+  cardBgStart?: string;
+  cardBgEnd?: string;
+  inputBg?: string;
+  inputBorder?: string;
+  inputTextColor?: string;
+  placeholderColor?: string;
+  buttonBg?: string;
+  buttonTextColor?: string;
+  headingColor?: string;
+  descriptionColor?: string;
+  privacyTextColor?: string;
+
+  // Layout & Sizing
+  cardPadding?: 'compact' | 'normal' | 'spacious';
+  cardBorderRadius?: 'none' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
+  inputHeight?: 'compact' | 'normal' | 'comfortable';
+  inputWidth?: 'auto' | 'full' | 'proportional';
+  buttonHeight?: 'compact' | 'normal' | 'comfortable';
+  buttonPaddingX?: 'compact' | 'normal' | 'spacious';
+  gap?: 'xs' | 'sm' | 'md' | 'lg';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  desktopLayout?: 'row' | 'column';
+  stackOnMobile?: boolean;
+
+  // Typography
+  headingFontSize?: 'xs' | 'sm' | 'base' | 'lg' | 'xl';
+  headingFontWeight?: 'normal' | 'medium' | 'semibold' | 'bold' | 'extrabold';
+  descriptionFontSize?: 'xs' | 'sm' | 'base';
+  buttonFontSize?: 'xs' | 'sm' | 'base';
+}
+
 export interface FooterConfig {
   columns: number;
   layout?: 'standard' | 'stacked' | 'split' | 'minimal';
@@ -469,6 +506,7 @@ export interface FooterConfig {
   newsletterButtonText?: string;
   newsletterSuccessMsg?: string;
   newsletterDisclaimer?: string;
+  newsletterStyle?: FooterNewsletterStyle;
   
   // Social Links
   showSocialLinks: boolean;

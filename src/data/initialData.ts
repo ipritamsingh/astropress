@@ -14,7 +14,38 @@ import {
   TemplateConfig,
   SiteSettings,
   HeroSectionConfig,
+  FooterNewsletterStyle,
 } from '../types/cms';
+
+export const initialNewsletterStyle: FooterNewsletterStyle = {
+  showIcon: true,
+  iconSize: 'md',
+  cardBgStart: '#1E3A8A',
+  cardBgEnd: '#0B1220',
+  inputBg: '#111827',
+  inputBorder: '#1F2937',
+  inputTextColor: '#F9FAFB',
+  placeholderColor: '#94A3B8',
+  buttonBg: '#2563EB',
+  buttonTextColor: '#FFFFFF',
+  headingColor: '#F9FAFB',
+  descriptionColor: '#94A3B8',
+  privacyTextColor: '#94A3B8',
+  cardPadding: 'normal',
+  cardBorderRadius: '2xl',
+  inputHeight: 'compact',
+  inputWidth: 'full',
+  buttonHeight: 'compact',
+  buttonPaddingX: 'normal',
+  gap: 'sm',
+  maxWidth: 'full',
+  desktopLayout: 'row',
+  stackOnMobile: true,
+  headingFontSize: 'sm',
+  headingFontWeight: 'extrabold',
+  descriptionFontSize: 'xs',
+  buttonFontSize: 'xs',
+};
 
 export const initialAuthors: Author[] = [
   {
@@ -716,8 +747,13 @@ export const initialThemeSettings: ThemeSettings = {
     columns: 4,
     copyright: '© 2026 AstroPress. Powered by Astro & Sveltia CMS on Cloudflare Pages.',
     showNewsletter: true,
-    newsletterTitle: 'The Headless Dispatch',
-    newsletterSubtitle: 'Weekly updates on Astro, Gutenberg blocks, and edge hosting.',
+    newsletterTitle: 'THE HEADLESS DISPATCH',
+    newsletterSubtitle: 'Get the latest articles, tutorials and updates directly in your inbox.',
+    newsletterPlaceholder: 'Enter your email address',
+    newsletterButtonText: 'Subscribe',
+    newsletterSuccessMsg: 'Thanks for subscribing to The Headless Dispatch!',
+    newsletterDisclaimer: 'No spam. Unsubscribe at any time.',
+    newsletterStyle: initialNewsletterStyle,
     showSocialLinks: true,
     socialLinks: [
       {
@@ -1031,9 +1067,9 @@ export const initialSiteSettings: SiteSettings = {
   ],
   newsletterSettings: {
     enabled: true,
-    title: 'The Headless Dispatch',
+    title: 'THE HEADLESS DISPATCH',
     subtitle: 'Get the latest articles, tutorials and updates directly in your inbox.',
-    placeholderText: 'Enter your email...',
+    placeholderText: 'Enter your email address',
     buttonText: 'Subscribe',
     successMessage: 'Thanks for subscribing to The Headless Dispatch!',
   },
