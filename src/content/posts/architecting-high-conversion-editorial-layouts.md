@@ -13,9 +13,9 @@ readingTime: 4
 template: "minimal-editorial"
 blocks: [{"id":"b-401","type":"heading","content":"Empowering Editors without Breaking Code Boundaries","settings":{"level":2}},{"id":"b-402","type":"paragraph","content":"A theme customizer gives administrators visual control over global styles: primary accents, typography scale, header styles, and footer widget setups, persisted securely in Git-backed JSON files.","settings":{}}]
 seo:
-  metaTitle: "Architecting High-Conversion Editorial Layouts with Theme Customizer"
-  metaDescription: "How dynamic theme customizers allow marketing and editorial teams to tweak typography, colors, header styles, and layouts in real-time."
-  focusKeyword: ""
+  metaTitle: "Theme Customizer for Modern Static Sites"
+  metaDescription: "Bring the WordPress Customizer experience to Astro and Git-backed CMS architectures."
+  focusKeyword: "Theme Customizer Astro"
   robotsIndex: true
   robotsFollow: true
 ---

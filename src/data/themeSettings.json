@@ -1,5 +1,5 @@
 {
-  "siteName": "PritamPress",
+  "siteName": "PritamPress ",
   "tagline": "WordPress Editorial Ergonomics with Astro Performance",
   "logoUrl": "/uploads/1000405169.webp",
   "faviconUrl": "/uploads/1000405169.webp",
@@ -23,7 +23,7 @@
   },
   "footer": {
     "columns": 4,
-    "copyright": "© 2026 AstroPress. Powered by Astro & Sveltia CMS on Cloudflare Pages.",
+    "copyright": "© 2026 PritamPress. Powered by Astro & Sveltia CMS on Cloudflare Pages.",
     "showNewsletter": true,
     "newsletterTitle": "The Headless Dispatch",
     "newsletterSubtitle": "Weekly updates on Astro, Gutenberg blocks, and edge hosting.",
@@ -65,8 +65,18 @@
         "label": "Twitter / X",
         "username": "astropress",
         "url": "https://x.com/astropress",
-        "enabled": false,
+        "enabled": true,
         "order": 4,
+        "useCustomUrl": false
+      },
+      {
+        "id": "soc-github",
+        "platform": "github",
+        "label": "GitHub",
+        "username": "astropress",
+        "url": "https://github.com/astropress",
+        "enabled": false,
+        "order": 5,
         "useCustomUrl": false
       }
     ],
@@ -76,12 +86,12 @@
     "containerWidth": "normal",
     "paddingY": "normal",
     "showBrandCol": true,
-    "brandTitle": "AstroPress",
-    "brandDescription": "The Modern Astro + Sveltia Headless CMS",
+    "brandTitle": "PritamPress ",
+    "brandDescription": "The Modern Astro + Sveltia Headless CMS Free",
     "showBrandLogo": true,
     "navTitle": "Quick Links",
     "menuLocation": "footer",
-    "maxNavLinks": 5,
+    "maxNavLinks": 6,
     "categoriesTitle": "Editorial Topics",
     "categoriesStyle": "badges",
     "maxCategories": 6,
@@ -91,9 +101,9 @@
     "newsletterButtonText": "Subscribe",
     "newsletterSuccessMsg": "Thanks for subscribing to The Headless Dispatch!",
     "newsletterDisclaimer": "No spam, unsubscribe at any time.",
-    "customCredits": "Engineered with ❤️ for Astro & Sveltia",
+    "customCredits": "Engineered with ❤️ for Astro & Sveltia by PritamPress ",
     "showBackToTop": true,
     "showLegalLinks": true,
-    "bottomBarAlignment": "split"
+    "bottomBarAlignment": "center"
   }
 }

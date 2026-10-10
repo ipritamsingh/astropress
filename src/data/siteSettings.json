@@ -1,8 +1,8 @@
 {
-  "siteTitle": "PritamPress",
+  "siteTitle": "PritamPress ",
   "siteTagline": "WordPress Editorial Ergonomics with Astro Performance",
   "siteDescription": "Production-ready headless CMS builder combining Sveltia CMS, Astro frontend architecture, Gutenberg-style block editor, theme customizer, GitHub backend, and Cloudflare Pages deployment.",
-  "siteUrl": "https://astropress.pages.dev",
+  "siteUrl": "https://pritampress.pages.dev",
   "logoUrl": "/uploads/1000405169.webp",
   "faviconUrl": "/uploads/1000405169.webp",
   "defaultOgImage": "/uploads/1000402916.webp",
@@ -20,14 +20,14 @@
   "commentsAutoApprove": true,
   "customGlobalCss": "/* Custom CSS added by Admin */\n.post-card-hover { transition: transform 0.2s ease; }",
   "indexingSettings": {
-    "globalIndexing": true,
-    "postsIndexing": true,
-    "pagesIndexing": true,
+    "globalIndexing": false,
+    "postsIndexing": false,
+    "pagesIndexing": false,
     "categoriesIndexing": false,
     "tagsIndexing": false,
     "paginationPagesIndexing": false,
-    "searchResultsIndexing": false,
-    "paginationIndexing": false
+    "paginationIndexing": false,
+    "searchResultsIndexing": false
   },
   "communityCtaEnabled": true,
   "communityCtaTitle": "Join Our Community",
@@ -65,5 +65,6 @@
     "placeholderText": "Enter your email...",
     "buttonText": "Subscribe",
     "successMessage": "Thanks for subscribing to The Headless Dispatch!"
-  }
+  },
+  "focusKeyword": "Astro Sveltia CMS"
 }

@@ -1,7 +1,7 @@
 ---
 title: "Zero-Maintenance Git-Backed Publishing: No Database, No Downtime"
 slug: "zero-maintenance-git-backed-publishing"
-pubDate: 2026-10-01T16:00:00Z
+pubDate: 2026-10-01T16:00:00.000Z
 status: "published"
 draft: false
 author: "Amit Singh"
