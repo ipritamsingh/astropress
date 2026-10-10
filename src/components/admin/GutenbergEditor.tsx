@@ -197,6 +197,7 @@ export const GutenbergEditor: React.FC<Props> = ({
   // UI state
   const [activeSidebarTab, setActiveSidebarTab] = useState<'document' | 'block'>('document');
   const [showInserter, setShowInserter] = useState(false);
+  const [insertionIndex, setInsertionIndex] = useState<number | null>(null);
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [isLivePreview, setIsLivePreview] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -492,7 +493,14 @@ export const GutenbergEditor: React.FC<Props> = ({
         };
     }
 
-    setBlocks([...blocks, newBlock]);
+    if (insertionIndex !== null) {
+      const newBlocks = [...blocks];
+      newBlocks.splice(insertionIndex, 0, newBlock);
+      setBlocks(newBlocks);
+      setInsertionIndex(null);
+    } else {
+      setBlocks([...blocks, newBlock]);
+    }
     setSelectedBlockId(newId);
     setActiveSidebarTab('block');
     setShowInserter(false);
@@ -1829,7 +1837,10 @@ ${compileBlocksToMarkdown()}`;
           {/* Block Inserter Dropdown Button */}
           <div className="relative">
             <button
-              onClick={() => setShowInserter(!showInserter)}
+              onClick={() => {
+                setInsertionIndex(null);
+                setShowInserter(!showInserter);
+              }}
               className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs transition-all"
             >
               <Plus className="h-4 w-4 text-blue-400" />
@@ -1838,15 +1849,35 @@ ${compileBlocksToMarkdown()}`;
 
             {/* Inserter Dropdown Panel */}
             {showInserter && (
-              <div className="absolute top-12 left-0 w-72 sm:w-80 bg-white rounded-2xl border border-slate-200 shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-150">
-                <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
-                  <span className="font-extrabold text-xs text-slate-900 uppercase tracking-wider">
-                    Gutenberg Block Library
-                  </span>
-                  <button onClick={() => setShowInserter(false)} className="text-slate-400 hover:text-slate-700">
-                    ×
-                  </button>
-                </div>
+              <>
+                <div
+                  className="fixed inset-0 z-40 bg-slate-900/10 backdrop-blur-[1px]"
+                  onClick={() => {
+                    setShowInserter(false);
+                    setInsertionIndex(null);
+                  }}
+                />
+                <div className="fixed sm:absolute top-16 sm:top-12 left-4 sm:left-0 w-[calc(100vw-32px)] sm:w-80 max-w-sm bg-white rounded-2xl border border-slate-200 shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                    <span className="font-extrabold text-xs text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <Plus className="h-3.5 w-3.5 text-blue-600" />
+                      <span>
+                        {insertionIndex !== null
+                          ? `Insert Block (Position ${insertionIndex + 1})`
+                          : 'Gutenberg Block Library'}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowInserter(false);
+                        setInsertionIndex(null);
+                      }}
+                      className="text-slate-400 hover:text-slate-700 font-bold text-lg p-0.5 leading-none"
+                    >
+                      ×
+                    </button>
+                  </div>
 
                 <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
                   <div>
@@ -1959,7 +1990,8 @@ ${compileBlocksToMarkdown()}`;
                   </div>
                 </div>
               </div>
-            )}
+            </>
+          )}
           </div>
 
           <button
@@ -2225,18 +2257,18 @@ ${compileBlocksToMarkdown()}`;
                   const isSelected = selectedBlockId === block.id;
 
                   return (
-                    <div
-                      key={block.id}
-                      onClick={() => {
-                        setSelectedBlockId(block.id);
-                        setActiveSidebarTab('block');
-                      }}
-                      className={`group relative rounded-2xl p-3 sm:p-5 transition-all border ${
-                        isSelected
-                          ? 'border-blue-600 bg-white ring-2 ring-blue-600/20 shadow-md'
-                          : 'border-transparent hover:border-slate-300 hover:bg-slate-50/50'
-                      }`}
-                    >
+                    <React.Fragment key={block.id}>
+                      <div
+                        onClick={() => {
+                          setSelectedBlockId(block.id);
+                          setActiveSidebarTab('block');
+                        }}
+                        className={`group relative rounded-2xl p-3 sm:p-5 transition-all border ${
+                          isSelected
+                            ? 'border-blue-600 bg-white ring-2 ring-blue-600/20 shadow-md'
+                            : 'border-transparent hover:border-slate-300 hover:bg-slate-50/50'
+                        }`}
+                      >
                       {/* Attached Block Action Toolbar */}
                       {isSelected && (
                         <div className="flex items-center justify-between gap-1 mb-3 bg-slate-900 text-white px-3 py-1.5 rounded-xl shadow-md text-xs">
@@ -3174,20 +3206,45 @@ ${compileBlocksToMarkdown()}`;
                         </div>
                       )}
                     </div>
-                  );
-                })}
 
-                {/* In-Canvas Quick Add Block Trigger inside the Continuous Canvas */}
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowInserter(true)}
-                    className="w-full py-3.5 px-4 border-2 border-dashed border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 rounded-2xl flex items-center justify-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600 transition-all group"
-                  >
-                    <Plus className="h-4 w-4 text-slate-400 group-hover:text-blue-600 group-hover:scale-110 transition-transform" />
-                    <span>Add Block to Canvas</span>
-                  </button>
-                </div>
+                    {index < blocks.length - 1 && (
+                      <div
+                        key={`insert-after-${block.id}`}
+                        className="relative flex items-center justify-center my-3 py-1 w-full"
+                      >
+                        <div className="absolute inset-x-0 h-px bg-slate-200" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInsertionIndex(index + 1);
+                            setShowInserter(true);
+                          }}
+                          className="relative z-10 inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white border border-slate-300 hover:border-blue-500 hover:bg-blue-50 text-slate-600 hover:text-blue-600 text-xs font-semibold shadow-xs transition-all hover:scale-105 active:scale-95"
+                          title="Insert block between these blocks"
+                        >
+                          <Plus className="h-3.5 w-3.5 text-blue-600" />
+                          <span>Add Block Here</span>
+                        </button>
+                      </div>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+
+              {/* In-Canvas Quick Add Block Trigger inside the Continuous Canvas */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInsertionIndex(null);
+                    setShowInserter(true);
+                  }}
+                  className="w-full py-3.5 px-4 border-2 border-dashed border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 rounded-2xl flex items-center justify-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600 transition-all group"
+                >
+                  <Plus className="h-4 w-4 text-slate-400 group-hover:text-blue-600 group-hover:scale-110 transition-transform" />
+                  <span>Add Block to Canvas</span>
+                </button>
+              </div>
               </div>
             )}
             <div className="h-52 lg:h-36 flex-shrink-0" />
@@ -3230,7 +3287,10 @@ ${compileBlocksToMarkdown()}`;
       {/* ========================================================================= */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 p-2.5 flex items-center justify-between gap-1 shadow-lg">
         <button
-          onClick={() => setShowInserter(true)}
+          onClick={() => {
+            setInsertionIndex(null);
+            setShowInserter(true);
+          }}
           className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-900 text-white font-bold text-xs"
         >
           <Plus className="h-3.5 w-3.5 text-blue-400" />
